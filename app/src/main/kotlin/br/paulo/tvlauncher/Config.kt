@@ -18,6 +18,7 @@ object Config {
     //   1º os FIXOS (sempre no começo, na ordem desta lista);
     //   2º se ORDENAR_POR_USO_RECENTE = true, o que você usou mais recentemente;
     //   3º a ordem da lista ORDEM; 4º ordem alfabética.
+    //   Se voce reorganizar na TV (segurar OK num app), a ordem SALVA vence tudo isto; use a seta para baixo no modo de mover para voltar ao automatico.
     val FIXOS = listOf("com.onestream.player")
     const val ORDENAR_POR_USO_RECENTE = true
     val ORDEM = listOf(

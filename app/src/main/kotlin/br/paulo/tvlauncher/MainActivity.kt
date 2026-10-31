@@ -21,9 +21,11 @@ import android.os.StatFs
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -65,6 +67,11 @@ class MainActivity : Activity() {
     private lateinit var txtRede: TextView
     private lateinit var linhaApps: LinearLayout
     private lateinit var rolagem: HorizontalScrollView
+    private var lista: MutableList<Item> = mutableListOf()   // apps na ordem em que aparecem na tela
+    private var modoMover = false
+    private var pacoteMovendo: String? = null
+    private var ordemAntesDeMover: List<String> = emptyList()
+    private var ignorarProximoUp = false
     private var ultimoPacote: String? = null   // pacote com foco: a ordem pode mudar, então guardamos o pacote, não a posição
 
     // Tarefas que se repetem enquanto a tela está visível (e param em onPause, para não gastar rede à toa).
@@ -115,6 +122,7 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaCotacao)
         ui.removeCallbacks(tarefaSistema)
         ui.removeCallbacks(tarefaRede)
+        if (modoMover) sairDoModoMover(salvar = false)
     }
 
     override fun onDestroy() {
@@ -231,8 +239,8 @@ class MainActivity : Activity() {
         txtRede = texto(13f, textoSuave).apply { letterSpacing = 0.01f; maxLines = 1 }
         colunaSistema.addView(txtRede, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(4) })
         base.addView(colunaSistema, LinearLayout.LayoutParams(0, WRAP, 1f))
-        base.addView(botaoLiberarRam(), LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(14) })
-        base.addView(botaoConfiguracoes())
+        // (sem o botao Liberar RAM)
+        base.addView(botaoPerfil())
         raiz.addView(base, LinearLayout.LayoutParams(MATCH, WRAP))
 
         return raiz
@@ -263,37 +271,38 @@ class MainActivity : Activity() {
         return LayerDrawable(arrayOf(base, textura))
     }
 
-    private fun botaoLiberarRam(): View = texto(14f, textoClaro, fonteMedia).apply {
-        text = "Liberar RAM"
-        isFocusable = true
-        isClickable = true
-        letterSpacing = 0.02f
-        setPadding(dp(20), dp(10), dp(22), dp(10))
-        background = fundoVidro(false, dp(24))
-        setOnClickListener { liberarRam() }
-        setOnFocusChangeListener { v, temFoco -> v.background = fundoVidro(temFoco, dp(24)) }
-    }
-
-    private fun liberarRam() {
-        txtSistema.text = "Liberando…"
-        rede.execute {
-            val liberadoMb = Memoria.liberar(this)
-            ui.post {
-                txtSistema.text = if (liberadoMb > 0) "Liberados $liberadoMb MB" else "Nada a liberar"
-                ui.postDelayed({ atualizarSistema() }, 4000)
+    private fun botaoPerfil(): View {
+        val foto = ImageView(this).apply {
+            setImageBitmap(Perfil.avatar(this@MainActivity, dp(56)))
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            clipToOutline = true
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setOval(0, 0, view.width, view.height)   // recorte redondo
+                }
+            }
+        }
+        return FrameLayout(this).apply {
+            contentDescription = "Configurações"
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = anel(false)
+            addView(foto, FrameLayout.LayoutParams(dp(56), dp(56)))
+            setOnClickListener { abrir(Config.PACOTE_CONFIG) }
+            setOnFocusChangeListener { v, temFoco ->
+                v.background = anel(temFoco)
+                val escala = if (temFoco) 1.12f else 1f
+                v.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
             }
         }
     }
 
-    private fun botaoConfiguracoes(): View = texto(14f, textoClaro, fonteMedia).apply {
-        text = "⚙   Configurações"
-        isFocusable = true
-        isClickable = true
-        letterSpacing = 0.02f
-        setPadding(dp(20), dp(10), dp(22), dp(10))
-        background = fundoVidro(false, dp(24))
-        setOnClickListener { abrir(Config.PACOTE_CONFIG) }
-        setOnFocusChangeListener { v, temFoco -> v.background = fundoVidro(temFoco, dp(24)) }
+    /** Anel ao redor da foto: quase invisível normalmente, branco quando o botão está focado. */
+    private fun anel(focado: Boolean): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(Color.TRANSPARENT)
+        setStroke(dp(3), if (focado) 0xD9FFFFFF.toInt() else 0x33FFFFFF)
     }
 
     // ---------------------------------------------------------------- apps
@@ -313,8 +322,9 @@ class MainActivity : Activity() {
             itens[pkg] = Item(pkg, ri.loadLabel(pm).toString(), banner ?: ri.loadIcon(pm), banner != null)
         }
         val usados = if (Config.ORDENAR_POR_USO_RECENTE) Uso.ultimoUso(this) else emptyMap()
+        val manual = ordemSalva().withIndex().associate { it.value to it.index }
         return itens.values.sortedWith(
-            compareBy<Item>({ fixo(it.pacote) }, { -(usados[it.pacote] ?: 0L) }, { posicao(it.pacote) }, { it.nome.lowercase() })
+            compareBy<Item>({ manual[it.pacote] ?: Int.MAX_VALUE }, { fixo(it.pacote) }, { -(usados[it.pacote] ?: 0L) }, { posicao(it.pacote) }, { it.nome.lowercase() })
         )
     }
 
@@ -329,8 +339,14 @@ class MainActivity : Activity() {
     }
 
     private fun preencherApps() {
+        lista = carregarApps().toMutableList()
+        desenhar()
+    }
+
+    /** Desenha os cards na ordem de [lista] e devolve o foco ao ultimo app usado. */
+    private fun desenhar() {
         linhaApps.removeAllViews()
-        val lista = carregarApps()
+        // (usa o campo "lista")
         lista.forEachIndexed { indice, app -> linhaApps.addView(criarCartao(app, indice)) }
         linhaApps.post {
             val alvo = lista.indexOfFirst { it.pacote == ultimoPacote }.coerceAtLeast(0)
@@ -347,11 +363,12 @@ class MainActivity : Activity() {
             // sem transparência nos cards: banners brancos ficariam acinzentados
             background = fundoVidro(false, dp(18))
             setPadding(dp(8), dp(8), dp(8), dp(12))
+            tag = app.pacote   // identifica o card (usado no modo de mover)
             setOnClickListener { abrir(app.pacote) }
             setOnFocusChangeListener { v, temFoco ->
-                v.background = fundoVidro(temFoco, dp(18))
-                val escala = if (temFoco) 1.06f else 1f
-                v.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
+                estilizar(v, app.pacote, temFoco)
+                
+                
                 if (temFoco) {
                     ultimoPacote = app.pacote
                     centralizar(v)
@@ -389,6 +406,121 @@ class MainActivity : Activity() {
     private fun centralizar(card: View) {
         val alvo = card.left + card.width / 2 - rolagem.width / 2 + rolagem.paddingLeft
         rolagem.smoothScrollTo(alvo, 0)
+    }
+
+    // ---------------------------------------------------------------- mover apps (segure OK em um card)
+
+    private val corMover = 0xFF7FD6C2.toInt()
+
+    /** Visual de um card: normal, focado, ou "sendo movido" (borda verde-agua e maior). */
+    private fun estilizar(card: View, pacote: String, focado: Boolean) {
+        val movendo = modoMover && pacote == pacoteMovendo
+        card.background = if (movendo) fundoMover() else fundoVidro(focado, dp(18))
+        val escala = if (movendo) 1.12f else if (focado) 1.06f else 1f
+        card.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
+    }
+
+    private fun fundoMover(): GradientDrawable = GradientDrawable().apply {
+        cornerRadius = dp(18).toFloat()
+        setColor(0x2E7FD6C2)
+        setStroke(dp(3), corMover)
+    }
+
+    /**
+     * Segurar OK (ou ENTER) num card entra no modo de mover. Dentro do modo:
+     * esquerda/direita troca de posicao, OK salva, Voltar cancela, para baixo volta a ordem automatica.
+     * Detectamos o "segurar" pelo repeatCount: o Android repete a tecla enquanto ela esta pressionada.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val confirma = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER
+        if (!modoMover) {
+            val segurado = event.repeatCount >= 1 || (event.flags and KeyEvent.FLAG_LONG_PRESS) != 0
+            if (confirma && event.action == KeyEvent.ACTION_DOWN && segurado) {
+                val pacote = currentFocus?.tag as? String   // so os cards de app tem tag
+                if (pacote != null) {
+                    iniciarMover(pacote)
+                    return true
+                }
+            }
+            return super.dispatchKeyEvent(event)
+        }
+        val pressionou = event.action == KeyEvent.ACTION_DOWN
+        val soltou = event.action == KeyEvent.ACTION_UP
+        return when {
+            event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> { if (pressionou) moverCartao(-1); true }
+            event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { if (pressionou) moverCartao(1); true }
+            event.keyCode == KeyEvent.KEYCODE_DPAD_UP -> true
+            event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (pressionou && event.repeatCount == 0) restaurarOrdemAutomatica()
+                true
+            }
+            confirma -> {
+                if (soltou) {
+                    // O primeiro "soltar" e o fim do segurar que abriu o modo: ignora.
+                    if (ignorarProximoUp) ignorarProximoUp = false else sairDoModoMover(salvar = true)
+                }
+                true
+            }
+            event.keyCode == KeyEvent.KEYCODE_BACK -> { if (soltou) sairDoModoMover(salvar = false); true }
+            else -> super.dispatchKeyEvent(event)
+        }
+    }
+
+    private fun iniciarMover(pacote: String) {
+        modoMover = true
+        pacoteMovendo = pacote
+        ultimoPacote = pacote
+        ordemAntesDeMover = lista.map { it.pacote }
+        ignorarProximoUp = true
+        mostrarDica(true)
+        desenhar()
+    }
+
+    private fun moverCartao(delta: Int) {
+        val pacote = pacoteMovendo ?: return
+        val de = lista.indexOfFirst { it.pacote == pacote }
+        val para = de + delta
+        if (de < 0 || para !in lista.indices) return
+        lista.add(para, lista.removeAt(de))
+        desenhar()
+    }
+
+    private fun sairDoModoMover(salvar: Boolean) {
+        if (salvar) salvarOrdem(lista.map { it.pacote })
+        else lista = lista.sortedBy { ordemAntesDeMover.indexOf(it.pacote) }.toMutableList()
+        modoMover = false
+        pacoteMovendo = null
+        mostrarDica(false)
+        desenhar()
+    }
+
+    private fun restaurarOrdemAutomatica() {
+        getSharedPreferences("launcher", MODE_PRIVATE).edit().remove("ordem").apply()
+        modoMover = false
+        pacoteMovendo = null
+        mostrarDica(false)
+        preencherApps()
+    }
+
+    private fun ordemSalva(): List<String> =
+        getSharedPreferences("launcher", MODE_PRIVATE).getString("ordem", "").orEmpty()
+            .split(",").filter { it.isNotEmpty() }
+
+    private fun salvarOrdem(pacotes: List<String>) {
+        getSharedPreferences("launcher", MODE_PRIVATE).edit().putString("ordem", pacotes.joinToString(",")).apply()
+    }
+
+    /** Durante o modo de mover, o rodape vira um guia de teclas. */
+    private fun mostrarDica(ligada: Boolean) {
+        if (ligada) {
+            txtSistema.setTextColor(corMover)
+            txtSistema.text = "◀ ▶ mover  ·  OK salva  ·  Voltar cancela  ·  ▼ ordem automática"
+            txtRede.text = ""
+        } else {
+            txtSistema.setTextColor(textoSuave)
+            atualizarSistema()
+            atualizarRede()
+        }
     }
 
     private fun abrir(pacote: String) {
@@ -456,6 +588,7 @@ class MainActivity : Activity() {
         rede.execute {
             val r = Rede.medir(this)
             ui.post {
+                if (modoMover) return@post
                 txtRede.text = r.texto
                 txtRede.setTextColor(
                     when (r.nivel) {
@@ -469,6 +602,7 @@ class MainActivity : Activity() {
     }
 
     private fun atualizarSistema() {
+        if (modoMover) return
         val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
         val info = ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
