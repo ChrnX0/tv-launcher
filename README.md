@@ -98,7 +98,14 @@ Tudo reversível com `pm enable` (ou `-Desfazer`).
 - **Religar o serviço:** o Android o desliga a cada `force-stop` do app (inclusive o que o Shizuku faz ao revogar um app). O próprio launcher o religa ao abrir (`Privilegio.religarAcessibilidade`), porque tem `WRITE_SECURE_SETTINGS`. Basta apertar HOME.
 - **DNS (chip "DNS: …" no rodapé):** escolhe o DNS privado (DoT) da TV. Precisa uma vez de `adb shell pm grant br.paulo.tvlauncher android.permission.WRITE_SECURE_SETTINGS`, que continua valendo após reinstalar. O Android só aceita **nome** de servidor, nunca IP. Servidor fixo que não responde deixa a TV sem resolver nomes (não volta ao normal sozinho): na tela, escolha "Automático", ou `adb shell settings put global private_dns_mode opportunistic`.
 
-## Device owner (preparado, ainda não ativado)
+## Device owner (ativo desde 31/10/2026)
 
-O launcher já tem o receptor (`AdminReceiver`) e o APK é `testOnly`, o que permite desfazer depois com `adb shell dpm remove-active-admin br.paulo.tvlauncher/.AdminReceiver`. Por isso o APK se instala com `adb install -r -t`. Ativar: `adb shell dpm set-device-owner br.paulo.tvlauncher/.AdminReceiver`.
-Bloqueios encontrados em 31/10/2026: (1) "several users on the device": existe o usuário 10 (`new_user`); (2) contas: há 2 contas Google no usuário 0 (o Android costuma exigir zero contas; só será confirmado depois de tirar o usuário 10). Remover usuário e contas são passos manuais e decididos por você: as contas precisam ser adicionadas de novo depois.
+O launcher é o **Device Owner** do aparelho (`adb shell dpm list-owners` mostra `br.paulo.tvlauncher/.AdminReceiver`). O receptor `AdminReceiver` está vazio por enquanto: ser owner já dá a base para políticas futuras (ex.: `DevicePolicyManager.setPermissionGrantState`, `setApplicationHidden`, `setLockTaskPackages`), que ainda não usamos.
+
+Como foi ativado: o Android só aceita `set-device-owner` com **um único usuário** e **zero contas**. Foi preciso remover o usuário 10 (`new_user`, vazio) e as duas contas Google (Configurações > Contas e perfis > Remover conta). Depois: `adb shell dpm set-device-owner br.paulo.tvlauncher/.AdminReceiver`.
+
+Consequências:
+- As contas Google precisam ser adicionadas de novo para YouTube e Play Store. Apps com login próprio (Prime, 1-Stream) não são afetados.
+- Para desfazer: `adb shell dpm remove-active-admin br.paulo.tvlauncher/.AdminReceiver` (só funciona porque o APK é `testOnly`; por isso o APK se instala com `adb install -r -t`).
+- Verificado: reinstalar com `install -r -t` mantém o owner.
+- Não verificado: se o owner impede criar outro usuário/perfil ou desinstalar o app.
