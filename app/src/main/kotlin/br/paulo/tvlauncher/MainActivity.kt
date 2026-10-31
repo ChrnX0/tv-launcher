@@ -1064,7 +1064,7 @@ class MainActivity : Activity() {
             else -> Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE).substringBeforeLast("  ·  ")
         }
         // As 3 linhas de informacao, de cima para baixo, so as que existirem (sem buraco no meio).
-        val linhas = listOf(textoChuva, lua, textoUmidade).filter { it.isNotEmpty() }
+        val linhas = listOf(lua, textoUmidade, textoChuva).filter { it.isNotEmpty() }
         txtInfo.forEachIndexed { i, t -> t.text = linhas.getOrElse(i) { "" } }
     }
 
