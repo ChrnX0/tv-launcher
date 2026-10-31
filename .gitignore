@@ -1,0 +1,14 @@
+# Build e cache do Gradle
+.gradle/
+build/
+app/build/
+
+# Caminho do SDK desta maquina
+local.properties
+
+# Screenshots de teste tirados da TV
+shot*.png
+
+# Editores
+.idea/
+*.iml
