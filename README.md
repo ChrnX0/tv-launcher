@@ -90,3 +90,11 @@ Tudo reversível com `pm enable` (ou `-Desfazer`).
 - **BootReceiver:** depois do reboot o OneStream abriu sozinho, mas o próprio OneStream também declara um receiver de `BOOT_COMPLETED`, então não dá para atribuir com certeza. O `ABRIR_AO_LIGAR` do `Config.kt` agora vem vazio, para não haver dois lugares controlando isso; se o OneStream parar de abrir sozinho no próximo reboot, a opção dele não estava ativa.
 - **Segurar OK para mover apps:** testado com `input keyevent --longpress`, não com o controle de verdade.
 - **`restaurar-tv.ps1`:** testado em `-DryRun` e nos comandos equivalentes feitos à mão, não numa TV zerada.
+
+## Shizuku, aprovação automática e DNS
+
+- **Shizuku:** o launcher é cliente dele (`Privilegio.kt`). Com o app Shizuku rodando e este app autorizado, o launcher executa comandos como `shell` (uid 2000), sem o computador. O servidor do Shizuku morre ao reiniciar a TV (iniciar de novo; "Iniciar na inicialização" não foi testado).
+- **Aprovação automática:** `AutorizaShizukuService` (serviço de acessibilidade) aperta "Permitir o tempo todo" no pedido de QUALQUER app ao Shizuku, e cada app aprovado ganha shell. Desligue com `Config.SHIZUKU_AUTORIZAR_TUDO = false`. Detalhes que custaram caro: os botões usam os ids do Android (`android:id/button1`), e no Android 14 o XML precisa de `isAccessibilityTool="true"`, senão o diálogo chega vazio ao serviço.
+- **Religar o serviço:** o Android o desliga a cada `force-stop` do app (inclusive o que o Shizuku faz ao revogar um app). `restaurar-tv.ps1` já liga na instalação; à mão:
+  `adb shell settings put secure enabled_accessibility_services br.paulo.tvlauncher/br.paulo.tvlauncher.AutorizaShizukuService` e `adb shell settings put secure accessibility_enabled 1`.
+- **DNS (chip "DNS: …" no rodapé):** escolhe o DNS privado (DoT) da TV. Precisa uma vez de `adb shell pm grant br.paulo.tvlauncher android.permission.WRITE_SECURE_SETTINGS`, que continua valendo após reinstalar. O Android só aceita **nome** de servidor, nunca IP. Servidor fixo que não responde deixa a TV sem resolver nomes (não volta ao normal sozinho): na tela, escolha "Automático", ou `adb shell settings put global private_dns_mode opportunistic`.

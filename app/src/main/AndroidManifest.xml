@@ -90,5 +90,10 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/autoriza_acessibilidade" />
         </service>
+        <!-- Tela de DNS privado (aberta pelo chip do rodapé) -->
+        <activity
+            android:name=".DnsActivity"
+            android:exported="false"
+            android:label="DNS privado" />
     </application>
 </manifest>
