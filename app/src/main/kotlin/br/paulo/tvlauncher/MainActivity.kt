@@ -1,23 +1,16 @@
 package br.paulo.tvlauncher
 
 import android.app.Activity
-import android.app.ActivityManager
 import android.content.Intent
 import android.content.pm.ApplicationInfo
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Outline
-import android.graphics.Shader
 import android.graphics.Typeface
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.os.StatFs
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -62,8 +55,7 @@ class MainActivity : Activity() {
     private lateinit var txtTemp: TextView
     private lateinit var txtDescricao: TextView
     private lateinit var txtDetalhe: TextView
-    private lateinit var txtCotacao: TextView
-    private lateinit var txtSistema: TextView
+    private lateinit var txtLua: TextView
     private lateinit var txtRede: TextView
     private lateinit var linhaApps: LinearLayout
     private lateinit var rolagem: HorizontalScrollView
@@ -81,22 +73,16 @@ class MainActivity : Activity() {
             ui.postDelayed(this, Config.CLIMA_A_CADA_MIN * 60_000L)
         }
     }
-    private val tarefaCotacao = object : Runnable {
+    private val tarefaLua = object : Runnable {
         override fun run() {
-            buscarCotacao()
-            ui.postDelayed(this, Config.COTACAO_A_CADA_MIN * 60_000L)
+            atualizarLua()
+            ui.postDelayed(this, Config.LUA_A_CADA_MIN * 60_000L)
         }
     }
     private val tarefaRede = object : Runnable {
         override fun run() {
             atualizarRede()
             ui.postDelayed(this, Config.REDE_A_CADA_SEG * 1000L)
-        }
-    }
-    private val tarefaSistema = object : Runnable {
-        override fun run() {
-            atualizarSistema()
-            ui.postDelayed(this, Config.SISTEMA_A_CADA_SEG * 1000L)
         }
     }
 
@@ -111,16 +97,14 @@ class MainActivity : Activity() {
         super.onResume()
         preencherApps()
         ui.post(tarefaClima)
-        ui.post(tarefaCotacao)
-        ui.post(tarefaSistema)
+        ui.post(tarefaLua)
         ui.post(tarefaRede)
     }
 
     override fun onPause() {
         super.onPause()
         ui.removeCallbacks(tarefaClima)
-        ui.removeCallbacks(tarefaCotacao)
-        ui.removeCallbacks(tarefaSistema)
+        ui.removeCallbacks(tarefaLua)
         ui.removeCallbacks(tarefaRede)
         if (modoMover) sairDoModoMover(salvar = false)
     }
@@ -151,7 +135,7 @@ class MainActivity : Activity() {
             background = montarFundo()
         }
 
-        // ---- Topo: hora e data à esquerda; clima e cotação à direita.
+        // ---- Topo: hora e data a esquerda; clima e fase da lua a direita.
         val topo = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(56), 0, dp(56), 0)
@@ -199,9 +183,9 @@ class MainActivity : Activity() {
         linhaClima.addView(txtIcone)
         linhaClima.addView(txtTemp)
         linhaClima.addView(colunaClima)
-        txtCotacao = texto(14f, textoSuave).apply { letterSpacing = 0.02f }
+        txtLua = texto(14f, textoSuave).apply { letterSpacing = 0.02f }
         blocoInfo.addView(linhaClima, LinearLayout.LayoutParams(WRAP, WRAP).apply { gravity = Gravity.END })
-        blocoInfo.addView(txtCotacao, LinearLayout.LayoutParams(WRAP, WRAP).apply {
+        blocoInfo.addView(txtLua, LinearLayout.LayoutParams(WRAP, WRAP).apply {
             gravity = Gravity.END
             topMargin = dp(8)
         })
@@ -227,18 +211,14 @@ class MainActivity : Activity() {
 
         raiz.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
 
-        // ---- Rodapé: RAM/espaço livres à esquerda, botão de Configurações à direita.
+        // ---- Rodape: rede (nome, sinal, velocidade, latencia) a esquerda; botao de perfil/Configuracoes a direita.
         val base = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(56), 0, dp(56), 0)
         }
-        txtSistema = texto(13f, textoSuave).apply { letterSpacing = 0.01f; maxLines = 1 }
-        val colunaSistema = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        colunaSistema.addView(txtSistema)
-        txtRede = texto(13f, textoSuave).apply { letterSpacing = 0.01f; maxLines = 1 }
-        colunaSistema.addView(txtRede, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(4) })
-        base.addView(colunaSistema, LinearLayout.LayoutParams(0, WRAP, 1f))
+        txtRede = texto(14f, textoSuave).apply { letterSpacing = 0.01f; maxLines = 1 }
+        base.addView(txtRede, LinearLayout.LayoutParams(0, WRAP, 1f))
         // (sem o botao Liberar RAM)
         base.addView(botaoPerfil())
         raiz.addView(base, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -247,30 +227,11 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Fundo escuro: degradê radial (centro levemente esverdeado, bordas quase pretas)
-     * + uma textura fina de pontos, desenhada por código num bloquinho de 8x8 pixels que se repete.
-     * Um bitmap de tela cheia (1920x1080x4 bytes) ocuparia ~8 MB; este ocupa 256 bytes.
+     * Fundo: a textura de res/drawable-nodpi/fundo.jpg (1920x1080, já no tamanho da tela).
+     * "nodpi" manda o Android NÃO redimensionar a imagem conforme a densidade da tela.
+     * Custa ~8 MB de RAM enquanto o launcher está aberto (1920 x 1080 x 4 bytes); a TV tem folga.
      */
-    private fun montarFundo(): Drawable {
-        val base = GradientDrawable().apply {
-            gradientType = GradientDrawable.RADIAL_GRADIENT
-            gradientRadius = resources.displayMetrics.widthPixels * 0.8f
-            setGradientCenter(0.5f, 0.42f)
-            colors = intArrayOf(0xFF111C18.toInt(), 0xFF070B0A.toInt(), 0xFF030404.toInt())
-        }
-        val lado = 8
-        val bloco = Bitmap.createBitmap(lado, lado, Bitmap.Config.ARGB_8888)
-        val ponto = Color.argb(30, 170, 210, 190)
-        for ((x, y) in listOf(2 to 2, 3 to 2, 2 to 3, 3 to 3, 6 to 6, 7 to 6, 6 to 7, 7 to 7)) {
-            bloco.setPixel(x, y, ponto)
-        }
-        bloco.density = Bitmap.DENSITY_NONE   // sem escalar o bloquinho
-        val textura = BitmapDrawable(resources, bloco).apply {
-            setTileModeXY(Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
-        }
-        return LayerDrawable(arrayOf(base, textura))
-    }
-
+    private fun montarFundo(): Drawable = resources.getDrawable(R.drawable.fundo, theme)
     private fun botaoPerfil(): View {
         val foto = ImageView(this).apply {
             setImageBitmap(Perfil.avatar(this@MainActivity, dp(56)))
@@ -513,12 +474,10 @@ class MainActivity : Activity() {
     /** Durante o modo de mover, o rodape vira um guia de teclas. */
     private fun mostrarDica(ligada: Boolean) {
         if (ligada) {
-            txtSistema.setTextColor(corMover)
-            txtSistema.text = "◀ ▶ mover  ·  OK salva  ·  Voltar cancela  ·  ▼ ordem automática"
-            txtRede.text = ""
+            txtRede.setTextColor(corMover)
+            txtRede.text = "◀ ▶ mover  ·  OK salva  ·  Voltar cancela  ·  ▼ ordem automática"
         } else {
-            txtSistema.setTextColor(textoSuave)
-            atualizarSistema()
+            txtRede.setTextColor(textoSuave)
             atualizarRede()
         }
     }
@@ -531,7 +490,7 @@ class MainActivity : Activity() {
         startActivity(intent)
     }
 
-    // ---------------------------------------------------------------- clima, cotação, sistema
+    // ---------------------------------------------------------------- clima, lua e rede
 
     private fun buscarClima() {
         rede.execute {
@@ -539,8 +498,9 @@ class MainActivity : Activity() {
                 val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
                 val url = "https://api.open-meteo.com/v1/forecast" +
                     "?latitude=${Config.LATITUDE}&longitude=${Config.LONGITUDE}" +
-                    "&current=temperature_2m,weather_code" +
-                    "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+                    "&current=temperature_2m,weather_code,precipitation" +
+                    "&hourly=precipitation_probability&forecast_hours=4" +
+                    "&daily=temperature_2m_max,temperature_2m_min" +
                     "&timezone=auto&forecast_days=1$unidade"
                 val json = JSONObject(httpGet(url) ?: return@execute)
                 val atual = json.getJSONObject("current")
@@ -548,9 +508,19 @@ class MainActivity : Activity() {
                 val temp = Math.round(atual.getDouble("temperature_2m")).toInt()
                 val max = Math.round(dia.getJSONArray("temperature_2m_max").getDouble(0)).toInt()
                 val min = Math.round(dia.getJSONArray("temperature_2m_min").getDouble(0)).toInt()
-                val chuva = dia.getJSONArray("precipitation_probability_max").optInt(0, -1)
+                // Chuva: so o que vale AGORA. O maximo do DIA inclui horas que ja passaram (dava 99% sem chover).
+                val chovendoAgora = atual.optDouble("precipitation", 0.0) > 0.0
+                val horas = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
+                var chance = -1   // maior probabilidade entre a hora atual e as proximas 2
+                for (i in 0 until minOf(3, horas.length())) chance = maxOf(chance, horas.optInt(i, -1))
+                val chuva = when {
+                    chovendoAgora -> "chovendo agora"
+                    chance >= 0 -> "chuva nas próx. 3 h: $chance%"
+                    else -> ""
+                }
                 val (icone, descricao) = descricaoClima(atual.getInt("weather_code"))
-                val detalhe = "${Config.CIDADE}  ·  $min° – $max°" + if (chuva >= 0) "  ·  chuva $chuva%" else ""
+                val detalhe = "${Config.CIDADE}  ·  $min° – $max°" +
+                    if (chuva.isNotEmpty()) "  ·  $chuva" else ""
                 ui.post {
                     txtIcone.text = icone
                     txtTemp.text = "$temp°"
@@ -558,30 +528,14 @@ class MainActivity : Activity() {
                     txtDetalhe.text = detalhe
                 }
             } catch (e: Exception) {
-                // Sem internet ou API fora do ar: mantém o último valor mostrado.
+                // Sem internet ou API fora do ar: mantem o ultimo valor mostrado.
             }
         }
     }
 
-    private fun buscarCotacao() {
-        rede.execute {
-            val valor = runCatching { cotacaoAwesome() }.getOrNull()
-                ?: runCatching { cotacaoEr() }.getOrNull()
-            if (valor != null) {
-                val texto = "US$ 1  =  R$ " + String.format(Locale("pt", "BR"), "%.2f", valor)
-                ui.post { txtCotacao.text = texto }
-            }
-        }
-    }
-
-    private fun cotacaoAwesome(): Double? {
-        val corpo = httpGet("https://economia.awesomeapi.com.br/json/last/USD-BRL") ?: return null
-        return JSONObject(corpo).getJSONObject("USDBRL").getString("bid").toDouble()
-    }
-
-    private fun cotacaoEr(): Double? {
-        val corpo = httpGet("https://open.er-api.com/v6/latest/USD") ?: return null
-        return JSONObject(corpo).getJSONObject("rates").getDouble("BRL")
+    /** A lua e calculada no aparelho (ver Lua.kt): nao usa internet. */
+    private fun atualizarLua() {
+        txtLua.text = Lua.resumo(System.currentTimeMillis(), Config.LATITUDE)
     }
 
     private fun atualizarRede() {
@@ -601,18 +555,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun atualizarSistema() {
-        if (modoMover) return
-        val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-        val info = ActivityManager.MemoryInfo()
-        am.getMemoryInfo(info)
-        val ramLivreMb = info.availMem / (1024L * 1024L)
-        val disco = StatFs(Environment.getDataDirectory().path)
-        val discoLivreGb = disco.availableBytes / 1_073_741_824.0
-        txtSistema.text = String.format(
-            Locale("pt", "BR"), "Livre: %d MB RAM  ·  %.1f GB disco", ramLivreMb, discoLivreGb
-        )
-    }
 
     /** Códigos de clima da Open-Meteo (padrão WMO) -> emoji + texto. */
     private fun descricaoClima(codigo: Int): Pair<String, String> = when (codigo) {

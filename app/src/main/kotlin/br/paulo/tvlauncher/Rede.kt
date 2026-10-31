@@ -24,7 +24,8 @@ object Rede {
 
         val temSinal = dbm in -126..-1
         val partes = ArrayList<String>()
-        partes += if (temSinal) "Wi-Fi $dbm dBm" else "Rede"
+        partes += nomeDaRede(info?.ssid) ?: if (temSinal) "Wi-Fi" else "Rede"
+        if (temSinal) partes += "$dbm dBm"
         if (mbps > 0) partes += "$mbps Mbps"
         partes += if (ms >= 0) "$ms ms" else "sem internet"
 
@@ -43,6 +44,14 @@ object Rede {
         return Resultado(partes.joinToString("  ·  "), maxOf(nivelSinal, nivelLatencia))
     }
 
+    /**
+     * O Android devolve o nome entre aspas ("Cerberus") e, sem permissão de localização,
+     * o texto "<unknown ssid>". Tiramos as aspas e tratamos o "desconhecido" como ausente.
+     */
+    private fun nomeDaRede(bruto: String?): String? {
+        val nome = bruto?.trim('"')
+        return if (nome.isNullOrBlank() || nome == "<unknown ssid>") null else nome
+    }
     /** Menor tempo de 3 tentativas de conexão ao DNS da Cloudflare (1.1.1.1), em milissegundos. -1 se falhar. */
     private fun latenciaMs(): Int {
         var melhor = Int.MAX_VALUE

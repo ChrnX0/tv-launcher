@@ -38,7 +38,6 @@ object Config {
 
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
     const val CLIMA_A_CADA_MIN = 15L
-    const val COTACAO_A_CADA_MIN = 30L
-    const val SISTEMA_A_CADA_SEG = 30L
+    const val LUA_A_CADA_MIN = 30L   // fase da lua: recalculada no proprio aparelho, sem internet
     const val REDE_A_CADA_SEG = 30L
 }
