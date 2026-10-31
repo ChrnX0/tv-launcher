@@ -1005,9 +1005,12 @@ class MainActivity : Activity() {
     private fun buscarClima() {
         rede.execute {
             try {
+                // Onde estamos: Wi-Fi do Android (±dezenas de m) > IP > Config.kt. Ver Localizacao.kt.
+                val ponto = Localizacao.atual(this) { httpGet(it) }
                 val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
+                // Previsao (minima/maxima, chance de chuva, ceu) do modelo da Open-Meteo, no ponto exato.
                 val url = "https://api.open-meteo.com/v1/forecast" +
-                    "?latitude=${Config.LATITUDE}&longitude=${Config.LONGITUDE}" +
+                    "?latitude=${ponto.lat}&longitude=${ponto.lon}" +
                     "&current=temperature_2m,relative_humidity_2m,weather_code,precipitation,is_day" +
                     "&hourly=precipitation_probability&forecast_hours=4" +
                     "&daily=temperature_2m_max,temperature_2m_min" +
@@ -1017,7 +1020,7 @@ class MainActivity : Activity() {
                 val dia = json.getJSONObject("daily")
                 // Temperatura: a MEDIDA na estacao do aeroporto (METAR) vence a do modelo da Open-Meteo. Em 31/10 as 16:15
                 // o modelo dizia 26,6 °C e o aeroporto de Ribeirao Preto mediu 32 °C. Sem METAR recente, fica o modelo.
-                val medida = medidaAeroporto()
+                val medida = medidaAeroporto(ponto)
                 // Umidade: a do aeroporto (calculada da temperatura e do ponto de orvalho medidos); sem ela, a do modelo.
                 val umidade = medida?.umidade ?: atual.optInt("relative_humidity_2m", -1).takeIf { it >= 0 }
                 val temp = medida?.temp ?: Math.round(atual.getDouble("temperature_2m")).toInt()
@@ -1154,17 +1157,25 @@ class MainActivity : Activity() {
     private class Medida(val temp: Int, val umidade: Int?, val fenomeno: Int?, val nuvens: Int)
 
     /**
-     * Ultimo boletim METAR da estacao Config.ESTACAO_METAR (todo aeroporto publica, em geral a cada hora).
-     * null se nao houver estacao, se a busca falhar ou se o boletim tiver mais de 90 min (ai o modelo e melhor que
-     * um numero velho). Chamar fora da thread da tela.
+     * Ultimo boletim METAR (todo aeroporto publica, em geral a cada hora) da estacao MAIS PERTO de [ponto] num raio
+     * de ~65 km, com boletim de no maximo 90 min. Em Ribeirao Preto e o aeroporto Leite Lopes (SBRP), a ~6 km; o INMET
+     * nao tem estacao automatica na cidade (a mais perto e Sao Simao, ~35 km). Config.ESTACAO_METAR fixa uma estacao.
+     * null se nao houver estacao valida ou a busca falhar: ai fica o modelo. Chamar fora da thread da tela.
      */
-    private fun medidaAeroporto(): Medida? {
-        if (Config.ESTACAO_METAR.isEmpty()) return null
+    private fun medidaAeroporto(ponto: Localizacao.Ponto): Medida? {
         return try {
-            val texto = httpGet("https://aviationweather.gov/api/data/metar?ids=${Config.ESTACAO_METAR}&format=json") ?: return null
-            val boletim = JSONArray(texto).optJSONObject(0) ?: return null
-            val idadeMin = (System.currentTimeMillis() / 1000 - boletim.getLong("obsTime")) / 60
-            if (idadeMin > 90 || !boletim.has("temp")) return null
+            val filtro = if (Config.ESTACAO_METAR.isNotEmpty()) "ids=${Config.ESTACAO_METAR}"
+                // A API recusa (erro 400) coordenadas com muitas casas decimais: vao com 2 (~1 km, sobra para uma caixa de 130 km).
+                else "bbox=" + listOf(ponto.lat - 0.6, ponto.lon - 0.6, ponto.lat + 0.6, ponto.lon + 0.6)
+                    .joinToString(",") { String.format(java.util.Locale.US, "%.2f", it) }
+            val lista = JSONArray(httpGet("https://aviationweather.gov/api/data/metar?$filtro&format=json") ?: return null)
+            val agoraS = System.currentTimeMillis() / 1000
+            val boletim = (0 until lista.length()).mapNotNull { lista.optJSONObject(it) }
+                .filter { it.has("temp") && (agoraS - it.optLong("obsTime")) / 60 <= 90 }
+                .minByOrNull { Localizacao.km(ponto.lat, ponto.lon, it.optDouble("lat"), it.optDouble("lon")) }
+                ?: return null
+            Log.i("TvLauncher.Local", "estacao ${boletim.optString("icaoId")} a " +
+                "${Localizacao.km(ponto.lat, ponto.lon, boletim.optDouble("lat"), boletim.optDouble("lon")).toInt()} km")
             val celsius = boletim.getDouble("temp")
             // Umidade relativa pela formula de Magnus: compara a pressao de vapor no ponto de orvalho com a da temperatura.
             val umidade = if (boletim.has("dewp")) {
@@ -1196,6 +1207,7 @@ class MainActivity : Activity() {
             }
             Medida(temp, umidade, fenomeno, nuvens)
         } catch (e: Exception) {
+            Log.w("TvLauncher.Local", "METAR falhou: $e")
             null   // formato mudou, sem internet etc.: fica o modelo
         }
     }

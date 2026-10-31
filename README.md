@@ -18,6 +18,7 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 | `Perfil.kt` | Contas Google da TV, perfil ativo do launcher e a imagem de cada perfil (foto ou inicial) |
 | `Eclipse.kt` | Dos horários da tabela de eclipses (`Config.kt`) calcula onde a lua está em relação ao sol e quanto dele ela cobre, no minuto |
 | `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua (este só aparece durante um eclipse solar real) |
+| `Localizacao.kt` | Onde a TV está: Wi-Fi do Android (±56 m na Sala) > IP (ipwho.is) > coordenadas do `Config.kt`. O clima usa: tempo **agora** (temperatura, umidade, chuva/garoa/trovoada/neblina) do METAR do aeroporto mais perto (SBRP, 6 km), e previsão (mínima/máxima, chance de chuva, céu) da Open-Meteo no ponto exato. Atualiza a cada 5 min |
 | `Lua.kt` | Fase da lua calculada no aparelho (sem internet) |
 | `Uso.kt` | Quando cada app foi usado pela última vez (ordem por uso recente) |
 | `BootReceiver.kt` | Abre um app quando a TV **reinicia** (não quando acorda do standby) |
