@@ -57,6 +57,7 @@ class MainActivity : Activity() {
     private lateinit var txtDetalhe: TextView
     private lateinit var txtLua: TextView
     private lateinit var txtRede: TextView
+    private lateinit var txtDns: TextView   // chip do rodapé: mostra o DNS em uso e abre a DnsActivity
     private lateinit var linhaApps: LinearLayout
     private lateinit var rolagem: HorizontalScrollView
     private var lista: MutableList<Item> = mutableListOf()   // apps na ordem em que aparecem na tela
@@ -101,6 +102,7 @@ class MainActivity : Activity() {
         ui.post(tarefaClima)
         ui.post(tarefaLua)
         ui.post(tarefaRede)
+        txtDns.text = Dns.rotulo(this)   // pode ter mudado na tela de DNS
         Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
     }
 
@@ -223,6 +225,7 @@ class MainActivity : Activity() {
         txtRede = texto(14f, textoSuave).apply { letterSpacing = 0.01f; maxLines = 1 }
         base.addView(txtRede, LinearLayout.LayoutParams(0, WRAP, 1f))
         // (sem o botao Liberar RAM)
+        base.addView(chipDns(), LinearLayout.LayoutParams(WRAP, WRAP).apply { rightMargin = dp(20) })
         base.addView(botaoPerfil())
         raiz.addView(base, LinearLayout.LayoutParams(MATCH, WRAP))
 
@@ -235,6 +238,24 @@ class MainActivity : Activity() {
      * Custa ~8 MB de RAM enquanto o launcher está aberto (1920 x 1080 x 4 bytes); a TV tem folga.
      */
     private fun montarFundo(): Drawable = resources.getDrawable(R.drawable.fundo, theme)
+    /** Botão do rodapé: mostra o DNS em uso (ex.: "DNS: AdGuard") e abre a tela de DNS (DnsActivity). */
+    private fun chipDns(): View {
+        txtDns = texto(14f, textoClaro, fonteMedia).apply {
+            maxLines = 1
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            isFocusable = true
+            isClickable = true
+            background = fundoVidro(false, dp(22))
+            setOnClickListener { startActivity(Intent(this@MainActivity, DnsActivity::class.java)) }
+            setOnFocusChangeListener { v, temFoco ->
+                v.background = fundoVidro(temFoco, dp(22))
+                val escala = if (temFoco) 1.08f else 1f
+                v.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
+            }
+        }
+        return txtDns
+    }
+
     private fun botaoPerfil(): View {
         val foto = ImageView(this).apply {
             setImageBitmap(Perfil.avatar(this@MainActivity, dp(56)))

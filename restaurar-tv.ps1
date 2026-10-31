@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Reproduz o setup da TV (Chromecast com Google TV): remove apps, instala o launcher e o define como Home.
 
@@ -72,6 +72,19 @@ function Adb([string[]]$Argumentos) {
 function Foco($serial) {
     if ($DryRun) { return "" }
     (& adb -s $serial shell "dumpsys window | grep mCurrentFocus") -join ""
+}
+
+# Liga o servico de acessibilidade do launcher (aprova sozinho os pedidos ao Shizuku; ver AutorizaShizukuService.kt).
+# O Android DESLIGA o servico sempre que o app leva "force-stop" (inclusive quando o Shizuku revoga o app): rode de novo.
+function LigarAprovacaoShizuku($serial) {
+    $servico = "$LauncherPkg/$LauncherPkg.AutorizaShizukuService"
+    if ($DryRun) { Write-Host "[dry-run] adb shell settings put secure enabled_accessibility_services (acrescenta $servico)" -ForegroundColor DarkGray; return }
+    $atual = ((& adb -s $serial shell settings get secure enabled_accessibility_services) -join "").Trim()
+    if ($atual -eq "null" -or $atual -eq "") { $novo = $servico }
+    elseif ($atual -notlike "*$servico*") { $novo = "${atual}:$servico" }
+    else { $novo = $atual }
+    Adb @("-s", $serial, "shell", "settings put secure enabled_accessibility_services $novo") | Out-Null
+    Adb @("-s", $serial, "shell", "settings put secure accessibility_enabled 1") | Out-Null
 }
 
 # ---------------------------------------------------------------- adb e conexao
@@ -161,7 +174,9 @@ Passo "Instalando o launcher"
 if (-not $DryRun -and -not (Test-Path $Apk)) { throw "APK nao encontrado: $Apk" }
 Adb @("-s", $serial, "install", "-r", $Apk) | Out-Host
 Adb @("-s", $serial, "shell", "appops set $LauncherPkg GET_USAGE_STATS allow") | Out-Null   # ordem por uso recente
-Adb @("-s", $serial, "shell", "pm grant $LauncherPkg android.permission.ACCESS_FINE_LOCATION") | Out-Null   # ordem por uso recente
+Adb @("-s", $serial, "shell", "pm grant $LauncherPkg android.permission.ACCESS_FINE_LOCATION") | Out-Null   # nome do Wi-Fi
+Adb @("-s", $serial, "shell", "pm grant $LauncherPkg android.permission.WRITE_SECURE_SETTINGS") | Out-Null   # tela de DNS (vale apos reinstalar)
+LigarAprovacaoShizuku $serial   # precisa do app Shizuku instalado e rodando; sem ele o servico so fica ocioso
 
 if ($PularHome) {
     Write-Host "`n-PularHome: o Home NAO foi trocado. O launcher abre pelo menu de apps da TV." -ForegroundColor Yellow
