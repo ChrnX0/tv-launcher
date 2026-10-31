@@ -15,7 +15,7 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 | `Rede.kt` | Nome da rede (SSID), sinal, velocidade do enlace e latência; decide a cor do ícone de Wi-Fi |
 | `PopupPerfil.kt` | O menu da bolinha do perfil: trocar perfil, adicionar, Configurações, DNS, Wi-Fi |
 | `Perfil.kt` | Contas Google da TV, perfil ativo do launcher e a imagem de cada perfil (foto ou inicial) |
-| `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua |
+| `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua (este reservado para eclipse solar real; hoje sem uso) |
 | `Lua.kt` | Fase da lua calculada no aparelho (sem internet) |
 | `Uso.kt` | Quando cada app foi usado pela última vez (ordem por uso recente) |
 | `BootReceiver.kt` | Abre um app quando a TV **reinicia** (não quando acorda do standby) |
@@ -40,7 +40,7 @@ A ordem salva vence os `FIXOS` e o uso recente do `Config.kt`. Apps novos entram
 
 Topo, da esquerda para a direita: **hora e data** · **temperatura com o ícone do clima** (embaixo: descrição, cidade, mínima/máxima, chuva e fase da lua) · **bolinha do perfil**. Não há mais linha de baixo; no modo de mover aparece uma faixa de teclas na parte de baixo.
 
-**Ícone do clima:** ☀️ céu limpo · sol coberto pela lua (desenhado em código, `IconeEclipse.kt`) para poucas nuvens e parcialmente nublado · ☁️ nublado · 🌫️ neblina · 🌧️ garoa e chuva · ⛈️ tempestade. De noite, céu limpo, poucas nuvens e parcialmente nublado mostram a lua na fase do dia; chuva, tempestade e neblina ficam iguais ao dia. Se a Open-Meteo informa precipitação agora e o código diz "limpo/nublado", vale o ícone de chuva.
+**Ícone do clima:** ☀️ céu limpo · 🌤️ poucas nuvens · ⛅ parcialmente nublado · ☁️ nublado · 🌫️ neblina · 🌧️ garoa e chuva · ⛈️ tempestade. De noite, céu limpo, poucas nuvens e parcialmente nublado mostram a lua na fase do dia; chuva, tempestade e neblina ficam iguais ao dia. Se a Open-Meteo informa precipitação agora e o código diz "limpo/nublado", vale o ícone de chuva.
 
 **Bolinha do perfil** (OK abre o menu; ▲ a partir de um card solto chega nela):
 
@@ -114,7 +114,7 @@ O botão de microfone do controle dispara a intent `ASSIST`. Com o `launcherx` d
 - **Segurar OK para mover apps:** testado com `input keyevent --longpress`, não com o controle de verdade.
 - **`restaurar-tv.ps1`:** testado em `-DryRun` e nos comandos equivalentes feitos à mão, não numa TV zerada.
 - **Topo novo e menu do perfil: testados** na Sala (31/10/2026) por screenshot e `input keyevent`: layout, ▲ do card até a bolinha, abrir o menu, trocar de perfil e voltar, linhas de Configurações/DNS, ícone de Wi-Fi verde (sinal -60 dBm, enlace 292 Mbps, latência 14 ms), faixa de teclas do modo mover.
-- **Não testado:** o ícone da lua à noite e o de chuva (só o sol coberto pela lua apareceu, pelo clima do momento); o **+** de adicionar conta; o menu com o controle de verdade.
+- **Não testado:** o ícone da lua à noite e o de chuva (só apareceu o clima do momento, "poucas nuvens"); o **+** de adicionar conta; o menu com o controle de verdade.
 
 ## Shizuku, aprovação automática e DNS
 
