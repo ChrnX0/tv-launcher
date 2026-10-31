@@ -12,3 +12,6 @@ shot*.png
 # Editores
 .idea/
 *.iml
+
+# Foto pessoal (nao vai para o repositorio)
+perfil.*

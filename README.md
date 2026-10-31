@@ -14,10 +14,33 @@ e a Play Store, com hora, clima, cotação USD/BRL, RAM/disco livres e qualidade
 | `MainActivity.kt` | A tela inteira (montada por código, sem XML) |
 | `Rede.kt` | Sinal do Wi-Fi, velocidade do enlace e latência |
 | `Uso.kt` | Quando cada app foi usado pela última vez (ordem por uso recente) |
-| `Memoria.kt` | Botão "Liberar RAM" |
 | `BootReceiver.kt` | Abre um app quando a TV **reinicia** (não quando acorda do standby) |
 | `restaurar-tv.ps1` | Refaz o setup numa TV nova ou depois de factory reset |
 | `dist/tv-launcher.apk` | Build de debug pronto para instalar |
+
+## Reorganizar os apps
+
+Segure **OK** num app: ele entra no modo de mover (borda verde-agua, guia no rodape).
+
+| Tecla | O que faz |
+|---|---|
+| ◀ ▶ | troca de posicao |
+| OK | salva a ordem |
+| Voltar | cancela |
+| ▼ | apaga a ordem salva e volta ao automatico (fixos + uso recente) |
+
+A ordem salva vence os `FIXOS` e o uso recente do `Config.kt`. Apps novos entram no fim.
+
+## Foto no botao de Configuracoes
+
+O botao redondo no canto de baixo abre as Configuracoes. Ele mostra, nesta ordem: a foto `perfil.jpg` (ou `.png`) da pasta de arquivos do app, a inicial da conta Google da TV, ou um icone de pessoa.
+
+```powershell
+adb -s IP:PORTA push perfil.jpg /sdcard/Android/data/br.paulo.tvlauncher/files/perfil.jpg
+adb -s IP:PORTA shell pm grant br.paulo.tvlauncher android.permission.GET_ACCOUNTS   # so para a inicial
+```
+
+A foto nao vem sozinha da conta: le-la exige OAuth numa API da Google. O arquivo `perfil.*` esta no `.gitignore`.
 
 ## Mudar para os EUA
 
