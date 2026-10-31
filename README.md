@@ -19,6 +19,8 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 | `Eclipse.kt` | Dos horários da tabela de eclipses (`Config.kt`) calcula onde a lua está em relação ao sol e quanto dele ela cobre, no minuto |
 | `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua (este só aparece durante um eclipse solar real) |
 | `Localizacao.kt` | Onde a TV está: Wi-Fi do Android (±56 m na Sala) > IP (ipwho.is) > coordenadas do `Config.kt`. O clima usa: tempo **agora** (temperatura, umidade, chuva/garoa/trovoada/neblina) do METAR do aeroporto mais perto (SBRP, 6 km), e previsão (mínima/máxima, chance de chuva, céu) da Open-Meteo no ponto exato. Atualiza a cada 5 min |
+| `Despertador.kt`, `AlarmesActivity.kt`, `AlarmeTocandoActivity.kt` | Despertador: OK no relógio abre a lista/editor; na hora, acorda o Chromecast (testado: em standby acordou e mandou o comando HDMI-CEC de ligar a TV) e toca até Parar/Soneca (Voltar = soneca; para sozinho em 10 min). A TV não tem som de alarme: toca um bipe. É o app de despertador do Android (`SET_ALARM`), então pedidos de voz podem cair nele (não testado por voz) |
+| `PrevisaoSemana.kt` | OK no clima: previsão de 7 dias |
 | `Lua.kt` | Fase da lua calculada no aparelho (sem internet) |
 | `Uso.kt` | Quando cada app foi usado pela última vez (ordem por uso recente) |
 | `BootReceiver.kt` | Abre um app quando a TV **reinicia** (não quando acorda do standby) |
