@@ -37,7 +37,7 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val TOKEN_OCULTOS = "ocultos"   // identifica o card "Ocultos" (nenhum pacote tem esse nome)
 private const val ID_PREVIA = "previa"       // id da pilha provisoria mostrada enquanto se arrasta um app para cima de outro
-private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: desenhar o sol parcialmente coberto pela lua (IconeEclipse)
+private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: sol coberto pela lua (IconeEclipse). Reservado para eclipse solar real; hoje nenhum clima usa
 
 /**
  * A tela inicial inteira. A interface é montada por código (sem arquivos XML de layout):
@@ -224,20 +224,24 @@ class MainActivity : Activity() {
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
         }
         txtDescricao = texto(17f, textoClaro, fonteMedia).apply { gravity = Gravity.CENTER_HORIZONTAL }
-        txtDetalhe = texto(13f, textoSuave).apply {
+        txtDetalhe = texto(14f, textoSuave).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, dp(2), 0, 0)
+            setLineSpacing(0f, 1.25f)   // as 2 linhas (cidade/min-max e chuva) com mais ar entre elas
+            setPadding(0, dp(6), 0, 0)
         }
         txtLua = texto(14f, textoSuave).apply {
             gravity = Gravity.CENTER_HORIZONTAL
             letterSpacing = 0.02f
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(14), 0, 0)   // a lua fica separada do clima, como um rodapé do bloco
         }
         val blocoClima = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
+            // Altura fixa (a do bloco cheio): os cards nao pulam quando o clima chega, quando some a linha da chuva
+            // nem quando a linha da lua some (a noite, com a lua no icone).
+            minimumHeight = dp(204)
             addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(txtDescricao, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(4) })
+            addView(txtDescricao, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(10) })
             addView(txtDetalhe, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(txtLua, LinearLayout.LayoutParams(WRAP, WRAP))
         }
@@ -1021,11 +1025,11 @@ class MainActivity : Activity() {
     }
 
 
-    /** Códigos de clima da Open-Meteo (padrão WMO) -> ícone + texto. O ícone é um emoji, ou ICONE_ECLIPSE (desenhado em código). */
+    /** Códigos de clima da Open-Meteo (padrão WMO) -> ícone + texto. O ícone é um emoji (ICONE_ECLIPSE existe, mas nenhum clima o usa hoje). */
     private fun descricaoClima(codigo: Int): Pair<String, String> = when (codigo) {
         0 -> "☀️" to "Céu limpo"
-        1 -> ICONE_ECLIPSE to "Poucas nuvens"
-        2 -> ICONE_ECLIPSE to "Parcialmente nublado"
+        1 -> "🌤️" to "Poucas nuvens"
+        2 -> "⛅" to "Parcialmente nublado"
         3 -> "☁️" to "Nublado"
         45, 48 -> "🌫️" to "Neblina"
         in 51..57 -> "🌧️" to "Garoa"
