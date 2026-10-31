@@ -18,7 +18,10 @@ object Rede {
      * [nivel]: 0 = bom, 1 = atenção, 2 = ruim; é a PIOR das três medidas (sinal, latência e velocidade do enlace)
      * e define a cor do ícone. [ms] é -1 quando não há internet.
      */
-    class Resultado(val nome: String, val dbm: Int, val mbps: Int, val ms: Int, val barras: Int, val nivel: Int)
+    class Resultado(val nome: String, val dbm: Int, val mbps: Int, val ms: Int, val barras: Int, val nivel: Int) {
+        /** false = o Wi-Fi não está conectado a nenhuma rede (o Android devolve -127 dBm). */
+        val conectado: Boolean get() = dbm in -126..-1
+    }
 
     @Suppress("DEPRECATION")
     fun medir(contexto: Context): Resultado {
