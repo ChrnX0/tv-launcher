@@ -66,6 +66,28 @@ object Privilegio {
         }
     }
 
+    /**
+     * Mantém a Depuração sem fio (adb pela rede) ligada. Em 31/10/2026 ela voltou DESLIGADA depois de um reinício
+     * (no de 30/10 tinha persistido; não sei dizer por que mudou), e sem ela o computador não conecta na TV.
+     * Ligar é escrever 1 em "adb_wifi_enabled": é o mesmo que o interruptor das Opções do desenvolvedor faz, e o
+     * Android sobe o serviço ao notar a mudança. Escrever em Settings.Global exige WRITE_SECURE_SETTINGS (dada uma vez por adb).
+     * Roda no BOOT_COMPLETED (BootReceiver) e a cada vez que o launcher abre. Se já está ligada, não escreve nada.
+     * Com Config.DEPURACAO_SEM_FIO_SEMPRE_LIGADA = false isto não faz nada.
+     */
+    fun religarDepuracaoSemFio(ctx: Context) {
+        if (!Config.DEPURACAO_SEM_FIO_SEMPRE_LIGADA) return
+        try {
+            val cr = ctx.contentResolver
+            // O nome é escrito por extenso porque Settings.Global.ADB_WIFI_ENABLED é @hide (não aparece no SDK público).
+            if (Settings.Global.getInt(cr, "adb_wifi_enabled", 0) != 1) {
+                Settings.Global.putInt(cr, "adb_wifi_enabled", 1)
+                Log.i("TvLauncher.Adb", "Depuracao sem fio estava desligada; religada")
+            }
+        } catch (e: SecurityException) {
+            Log.w("TvLauncher.Adb", "sem WRITE_SECURE_SETTINGS: nao consigo religar a Depuracao sem fio")
+        }
+    }
+
     /** true quando o Shizuku está rodando E este app está autorizado. */
     fun pronto(): Boolean = try {
         Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED

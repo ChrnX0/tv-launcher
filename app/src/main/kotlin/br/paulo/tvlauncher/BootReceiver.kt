@@ -6,7 +6,8 @@ import android.content.Intent
 import android.util.Log
 
 /**
- * Roda quando a TV termina de REINICIAR e abre o app definido em Config.ABRIR_AO_LIGAR.
+ * Roda quando a TV termina de REINICIAR: religa a Depuração sem fio (Privilegio.religarDepuracaoSemFio) e abre o app
+ * definido em Config.ABRIR_AO_LIGAR, se houver.
  * Não dispara quando o Chromecast só acorda do standby: nesse caso o Android não reinicia.
  *
  * ACAO_TESTE existe só para testar por adb sem reiniciar a TV (o shell não pode enviar BOOT_COMPLETED):
@@ -20,6 +21,7 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != ACAO_TESTE) return
+        Privilegio.religarDepuracaoSemFio(context)
         if (Config.ABRIR_AO_LIGAR.isEmpty()) return
         val abrir = context.packageManager.getLeanbackLaunchIntentForPackage(Config.ABRIR_AO_LIGAR)
         if (abrir == null) {
