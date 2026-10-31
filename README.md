@@ -21,13 +21,14 @@ e a Play Store, com hora, clima, fase da lua e a rede Wi-Fi (nome, sinal, veloci
 
 ## Reorganizar os apps
 
-Segure **OK** num app: ele entra no modo de mover (borda verde-agua, guia no rodape).
+Segure **OK** num app solto: ele entra direto no modo de mover (borda verde-agua, guia no rodape).
 
 | Tecla | O que faz |
 |---|---|
-| ◀ ▶ | troca de posicao |
-| OK | salva a ordem |
-| Voltar | cancela |
+| ◀ ▶ | anda uma posicao (para passar por um card sao 2 toques: "em cima" dele e "do outro lado") |
+| OK | confirma (se estiver "em cima" de outro card, forma a pilha) |
+| Voltar | cancela, nada e gravado |
+| ▲ | oculta o app (so card solto) |
 | ▼ | apaga a ordem salva e volta ao automatico (fixos + uso recente) |
 
 A ordem salva vence os `FIXOS` e o uso recente do `Config.kt`. Apps novos entram no fim.
@@ -100,16 +101,20 @@ Tudo reversível com `pm enable` (ou `-Desfazer`).
 
 ## Pilhas, ocultar e mover cards
 
-Segure **OK** num card para abrir o menu de opções:
+**Formar uma pilha:** segure OK num app e ande com ◀ ▶. Ao passar "em cima" de outro card os dois viram uma pilha de previa ("A B+C D E") e o rodape diz "OK forma a pilha". OK confirma; se continuar andando, o card segue ("A C B D E"). Voltar cancela sem gravar. O app que chegou fica na frente. Uma pilha arrastada so ocupa posicoes ao lado (nao da para empilhar uma pilha dentro de outra); um app solto pode entrar numa pilha que ja existe.
 
-- **App solto:** Mover · Empilhar com… · Ocultar · Ordem automática.
-- **Pilha** (vários apps num card, ex.: YouTube + YouTube Music): OK abre como uma pasta. Segure OK num card da pilha: Mover · Desfazer pilha · Ordem automática. Segure OK num app dentro da pilha: Tirar da pilha · Ocultar. Uma pilha que fica com 1 app se desfaz sozinha.
-- **Ocultar** tira o app da fila e o põe no card "Ocultos (n)", sempre o último. Lá dentro, segure OK → "Mostrar na tela inicial".
-- "Ordem automática" só apaga a ordem manual (volta a ordenar por uso); pilhas e ocultos continuam como estão.
+**Usar uma pilha:**
 
-Onde fica: `Organizacao.kt` guarda tudo nas SharedPreferences `launcher`: `ordem` (lista de tokens: o pacote do app ou `pilha:<id>`), `pilhas` (JSON) e `ocultos` (conjunto de pacotes). `MainActivity` só desenha.
+- ▲ ▼ no card da pilha trocam o app da frente (etiqueta "▲ 2/3 ▼"); **OK abre o app da frente**. A escolha fica salva. No primeiro/ultimo app a tecla segue para fora da pilha (▲ para o topo, ▼ para o rodape); segurar a tecla nao "foge".
+- Em app solto, ▲ ▼ vao para os outros elementos da tela (foto de perfil, chip de DNS).
+- Segure OK na pilha: **Mover** · **Remover cards do grupo**. O segundo abre uma pasta com os apps; OK num app pede confirmacao ("Remover X do grupo?", foco em Cancelar). Uma pilha que fica com 1 app se desfaz.
+- **Ocultar** (▲ no modo mover) tira o app da fila e o poe no card "Ocultos (n)", sempre o ultimo. La dentro, segure OK → "Mostrar na tela inicial".
+- Empilhar congela a ordem manual (como mover). "Ordem automatica" (▼) so apaga a ordem manual (volta a ordenar por uso); pilhas e ocultos continuam como estao.
 
-Testado no Chromecast simulando o "segurar" com `adb shell input keyevent --longpress KEYCODE_DPAD_CENTER` (menu, empilhar, pilha de 3, ocultar, mostrar, desfazer, mover). Não testado com o controle remoto de verdade: o "segurar" depende do `repeatCount` que o controle envia.
+Onde fica: `Organizacao.kt` guarda tudo nas SharedPreferences `launcher`: `ordem` (lista de tokens: o pacote do app ou `pilha:<id>`), `pilhas` (JSON: `id`, `apps`, `frente`) e `ocultos` (conjunto de pacotes). `MainActivity` so desenha.
+
+Testado no Chromecast simulando o "segurar" com `adb shell input keyevent --longpress KEYCODE_DPAD_CENTER` (mover, pre-pilha sobre app e sobre pilha, confirmar pilha, trocar a frente, remover do grupo com cancelar e confirmar). Nao testado com o controle remoto de verdade: o "segurar" depende do `repeatCount` que o controle envia.
+
 ## Device owner (ativo desde 31/10/2026)
 
 O launcher é o **Device Owner** do aparelho (`adb shell dpm list-owners` mostra `br.paulo.tvlauncher/.AdminReceiver`). O receptor `AdminReceiver` está vazio por enquanto: ser owner já dá a base para políticas futuras (ex.: `DevicePolicyManager.setPermissionGrantState`, `setApplicationHidden`, `setLockTaskPackages`), que ainda não usamos.

@@ -16,8 +16,11 @@ import org.json.JSONObject
 object Organizacao {
     private const val PREFS = "launcher"
 
-    /** Uma pilha: um id e os pacotes dentro dela (o primeiro aparece na frente). */
-    class Pilha(val id: String, val apps: MutableList<String>) {
+    /**
+     * Uma pilha: um id, os pacotes dentro dela e [frente], o pacote que está na frente (o que o OK abre).
+     * frente == null (ou um app que saiu) significa "o primeiro da lista".
+     */
+    class Pilha(val id: String, val apps: MutableList<String>, var frente: String? = null) {
         val token: String get() = tokenDaPilha(id)
     }
 
@@ -58,7 +61,13 @@ object Organizacao {
             for (i in 0 until vetor.length()) {
                 val o = vetor.getJSONObject(i)
                 val apps = o.getJSONArray("apps")
-                lista.add(Pilha(o.getString("id"), MutableList(apps.length()) { apps.getString(it) }))
+                lista.add(
+                    Pilha(
+                        o.getString("id"),
+                        MutableList(apps.length()) { apps.getString(it) },
+                        o.optString("frente", "").ifEmpty { null }
+                    )
+                )
             }
         } catch (e: Exception) {
             lista.clear()   // dado estragado: começa sem pilhas em vez de travar a tela inicial
@@ -68,19 +77,22 @@ object Organizacao {
 
     private fun salvarPilhas(ctx: Context, pilhas: List<Pilha>) {
         val vetor = JSONArray()
-        for (p in pilhas) vetor.put(JSONObject().put("id", p.id).put("apps", JSONArray(p.apps)))
+        for (p in pilhas) {
+            vetor.put(JSONObject().put("id", p.id).put("apps", JSONArray(p.apps)).put("frente", p.frente ?: ""))
+        }
         prefs(ctx).edit().putString("pilhas", vetor.toString()).apply()
     }
 
     /**
      * Junta o app [origem] (solto) com [destino]: outro app solto (cria uma pilha nova) ou uma pilha existente.
-     * Devolve o token da pilha resultante.
+     * O app que chegou fica na frente. Devolve o token da pilha resultante.
      */
     fun empilhar(ctx: Context, origem: String, destino: String): String {
         val todas = pilhas(ctx)
         val existente = todas.firstOrNull { it.token == destino }
         val pilha = existente ?: Pilha(System.currentTimeMillis().toString(36), mutableListOf(destino)).also { todas.add(it) }
         if (origem !in pilha.apps) pilha.apps.add(origem)
+        pilha.frente = origem
         salvarPilhas(ctx, todas)
         val token = pilha.token
         // Na ordem salva: a pilha ocupa o lugar do destino e a origem sai da posição antiga.
@@ -88,11 +100,21 @@ object Organizacao {
         return token
     }
 
+    /** Escolhe qual app da pilha [id] fica na frente. */
+    fun definirFrente(ctx: Context, id: String, pacote: String) {
+        val todas = pilhas(ctx)
+        val pilha = todas.firstOrNull { it.id == id } ?: return
+        if (pacote !in pilha.apps) return
+        pilha.frente = pacote
+        salvarPilhas(ctx, todas)
+    }
+
     /** Tira [pacote] da pilha onde está. Uma pilha que ficar com menos de 2 apps se desfaz. */
     fun tirarDaPilha(ctx: Context, pacote: String) {
         val todas = pilhas(ctx)
         val pilha = todas.firstOrNull { pacote in it.apps } ?: return
         pilha.apps.remove(pacote)
+        if (pilha.frente == pacote) pilha.frente = null
         val novos = if (pilha.apps.size < 2) {
             todas.remove(pilha)
             pilha.apps + pacote   // quem sobrou e quem saiu viram cards soltos
@@ -101,15 +123,6 @@ object Organizacao {
         }
         salvarPilhas(ctx, todas)
         editarOrdem(ctx) { o -> o.flatMap { if (it == pilha.token) novos else listOf(it) } }
-    }
-
-    /** Desfaz a pilha inteira: os apps viram cards soltos, na posição dela. */
-    fun desfazerPilha(ctx: Context, token: String) {
-        val todas = pilhas(ctx)
-        val pilha = todas.firstOrNull { it.token == token } ?: return
-        todas.remove(pilha)
-        salvarPilhas(ctx, todas)
-        editarOrdem(ctx) { o -> o.flatMap { if (it == token) pilha.apps else listOf(it) } }
     }
 
     // ---------------------------------------------------------------- ocultos
