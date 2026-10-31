@@ -36,6 +36,7 @@ import java.util.concurrent.Executors
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val TOKEN_OCULTOS = "ocultos"   // identifica o card "Ocultos" (nenhum pacote tem esse nome)
+private const val ID_PREVIA = "previa"       // id da pilha provisoria mostrada enquanto se arrasta um app para cima de outro
 
 /**
  * A tela inicial inteira. A interface é montada por código (sem arquivos XML de layout):
@@ -49,11 +50,15 @@ class MainActivity : Activity() {
     /**
      * Um card da linha principal: um app, uma pilha de apps, ou o card "Ocultos" (sempre o ultimo).
      * [token] identifica o card: o pacote (app), "pilha:<id>" (pilha) ou TOKEN_OCULTOS.
+     * Na pilha, [frente] e a posicao (em [itens]) do app que aparece na frente e que o OK abre.
      */
     private sealed class Entrada(val token: String, val nome: String) {
         class App(val item: Item) : Entrada(item.pacote, item.nome)
-        class Pilha(val id: String, val itens: List<Item>) :
-            Entrada(Organizacao.tokenDaPilha(id), itens.joinToString(" + ") { it.nome })
+        class Pilha(val id: String, val itens: List<Item>, val frente: Int = 0) :
+            Entrada(Organizacao.tokenDaPilha(id), itens[frente].nome) {
+            val daFrente: Item get() = itens[frente]
+            val titulo: String get() = itens.joinToString(" + ") { it.nome }
+        }
         class Ocultos(val itens: List<Item>) : Entrada(TOKEN_OCULTOS, "Ocultos (${itens.size})")
     }
 
@@ -79,8 +84,10 @@ class MainActivity : Activity() {
     private var lista: MutableList<Entrada> = mutableListOf()   // cards da linha principal, na ordem da tela
     private var modoMover = false
     private var luaNoIcone = false   // true: o icone do clima ja e a lua, entao a linha da fase some
-    private var tokenMovendo: String? = null
-    private var ordemAntesDeMover: List<String> = emptyList()
+    private var tokenMovendo: String? = null   // card que destaca em verde-agua no modo mover (o arrastado, ou a pre-pilha)
+    private var arrastado: Entrada? = null     // card que esta sendo arrastado (a lista [lista] nao muda ate confirmar)
+    private var posMover = 0                   // posicao de teste do arrastado: par = ao lado, impar = em cima de um card
+    private var ignorarProximoUp = false       // true logo apos segurar OK: o "soltar" dessa pressao nao confirma
     private var ultimoToken: String? = null   // card com foco: a ordem pode mudar, então guardamos o token, não a posição
     private var indiceFoco = 0                // posição do card com foco: usada quando o token some (ex.: app ocultado)
 
@@ -131,7 +138,7 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaRede)
         menuAberto?.dismiss()
         fecharPasta()
-        if (modoMover) sairDoModoMover(salvar = false)
+        if (modoMover) cancelarMover()
     }
 
     override fun onDestroy() {
@@ -367,7 +374,9 @@ class MainActivity : Activity() {
             if (pilha == null) {
                 entradas.add(Entrada.App(item))
             } else if (pilhasJaVistas.add(pilha.id)) {
-                entradas.add(Entrada.Pilha(pilha.id, membros.getValue(pilha.id)))
+                val itens = membros.getValue(pilha.id)
+                val frente = itens.indexOfFirst { it.pacote == pilha.frente }.coerceAtLeast(0)
+                entradas.add(Entrada.Pilha(pilha.id, itens, frente))
             }
         }
         val escondidos = todos.filter { it.pacote in ocultos }.sortedBy { it.nome.lowercase() }
@@ -391,15 +400,19 @@ class MainActivity : Activity() {
         desenhar()
     }
 
-    /** Desenha os cards na ordem de [lista] e devolve o foco ao último card usado. */
+    /** Os cards que aparecem agora: a lista normal, ou (no modo mover) a lista com o card arrastado na posição de teste. */
+    private fun listaDaTela(): List<Entrada> = if (modoMover) listaMovendo() else lista
+
+    /** Desenha os cards e devolve o foco ao último card usado. */
     private fun desenhar() {
         linhaApps.removeAllViews()
-        lista.forEach { linhaApps.addView(criarCartao(it)) }
-        if (lista.isEmpty()) return
+        val cards = listaDaTela()
+        cards.forEach { linhaApps.addView(criarCartao(it)) }
+        if (cards.isEmpty()) return
         linhaApps.post {
-            val achado = lista.indexOfFirst { it.token == ultimoToken }
+            val achado = cards.indexOfFirst { it.token == ultimoToken }
             // Se o card sumiu (ex.: app ocultado), o foco fica na mesma posição, que agora é o vizinho.
-            val alvo = if (achado >= 0) achado else indiceFoco.coerceIn(0, lista.lastIndex)
+            val alvo = if (achado >= 0) achado else indiceFoco.coerceIn(0, cards.lastIndex)
             linhaApps.getChildAt(alvo)?.requestFocus()
         }
     }
@@ -412,14 +425,15 @@ class MainActivity : Activity() {
         }
         return when (entrada) {
             is Entrada.App -> montarCartao(entrada.token, entrada.nome, miniaturaApp(entrada.item), { abrir(entrada.item.pacote) }, aoFocar)
-            is Entrada.Pilha -> montarCartao(entrada.token, entrada.nome, miniaturaPilha(entrada.itens), { abrirPasta(entrada) }, aoFocar)
+            // Pilha: o OK abre o app da frente (▲▼ trocam qual é).
+            is Entrada.Pilha -> montarCartao(entrada.token, entrada.nome, miniaturaPilha(entrada.itens, entrada.frente), { abrir(entrada.daFrente.pacote) }, aoFocar)
             is Entrada.Ocultos -> montarCartao(entrada.token, entrada.nome, miniaturaOcultos(), { abrirPasta(entrada) }, aoFocar)
         }
     }
 
     /**
      * Um card: a miniatura (184x104 dp) e o nome embaixo. Serve para a linha principal e para dentro das pastas.
-     * [token] identifica o card (modo de mover e menu de opções), [aoAbrir] roda ao apertar OK.
+     * [token] identifica o card (modo de mover e menu), [aoAbrir] roda ao apertar OK.
      */
     private fun montarCartao(token: String, nome: String, miniatura: View, aoAbrir: () -> Unit, aoFocar: (View) -> Unit): View {
         val cartao = LinearLayout(this).apply {
@@ -459,9 +473,12 @@ class MainActivity : Activity() {
         arredondar(this, 12)
     }
 
-    /** Pilha: o primeiro app na frente e até 2 atrás, deslocados para cima e para a direita, como uma pilha de cartas. */
-    private fun miniaturaPilha(itens: List<Item>): View {
-        val camadas = itens.take(3)
+    /**
+     * Pilha: o app da [frente] na frente e até 2 atrás, deslocados para cima e para a direita, como uma pilha de cartas.
+     * Uma etiqueta mostra qual é o da frente (ex.: "▲ 2/3 ▼"): ▲▼ trocam.
+     */
+    private fun miniaturaPilha(itens: List<Item>, frente: Int): View {
+        val camadas = (listOf(itens[frente]) + itens.filterIndexed { i, _ -> i != frente }).take(3)
         val caixa = FrameLayout(this)
         for (i in camadas.indices.reversed()) {   // de trás para a frente: o último adicionado fica por cima
             val app = camadas[i]
@@ -478,6 +495,17 @@ class MainActivity : Activity() {
                 topMargin = dp(12) - dp(6) * i
             })
         }
+        caixa.addView(texto(11f, Color.WHITE, fonteMedia).apply {
+            text = "▲ ${frente + 1}/${itens.size} ▼"
+            setPadding(dp(7), dp(2), dp(7), dp(2))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(9).toFloat()
+                setColor(0xB3000000.toInt())
+            }
+        }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START).apply {
+            leftMargin = dp(6)
+            bottomMargin = dp(6)
+        })
         return caixa
     }
 
@@ -511,13 +539,44 @@ class MainActivity : Activity() {
         barra.smoothScrollTo(alvo, 0)
     }
 
-    // ---------------------------------------------------------------- pastas (pilhas e ocultos)
+    // ---------------------------------------------------------------- ▲▼ numa pilha: trocar o app da frente
+
+    /**
+     * ▲▼ num card de pilha trocam o app da frente (o que o OK abre). Nas pontas (primeiro/último app) a tecla segue
+     * o caminho normal, ex.: ▼ no último vai para o rodapé. Em card solto não faz nada (também segue o caminho normal).
+     */
+    private fun trocarDaFrente(event: KeyEvent): Boolean {
+        val sobe = event.keyCode == KeyEvent.KEYCODE_DPAD_UP
+        if (!sobe && event.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false
+        val token = currentFocus?.tag as? String ?: return false
+        val pilha = lista.firstOrNull { it.token == token } as? Entrada.Pilha ?: return false
+        val novo = pilha.frente + if (sobe) -1 else 1
+        // Na ponta: um toque novo segue para fora da pilha, mas segurar a tecla não "foge" dela.
+        if (novo !in pilha.itens.indices) return event.repeatCount > 0
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            Organizacao.definirFrente(this, pilha.id, pilha.itens[novo].pacote)
+            val posicao = lista.indexOf(pilha)
+            val nova = Entrada.Pilha(pilha.id, pilha.itens, novo)
+            lista[posicao] = nova
+            // Põe o card novo ANTES de tirar o velho: tirar o card com foco faria o Android jogar o foco para o 1º card.
+            val vista = criarCartao(nova)
+            linhaApps.addView(vista, posicao)
+            vista.requestFocus()
+            linhaApps.removeViewAt(posicao + 1)
+        }
+        return true
+    }
+
+    // ---------------------------------------------------------------- pastas (apps ocultos e "remover do grupo")
 
     private var pasta: Dialog? = null
-    private var pastaToken: String? = null   // qual pasta está aberta: "pilha:<id>" ou TOKEN_OCULTOS
+    private var pastaToken: String? = null   // qual pasta está aberta: TOKEN_OCULTOS ou "pilha:<id>" (modo remover)
 
-    /** Abre uma pilha (ou os ocultos) numa janela por cima da tela inicial, como uma pasta. Voltar fecha. */
-    private fun abrirPasta(entrada: Entrada) {
+    /**
+     * Abre uma janela por cima da tela inicial, como uma pasta. Voltar fecha.
+     * Com [remover], é a lista dos apps de uma pilha: OK num app pede confirmação para tirá-lo do grupo.
+     */
+    private fun abrirPasta(entrada: Entrada, remover: Boolean = false) {
         val itens = when (entrada) {
             is Entrada.Pilha -> entrada.itens
             is Entrada.Ocultos -> entrada.itens
@@ -537,7 +596,10 @@ class MainActivity : Activity() {
         }
         for (app in itens) {
             linha.addView(montarCartao(app.pacote, app.nome, miniaturaApp(app),
-                { fecharPasta(); abrir(app.pacote) },
+                {
+                    if (remover && entrada is Entrada.Pilha) confirmarRemocao(app, entrada)
+                    else { fecharPasta(); abrir(app.pacote) }
+                },
                 { v -> centralizar(v, barra) }))
         }
         val ehOcultos = entrada is Entrada.Ocultos
@@ -545,7 +607,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             addView(texto(24f, Color.WHITE, fonteLeve).apply {
-                text = if (ehOcultos) "Apps ocultos" else entrada.nome
+                text = if (ehOcultos) "Apps ocultos" else "Qual app sai do grupo?"
                 gravity = Gravity.CENTER
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
@@ -554,7 +616,7 @@ class MainActivity : Activity() {
             addView(barra, LinearLayout.LayoutParams(MATCH, WRAP))
             addView(texto(13f, textoSuave).apply {
                 text = if (ehOcultos) "OK abre  ·  segure OK para mostrar na tela inicial  ·  Voltar fecha"
-                       else "OK abre  ·  segure OK para opções  ·  Voltar fecha"
+                       else "OK escolhe o app a remover  ·  Voltar fecha"
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(MATCH, WRAP))
         }
@@ -564,7 +626,7 @@ class MainActivity : Activity() {
             setBackgroundDrawable(ColorDrawable(0xF70E1311.toInt()))   // escurece a tela inicial por trás
             setLayout(MATCH, MATCH)
         }
-        // A janela tem as próprias teclas: o "segurar OK" precisa ser detectado aqui também.
+        // A janela tem as próprias teclas: o "segurar OK" (nos ocultos) precisa ser detectado aqui também.
         janela.setOnKeyListener { _, _, ev -> tratarSegurar(ev, janela.currentFocus) }
         janela.setOnDismissListener {
             if (pasta === janela) { pasta = null; pastaToken = null }
@@ -581,7 +643,31 @@ class MainActivity : Activity() {
         pastaToken = null
     }
 
-    // ---------------------------------------------------------------- menu de opções (segure OK em um card)
+    /** Pergunta antes de tirar [app] da [pilha]. O foco começa em "Cancelar": confirmar exige escolher "Remover". */
+    private fun confirmarRemocao(app: Item, pilha: Entrada.Pilha) {
+        val dialogo = AlertDialog.Builder(this)
+            .setTitle("Remover ${app.nome} do grupo?")
+            .setMessage("Ele volta a ser um card solto.")
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Remover") { _, _ ->
+                Organizacao.tirarDaPilha(this, app.pacote)
+                fecharPasta()
+                preencherApps()
+                // Se a pilha ainda existe (ficou com 2+ apps), reabre a lista para tirar mais um; senão ela se desfez.
+                val restante = lista.firstOrNull { it is Entrada.Pilha && it.id == pilha.id }
+                if (restante is Entrada.Pilha) {
+                    ultimoToken = restante.token
+                    abrirPasta(restante, remover = true)
+                } else {
+                    ultimoToken = app.pacote
+                }
+            }
+            .show()
+        dialogo.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+        menuAberto = dialogo
+    }
+
+    // ---------------------------------------------------------------- menu (segure OK em uma pilha)
 
     private class Opcao(val rotulo: String, val acao: () -> Unit)
 
@@ -589,8 +675,12 @@ class MainActivity : Activity() {
     private var engolirUp = false   // true entre o "segurar OK" e o menu fechar: o "soltar" da mesma pressão não pode virar clique
 
     /**
-     * Segurar OK (ou ENTER) num card abre o menu de opções. Detectamos o "segurar" pelo repeatCount:
-     * o Android repete a tecla enquanto ela está pressionada. Devolve true se o evento foi tratado aqui.
+     * Segurar OK (ou ENTER) num card. Detectamos o "segurar" pelo repeatCount: o Android repete a tecla
+     * enquanto ela está pressionada. O que acontece depende de onde:
+     *  - app solto: entra direto no modo mover (arrastar);
+     *  - pilha: abre o menu (Mover, Remover cards do grupo);
+     *  - app dentro da pasta "Ocultos": menu com "Mostrar na tela inicial".
+     * Devolve true se o evento foi tratado aqui.
      */
     private fun tratarSegurar(event: KeyEvent, focado: View?): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_DPAD_CENTER && event.keyCode != KeyEvent.KEYCODE_ENTER) return false
@@ -601,38 +691,32 @@ class MainActivity : Activity() {
         val segurado = event.repeatCount >= 1 || (event.flags and KeyEvent.FLAG_LONG_PRESS) != 0
         if (event.action != KeyEvent.ACTION_DOWN || !segurado) return false
         val token = focado?.tag as? String ?: return false   // só os cards têm tag
-        if (token == TOKEN_OCULTOS) return false              // o card "Ocultos" não tem menu
-        engolirUp = true
-        abrirMenu(token)
-        return true
+        if (token == TOKEN_OCULTOS) return false              // o card "Ocultos" não tem opções
+        val dentroDe = pastaToken
+        if (dentroDe == TOKEN_OCULTOS) {
+            engolirUp = true
+            abrirMenu(token)
+            return true
+        }
+        if (dentroDe != null) return false                    // pasta de "remover do grupo": segurar OK = apertar OK
+        return when (lista.firstOrNull { it.token == token }) {
+            is Entrada.App -> { iniciarMover(token, porSegurar = true); true }
+            is Entrada.Pilha -> { engolirUp = true; abrirMenu(token); true }
+            else -> false
+        }
     }
 
     private fun abrirMenu(token: String) {
-        val dentroDe = pastaToken
         val entrada = lista.firstOrNull { it.token == token }
         val titulo: String
         val opcoes = mutableListOf<Opcao>()
-        if (dentroDe == TOKEN_OCULTOS) {
+        if (pastaToken == TOKEN_OCULTOS) {
             titulo = nomeDe(token)
             opcoes += Opcao("Mostrar na tela inicial") { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
-        } else if (dentroDe != null) {   // app dentro de uma pilha
-            titulo = nomeDe(token)
-            opcoes += Opcao("Tirar da pilha") { Organizacao.tirarDaPilha(this, token); atualizarAposMudanca(token) }
-            opcoes += Opcao("Ocultar") { Organizacao.ocultar(this, token); atualizarAposMudanca(null) }
-        } else if (entrada is Entrada.App) {
-            titulo = entrada.nome
-            opcoes += Opcao("Mover") { iniciarMover(token) }
-            opcoes += Opcao("Empilhar com…") { escolherParaEmpilhar(entrada) }
-            opcoes += Opcao("Ocultar") { Organizacao.ocultar(this, token); atualizarAposMudanca(null) }
-            opcoes += Opcao("Ordem automática") { restaurarOrdemAutomatica() }
-        } else if (entrada is Entrada.Pilha) {
-            titulo = entrada.nome
-            opcoes += Opcao("Mover") { iniciarMover(token) }
-            opcoes += Opcao("Desfazer pilha") {
-                Organizacao.desfazerPilha(this, token)
-                atualizarAposMudanca(entrada.itens.first().pacote)
-            }
-            opcoes += Opcao("Ordem automática") { restaurarOrdemAutomatica() }
+        } else if (pastaToken == null && entrada is Entrada.Pilha) {
+            titulo = entrada.titulo
+            opcoes += Opcao("Mover") { iniciarMover(token, porSegurar = false) }
+            opcoes += Opcao("Remover cards do grupo") { abrirPasta(entrada, remover = true) }
         } else {
             return
         }
@@ -643,20 +727,7 @@ class MainActivity : Activity() {
             .show()
     }
 
-    /** Segundo passo de "Empilhar com…": lista os outros cards e junta o escolhido com [origem]. */
-    private fun escolherParaEmpilhar(origem: Entrada.App) {
-        val candidatos = lista.filter { it !is Entrada.Ocultos && it.token != origem.token }
-        if (candidatos.isEmpty()) return
-        menuAberto = AlertDialog.Builder(this)
-            .setTitle("Empilhar ${origem.nome} com…")
-            .setItems(candidatos.map { it.nome }.toTypedArray()) { _, i ->
-                ultimoToken = Organizacao.empilhar(this, origem.token, candidatos[i].token)
-                preencherApps()
-            }
-            .show()
-    }
-
-    /** Depois de empilhar/ocultar/etc.: fecha a pasta aberta, relê tudo e leva o foco para [foco] (ou perto de onde estava). */
+    /** Depois de mostrar/ocultar: fecha a pasta aberta, relê tudo e leva o foco para [foco] (ou perto de onde estava). */
     private fun atualizarAposMudanca(foco: String?) {
         fecharPasta()
         if (foco != null) ultimoToken = foco
@@ -665,7 +736,7 @@ class MainActivity : Activity() {
 
     private fun nomeDe(pacote: String): String = instalados.firstOrNull { it.pacote == pacote }?.nome ?: pacote
 
-    // ---------------------------------------------------------------- mover cards (menu > Mover)
+    // ---------------------------------------------------------------- mover cards (segure OK em um app, ou menu da pilha > Mover)
 
     private val corMover = 0xFF7FD6C2.toInt()
 
@@ -684,13 +755,15 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Segurar OK num card abre o menu (ver tratarSegurar). No modo de mover (menu > Mover):
-     * esquerda/direita troca de posicao, OK salva, Voltar cancela, para baixo volta a ordem automatica.
+     * No modo mover: ◀ ▶ andam uma posição, OK confirma, Voltar cancela,
+     * ▲ oculta o app (só card solto) e ▼ volta à ordem automática.
+     * Fora dele: segurar OK (ver tratarSegurar) e ▲▼ numa pilha (ver trocarDaFrente).
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val confirma = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER
         if (!modoMover) {
             if (tratarSegurar(event, currentFocus)) return true
+            if (trocarDaFrente(event)) return true
             return super.dispatchKeyEvent(event)
         }
         val pressionou = event.action == KeyEvent.ACTION_DOWN
@@ -698,52 +771,124 @@ class MainActivity : Activity() {
         return when {
             event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> { if (pressionou) moverCartao(-1); true }
             event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { if (pressionou) moverCartao(1); true }
-            event.keyCode == KeyEvent.KEYCODE_DPAD_UP -> true
+            event.keyCode == KeyEvent.KEYCODE_DPAD_UP -> {
+                if (pressionou && event.repeatCount == 0) ocultarArrastado()
+                true
+            }
             event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (pressionou && event.repeatCount == 0) restaurarOrdemAutomatica()
                 true
             }
             confirma -> {
-                if (soltou) sairDoModoMover(salvar = true)
+                if (soltou) {
+                    // O primeiro "soltar" é o fim do segurar que abriu o modo: ignora.
+                    if (ignorarProximoUp) ignorarProximoUp = false else confirmarMover()
+                }
                 true
             }
-            event.keyCode == KeyEvent.KEYCODE_BACK -> { if (soltou) sairDoModoMover(salvar = false); true }
+            event.keyCode == KeyEvent.KEYCODE_BACK -> { if (soltou) cancelarMover(); true }
             else -> super.dispatchKeyEvent(event)
         }
     }
 
-    private fun iniciarMover(token: String) {
+    /*
+     * Como o "arrastar" funciona. Os outros cards (sem o arrastado e sem o "Ocultos") ficam parados: m cards.
+     * O arrastado tem 2m+1 posições possíveis, numeradas em posMover:
+     *   par   (2k)   = ao lado: entra na fila antes do card k (só muda a ordem);
+     *   ímpar (2k+1) = em cima do card k: pré-pilha (os dois viram um card só na tela, mas só vira pilha de verdade ao confirmar).
+     * Cada ◀ ▶ anda uma posição. Então para passar por um card são 2 toques: "em cima" e depois "do outro lado".
+     * Se o usuário não confirmar, o card segue andando. Voltar cancela e nada foi gravado: [lista] nunca é alterada.
+     * Uma pilha arrastada só usa as posições pares (não dá para empilhar uma pilha dentro de outra).
+     */
+
+    /** Os cards que ficam parados enquanto o [arrastado] anda. */
+    private fun outrosCards(): List<Entrada> = lista.filter { it !is Entrada.Ocultos && it.token != arrastado?.token }
+
+    /** O card em cima do qual o arrastado está (pré-pilha), ou null se está "ao lado". */
+    private fun alvoDeEmpilhar(): Entrada? = if (posMover % 2 == 1) outrosCards()[posMover / 2] else null
+
+    /** Une um app arrastado a [alvo] (um app solto ou uma pilha) só para mostrar na tela. O que chegou fica na frente. */
+    private fun fundir(alvo: Entrada, app: Entrada.App): Entrada.Pilha = when (alvo) {
+        is Entrada.Pilha -> Entrada.Pilha(alvo.id, alvo.itens + app.item, alvo.itens.size)
+        else -> Entrada.Pilha(ID_PREVIA, listOf((alvo as Entrada.App).item, app.item), 1)
+    }
+
+    /** A fila como aparece agora, com o arrastado na posição [posMover]. */
+    private fun listaMovendo(): List<Entrada> {
+        val movido = arrastado ?: return lista
+        val fila = outrosCards().toMutableList()
+        val alvo = alvoDeEmpilhar()
+        if (alvo == null) fila.add(posMover / 2, movido) else fila[posMover / 2] = fundir(alvo, movido as Entrada.App)
+        lista.lastOrNull { it is Entrada.Ocultos }?.let { fila.add(it) }   // "Ocultos" fica sempre no fim
+        return fila
+    }
+
+    private fun iniciarMover(token: String, porSegurar: Boolean) {
+        val card = lista.firstOrNull { it.token == token } ?: return
+        if (card is Entrada.Ocultos) return
         modoMover = true
-        tokenMovendo = token
-        ultimoToken = token
-        ordemAntesDeMover = lista.map { it.token }
+        arrastado = card
+        posMover = 2 * lista.filter { it !is Entrada.Ocultos }.indexOfFirst { it.token == token }   // começa "ao lado", onde estava
+        ignorarProximoUp = porSegurar   // segurando OK, o "soltar" ainda vai chegar e não pode confirmar
+        atualizarMover()
+    }
+
+    private fun moverCartao(delta: Int) {
+        val passo = if (arrastado is Entrada.App) 1 else 2
+        val nova = (posMover + delta * passo).coerceIn(0, 2 * outrosCards().size)
+        if (nova == posMover) return
+        posMover = nova
+        atualizarMover()
+    }
+
+    /** Redesenha com o arrastado na posição nova e leva o foco para o card que o representa. */
+    private fun atualizarMover() {
+        val alvo = alvoDeEmpilhar()
+        tokenMovendo = if (alvo == null) arrastado?.token else fundir(alvo, arrastado as Entrada.App).token
+        ultimoToken = tokenMovendo
         mostrarDica(true)
         desenhar()
     }
 
-    private fun moverCartao(delta: Int) {
-        val token = tokenMovendo ?: return
-        val de = lista.indexOfFirst { it.token == token }
-        val para = de + delta
-        if (de < 0 || para !in lista.indices || lista[para] is Entrada.Ocultos) return   // "Ocultos" fica sempre no fim
-        lista.add(para, lista.removeAt(de))
+    private fun confirmarMover() {
+        val card = arrastado ?: return
+        val alvo = alvoDeEmpilhar()
+        if (alvo != null && card is Entrada.App) {
+            // Congela a ordem de agora (com o arrastado onde estava) e junta: a pilha ocupa o lugar do alvo.
+            Organizacao.salvarOrdem(this, lista.filter { it !is Entrada.Ocultos }.map { it.token })
+            ultimoToken = Organizacao.empilhar(this, card.token, alvo.token)
+        } else {
+            Organizacao.salvarOrdem(this, listaMovendo().filter { it !is Entrada.Ocultos }.map { it.token })
+        }
+        terminarMover()
+        preencherApps()
+    }
+
+    private fun cancelarMover() {
+        ultimoToken = arrastado?.token   // o foco volta para o card que estava sendo movido, no lugar de origem
+        terminarMover()
         desenhar()
     }
 
-    private fun sairDoModoMover(salvar: Boolean) {
-        if (salvar) Organizacao.salvarOrdem(this, lista.filter { it !is Entrada.Ocultos }.map { it.token })
-        else lista = lista.sortedBy { ordemAntesDeMover.indexOf(it.token) }.toMutableList()
+    private fun terminarMover() {
         modoMover = false
+        arrastado = null
         tokenMovendo = null
+        ignorarProximoUp = false
         mostrarDica(false)
-        desenhar()
+    }
+
+    /** ▲ no modo mover: oculta o app arrastado (some da fila e vai para o card "Ocultos"). */
+    private fun ocultarArrastado() {
+        val card = arrastado as? Entrada.App ?: return
+        terminarMover()
+        Organizacao.ocultar(this, card.token)
+        atualizarAposMudanca(null)
     }
 
     private fun restaurarOrdemAutomatica() {
+        terminarMover()
         Organizacao.limparOrdem(this)
-        modoMover = false
-        tokenMovendo = null
-        mostrarDica(false)
         preencherApps()
     }
 
@@ -751,9 +896,19 @@ class MainActivity : Activity() {
     private fun mostrarDica(ligada: Boolean) {
         if (ligada) {
             txtRede.setTextColor(corMover)
-            txtRede.text = "◀ ▶ mover  ·  OK salva  ·  Voltar cancela  ·  ▼ ordem automática"
+            txtRede.textSize = 13f
+            txtRede.maxLines = 2     // a dica é longa: pode usar 2 linhas ao lado do chip de DNS
+            val alvo = alvoDeEmpilhar()
+            txtRede.text = when {
+                alvo is Entrada.Pilha -> "OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
+                alvo != null -> "OK forma a pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
+                arrastado is Entrada.App -> "◀ ▶ mover · OK confirma · Voltar cancela · ▲ ocultar · ▼ ordem automática"
+                else -> "◀ ▶ mover · OK confirma · Voltar cancela · ▼ ordem automática"
+            }
         } else {
             txtRede.setTextColor(textoSuave)
+            txtRede.textSize = 14f
+            txtRede.maxLines = 1
             atualizarRede()
         }
     }
