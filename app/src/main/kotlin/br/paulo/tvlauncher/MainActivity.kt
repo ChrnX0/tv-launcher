@@ -206,14 +206,14 @@ class MainActivity : Activity() {
 
         // A hora e um botao: OK abre o despertador (AlarmesActivity). Mesma folga de foco do clima (ver abaixo).
         val folgaFoco = 12
+        // Hora e data sao dois botoes: OK na hora abre o despertador; OK na data, a agenda do perfil ativo.
+        // Cada um tem a folga do realce (padding de 12 dp e margem de -12 dp): o texto continua na grade.
         val blocoHora = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(folgaFoco), dp(folgaFoco), dp(folgaFoco), dp(folgaFoco))
-            isFocusable = true
-            isClickable = true
-            setOnClickListener { startActivity(Intent(this@MainActivity, AlarmesActivity::class.java)) }
-            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
+            clipChildren = false
+            clipToPadding = false
         }
+        val f = dp(folgaFoco)
         blocoHora.addView(TextClock(this).apply {
             format12Hour = "HH:mm"
             format24Hour = "HH:mm"
@@ -222,19 +222,25 @@ class MainActivity : Activity() {
             typeface = fonteLeve
             letterSpacing = -0.02f
             includeFontPadding = false
-        })
+            setPadding(f, f, f, f)
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { startActivity(Intent(this@MainActivity, AlarmesActivity::class.java)) }
+            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
         blocoHora.addView(TextClock(this).apply {
             format12Hour = "EEEE, d 'de' MMMM"
             format24Hour = "EEEE, d 'de' MMMM"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTextColor(textoSuave)
             letterSpacing = 0.03f
-            setPadding(0, dp(4), 0, 0)
-        })
-        topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4) + 2 * folgaFoco), WRAP).apply {
-            leftMargin = dp(Grade.x(1) - folgaFoco)
-            topMargin = -dp(folgaFoco)
-        })
+            setPadding(f, f + dp(4), f, f)
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
+            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
+        topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
 
         // Clima: [icone][temperatura] em cima e "descricao · min – max" embaixo, alinhados a esquerda como a hora.
         txtIcone = texto(44f, Color.WHITE).apply {
@@ -308,7 +314,7 @@ class MainActivity : Activity() {
         topo.addView(blocoInfo, FrameLayout.LayoutParams(dp(Grade.largura(3)), WRAP).apply { leftMargin = dp(Grade.x(9)) })
         // A altura do bloco de informacao copia a do bloco da hora (hora + data).
         blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            val altura = v.height - dp(2 * folgaFoco)   // o bloco da hora tem a folga do realce em cima e embaixo
+            val altura = v.height   // altura do bloco hora + data (as folgas do realce se anulam com as margens negativas)
             if (blocoInfo.layoutParams.height != altura) {
                 blocoInfo.layoutParams = blocoInfo.layoutParams.apply { height = altura }
             }
