@@ -98,3 +98,8 @@ Tudo reversível com `pm enable` (ou `-Desfazer`).
 - **Religar o serviço:** o Android o desliga a cada `force-stop` do app (inclusive o que o Shizuku faz ao revogar um app). `restaurar-tv.ps1` já liga na instalação; à mão:
   `adb shell settings put secure enabled_accessibility_services br.paulo.tvlauncher/br.paulo.tvlauncher.AutorizaShizukuService` e `adb shell settings put secure accessibility_enabled 1`.
 - **DNS (chip "DNS: …" no rodapé):** escolhe o DNS privado (DoT) da TV. Precisa uma vez de `adb shell pm grant br.paulo.tvlauncher android.permission.WRITE_SECURE_SETTINGS`, que continua valendo após reinstalar. O Android só aceita **nome** de servidor, nunca IP. Servidor fixo que não responde deixa a TV sem resolver nomes (não volta ao normal sozinho): na tela, escolha "Automático", ou `adb shell settings put global private_dns_mode opportunistic`.
+
+## Device owner (preparado, ainda não ativado)
+
+O launcher já tem o receptor (`AdminReceiver`) e o APK é `testOnly`, o que permite desfazer depois com `adb shell dpm remove-active-admin br.paulo.tvlauncher/.AdminReceiver`. Por isso o APK se instala com `adb install -r -t`. Ativar: `adb shell dpm set-device-owner br.paulo.tvlauncher/.AdminReceiver`.
+Bloqueios encontrados em 31/10/2026: (1) "several users on the device": existe o usuário 10 (`new_user`); (2) contas: há 2 contas Google no usuário 0 (o Android costuma exigir zero contas; só será confirmado depois de tirar o usuário 10). Remover usuário e contas são passos manuais e decididos por você: as contas precisam ser adicionadas de novo depois.
