@@ -169,8 +169,8 @@ class PopupPerfil(
             clipChildren = false
             setOnClickListener { fechar() }   // toque fora do painel fecha
             addView(painel, FrameLayout.LayoutParams(dp(350), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-                topMargin = dp(104)
-                marginEnd = dp(56)
+                topMargin = dp(112)   // logo abaixo da bolinha (Grade.TOPO + linha da hora)
+                marginEnd = dp(Grade.MARGEM)   // borda direita = borda direita da bolinha e do ultimo card
             })
         }
 
