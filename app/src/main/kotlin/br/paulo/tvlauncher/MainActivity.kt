@@ -498,7 +498,7 @@ class MainActivity : Activity() {
                 val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
                 val url = "https://api.open-meteo.com/v1/forecast" +
                     "?latitude=${Config.LATITUDE}&longitude=${Config.LONGITUDE}" +
-                    "&current=temperature_2m,weather_code,precipitation" +
+                    "&current=temperature_2m,weather_code,precipitation,is_day" +
                     "&hourly=precipitation_probability&forecast_hours=4" +
                     "&daily=temperature_2m_max,temperature_2m_min" +
                     "&timezone=auto&forecast_days=1$unidade"
@@ -518,7 +518,12 @@ class MainActivity : Activity() {
                     chance >= 0 -> "chuva nas próx. 3 h: $chance%"
                     else -> ""
                 }
-                val (icone, descricao) = descricaoClima(atual.getInt("weather_code"))
+                val codigo = atual.getInt("weather_code")
+                val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
+                val (iconeDoTempo, descricao) = descricaoClima(codigo)
+                // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol.
+                // Chuva, neblina etc. (codigo 3 em diante) mantem o proprio icone.
+                val icone = if (!eDia && codigo in 0..2) Lua.emoji(System.currentTimeMillis(), Config.LATITUDE) else iconeDoTempo
                 val detalhe = "${Config.CIDADE}  ·  $min° – $max°" +
                     if (chuva.isNotEmpty()) "  ·  $chuva" else ""
                 ui.post {
