@@ -10,9 +10,10 @@ object Config {
     const val LATITUDE = -21.1775
     const val LONGITUDE = -47.8103
     const val USAR_FAHRENHEIT = false
-    // Estação de aeroporto (código ICAO) de onde vem a temperatura MEDIDA agora; "" = só o modelo da Open-Meteo.
-    // SBRP = aeroporto de Ribeirão Preto. Na Flórida, troque pelo aeroporto mais perto (ex.: KMCO em Orlando).
-    const val ESTACAO_METAR = "SBRP"
+    // A localização de verdade vem da própria TV (Wi-Fi do Android, depois IP; ver Localizacao.kt). LATITUDE/LONGITUDE
+    // acima só valem se as duas falharem. A estação de medição (aeroporto) é escolhida sozinha: a mais perto.
+    // Para FIXAR uma, ponha o código ICAO aqui (ex.: "SBRP"); "" = automático.
+    const val ESTACAO_METAR = ""
 
     // --- Quais apps aparecem: os instalados por você + estes pacotes de sistema (a Play Store).
     val SEMPRE_MOSTRAR = listOf("com.android.vending")
@@ -50,7 +51,7 @@ object Config {
     const val DEPURACAO_SEM_FIO_SEMPRE_LIGADA = true
 
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
-    const val CLIMA_A_CADA_MIN = 15L
+    const val CLIMA_A_CADA_MIN = 5L   // as fontes mudam a cada 15 min (modelo) e ~60 min (aeroporto, ou antes se o tempo virar); 5 min pega a mudança cedo
     const val LUA_A_CADA_MIN = 30L   // fase da lua: recalculada no proprio aparelho, sem internet
     const val REDE_A_CADA_SEG = 30L
     const val ECLIPSE_A_CADA_SEG = 60L   // so importa durante um eclipse solar: a lua anda no icone a cada tanto
