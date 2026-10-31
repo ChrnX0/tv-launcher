@@ -61,6 +61,7 @@ class MainActivity : Activity() {
     private lateinit var rolagem: HorizontalScrollView
     private var lista: MutableList<Item> = mutableListOf()   // apps na ordem em que aparecem na tela
     private var modoMover = false
+    private var luaNoIcone = false   // true: o icone do clima ja e a lua, entao a linha da fase some
     private var pacoteMovendo: String? = null
     private var ordemAntesDeMover: List<String> = emptyList()
     private var ignorarProximoUp = false
@@ -523,7 +524,8 @@ class MainActivity : Activity() {
                 val (iconeDoTempo, descricao) = descricaoClima(codigo)
                 // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol.
                 // Chuva, neblina etc. (codigo 3 em diante) mantem o proprio icone.
-                val icone = if (!eDia && codigo in 0..2) Lua.emoji(System.currentTimeMillis(), Config.LATITUDE) else iconeDoTempo
+                val luaVirouIcone = !eDia && codigo in 0..2
+                val icone = if (luaVirouIcone) Lua.emoji(System.currentTimeMillis(), Config.LATITUDE) else iconeDoTempo
                 val detalhe = "${Config.CIDADE}  ·  $min° – $max°" +
                     if (chuva.isNotEmpty()) "  ·  $chuva" else ""
                 ui.post {
@@ -531,6 +533,8 @@ class MainActivity : Activity() {
                     txtTemp.text = "$temp°"
                     txtDescricao.text = descricao
                     txtDetalhe.text = detalhe
+                    luaNoIcone = luaVirouIcone
+                    atualizarLua()
                 }
             } catch (e: Exception) {
                 // Sem internet ou API fora do ar: mantem o ultimo valor mostrado.
@@ -540,6 +544,8 @@ class MainActivity : Activity() {
 
     /** A lua e calculada no aparelho (ver Lua.kt): nao usa internet. */
     private fun atualizarLua() {
+        // Quando o icone do clima ja e a lua (noite, ceu visivel), a linha ficaria repetida: some.
+        txtLua.visibility = if (luaNoIcone) View.GONE else View.VISIBLE
         txtLua.text = Lua.resumo(System.currentTimeMillis(), Config.LATITUDE)
     }
 
