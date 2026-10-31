@@ -1,6 +1,9 @@
 package br.paulo.tvlauncher
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.pm.PackageManager
+import android.provider.Settings
 import android.util.Log
 import rikka.shizuku.Shizuku
 import kotlin.concurrent.thread
@@ -31,6 +34,35 @@ object Privilegio {
             pedindoDesde = 0L
             Log.i(TAG, "resposta ao pedido ($codigo): ${if (resultado == PackageManager.PERMISSION_GRANTED) "AUTORIZADO" else "negado"}")
             if (codigo == CODIGO_PEDIDO && resultado == PackageManager.PERMISSION_GRANTED) testar()
+        }
+    }
+
+    /**
+     * Mantém o serviço de acessibilidade (AutorizaShizukuService) ligado.
+     * O Android o desliga sempre que o app leva "force-stop", e o Shizuku faz isso ao revogar um app. Como o launcher
+     * é a tela inicial, ele sobe de novo no próximo HOME e se religa aqui, escrevendo na lista de serviços ativos
+     * (permitido porque o app tem WRITE_SECURE_SETTINGS, dada uma vez por adb).
+     * Com Config.SHIZUKU_AUTORIZAR_TUDO = false isto não faz nada.
+     */
+    fun religarAcessibilidade(ctx: Context) {
+        if (!Config.SHIZUKU_AUTORIZAR_TUDO) return
+        try {
+            val cr = ctx.contentResolver
+            val meu = ComponentName(ctx, AutorizaShizukuService::class.java)
+            val atual = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+            // A lista é "pacote/Classe:pacote/Classe". Comparo como ComponentName porque a forma curta (".Classe") também vale.
+            val lista = atual.split(':').filter { it.isNotBlank() }
+            if (lista.none { ComponentName.unflattenFromString(it) == meu }) {
+                Settings.Secure.putString(
+                    cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (lista + meu.flattenToString()).joinToString(":")
+                )
+                Log.i(TAG, "servico de acessibilidade estava desligado; religado")
+            }
+            if (Settings.Secure.getInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 0) != 1) {
+                Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+            }
+        } catch (e: SecurityException) {
+            Log.w(TAG, "sem WRITE_SECURE_SETTINGS: nao consigo religar o servico de acessibilidade")
         }
     }
 
