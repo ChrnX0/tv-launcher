@@ -30,6 +30,10 @@
     <!-- Despertador: alarme no horário exato que acorda a TV (AlarmManager.setAlarmClock). USE_EXACT_ALARM vale do Android 13 em diante. -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <!-- Agenda: ler os eventos (dada uma vez por adb: pm grant ... READ_CALENDAR) e ligar a sincronização da agenda Google -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <!-- Permissão do Shizuku: sem ela o app não aparece na lista de apps autorizáveis dele -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
@@ -114,6 +118,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Agenda do perfil ativo (abre no OK da data do topo) -->
+        <activity
+            android:name=".CalendarioActivity"
+            android:exported="false"
+            android:label="Agenda" />
         <!-- A tela que aparece quando o alarme toca: acende a tela mesmo em standby. -->
         <activity
             android:name=".AlarmeTocandoActivity"
