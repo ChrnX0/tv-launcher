@@ -23,6 +23,13 @@
     <!-- Só declarada: permite que o app abra outro app a partir do receiver de boot (ver BootReceiver) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- DNS privado: o launcher grava Settings.Global (tela de DNS). Liberada uma vez por adb: pm grant ... WRITE_SECURE_SETTINGS -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- Permissão do Shizuku: sem ela o app não aparece na lista de apps autorizáveis dele -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+
     <!-- Android 11+ só deixa um app enxergar outros apps se isso for declarado aqui -->
     <queries>
         <intent>
@@ -61,5 +68,27 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <!-- Shizuku: o provider é por onde o Shizuku nos entrega o canal de comunicação (binder) -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <!-- Aprova sozinho os pedidos de permissão ao Shizuku (ver AutorizaShizukuService) -->
+        <service
+            android:name=".AutorizaShizukuService"
+            android:exported="false"
+            android:label="Autoriza Shizuku"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/autoriza_acessibilidade" />
+        </service>
     </application>
 </manifest>

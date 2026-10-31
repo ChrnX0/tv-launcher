@@ -92,6 +92,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(montarTela())
+        Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
     }
 
     override fun onResume() {
@@ -100,6 +101,7 @@ class MainActivity : Activity() {
         ui.post(tarefaClima)
         ui.post(tarefaLua)
         ui.post(tarefaRede)
+        Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
     }
 
     override fun onPause() {

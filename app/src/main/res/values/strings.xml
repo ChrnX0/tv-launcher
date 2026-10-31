@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="descricao_autoriza_shizuku">Aprova sozinho os pedidos de permissão que apps fazem ao Shizuku.</string>
+</resources>
