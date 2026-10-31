@@ -143,6 +143,7 @@ class MainActivity : Activity() {
         ui.post(tarefaRede)
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         Privilegio.religarAcessibilidade(this)
+        Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
         Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
     }
 
