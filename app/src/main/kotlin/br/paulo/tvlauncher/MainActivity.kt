@@ -77,7 +77,8 @@ class MainActivity : Activity() {
     private lateinit var txtIcone: TextView
     private lateinit var txtTemp: TextView
     private lateinit var txtDescricao: TextView
-    private lateinit var txtDetalhe: TextView
+    private lateinit var txtInfo: List<TextView>   // as 3 linhas de informacao do topo (colunas 9-11)
+    private var textoUmidade = ""   // "💧  Umidade 39%"
     private var textoChuva = ""   // "Chuva 91% nas próx. 3 h" ou "Chovendo agora"; vai na 3a linha do clima, junto da lua
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
@@ -182,21 +183,18 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- montagem da tela
 
     private fun montarTela(): View {
-        val raiz = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            // Margem de segurança de TV só em cima/embaixo; as laterais ficam em cada bloco,
-            // assim a linha de apps pode rolar até a borda da tela.
-            setPadding(0, dp(30), 0, dp(26))
-            clipChildren = false   // a bolinha do perfil cresce com o foco e passa um pouco da margem
+        // Tudo na grade (ver Grade.kt): o topo comeca em Grade.TOPO e a linha de apps em Grade.LINHA_APPS,
+        // com as laterais em Grade.MARGEM. Nada de espacos elasticos: cada coisa tem lugar fixo.
+        val raiz = FrameLayout(this).apply {
+            clipChildren = false   // a bolinha e o card focado crescem um pouco alem da propria caixa
             clipToPadding = false
         }
 
-        // ---- Topo em duas colunas: hora e data a esquerda; clima alinhado a direita, encostado na bolinha do perfil.
-        // A linha grande (hora / temperatura) usa a mesma fonte e o mesmo tamanho dos dois lados, e a 2a linha tambem
-        // (data / descricao): assim as duas colunas caem exatamente nas mesmas alturas.
-        val topo = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(56), 0, dp(56), 0)
+        // ---- Topo, nas colunas da grade (ver Grade.kt):
+        //   1-4: hora / data       5-8: clima (temperatura / descricao)       9-11: tres linhas de informacao       12: bolinha
+        // Hora e temperatura tem a mesma fonte e tamanho; data e descricao tambem: os dois blocos caem nas mesmas alturas.
+        // As 3 linhas de informacao se dividem igualmente na altura desses blocos.
+        val topo = FrameLayout(this).apply {
             clipChildren = false
             clipToPadding = false
         }
@@ -217,11 +215,11 @@ class MainActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTextColor(textoSuave)
             letterSpacing = 0.03f
-            setPadding(dp(4), dp(6), 0, 0)
+            setPadding(0, dp(4), 0, 0)
         })
-        topo.addView(blocoHora, LinearLayout.LayoutParams(0, WRAP, 1f))
+        topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
 
-        // Direita: [icone][temperatura] em cima; "descricao · min – max" e "chuva · lua" embaixo, tudo alinhado a direita.
+        // Clima: [icone][temperatura] em cima e "descricao · min – max" embaixo, alinhados a esquerda como a hora.
         txtIcone = texto(44f, Color.WHITE).apply {
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -239,60 +237,68 @@ class MainActivity : Activity() {
         val linhaTemp = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(caixaIcone, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginEnd = dp(14) })
+            addView(caixaIcone, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginEnd = dp(12) })
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
         }
-        // minLines = 1: a linha ocupa a altura mesmo vazia (antes do clima chegar, ou sem chuva a noite),
-        // entao o bloco nunca muda de altura e os cards nao pulam.
-        txtDescricao = texto(16f, textoClaro).apply {   // mesmo tamanho e espacamento da data, do outro lado
-            gravity = Gravity.END
+        txtDescricao = texto(16f, textoClaro).apply {   // mesmo tamanho e espacamento da data
             letterSpacing = 0.03f
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(4), 0, 0)
             minLines = 1
-        }
-        txtDetalhe = texto(14f, textoSuave).apply {
-            gravity = Gravity.END
-            letterSpacing = 0.02f
-            setPadding(0, dp(6), 0, 0)
-            minLines = 1
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
         }
         val blocoClima = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.END
             addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(txtDescricao, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(txtDetalhe, LinearLayout.LayoutParams(WRAP, WRAP))
+            addView(txtDescricao, LinearLayout.LayoutParams(MATCH, WRAP))
         }
-        topo.addView(blocoClima, LinearLayout.LayoutParams(WRAP, WRAP))
+        topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(5)) })
 
-        // A bolinha do perfil, depois do clima. Fica centrada na altura da linha grande (hora/temperatura).
+        // Tres linhas de informacao (chuva, lua, umidade...), cada uma com 1/3 da altura dos blocos ao lado.
+        txtInfo = List(3) {
+            texto(14f, textoSuave).apply {
+                gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                letterSpacing = 0.02f
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+            }
+        }
+        val blocoInfo = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            txtInfo.forEach { addView(it, LinearLayout.LayoutParams(MATCH, 0, 1f)) }
+        }
+        topo.addView(blocoInfo, FrameLayout.LayoutParams(dp(Grade.largura(3)), WRAP).apply { leftMargin = dp(Grade.x(9)) })
+        // A altura do bloco de informacao copia a do bloco da hora (MATCH dentro de um FrameLayout sem altura fixa
+        // nao fazia isso na pratica: as 3 linhas ficavam espremidas em cima).
+        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (blocoInfo.layoutParams.height != v.height) {
+                blocoInfo.layoutParams = blocoInfo.layoutParams.apply { height = v.height }
+            }
+        }
+
+        // Bolinha: exatamente a coluna 12 (50 dp). Centrada na altura da linha grande (hora/temperatura).
         val bolinha = botaoPerfil()
-        val blocoPerfil = FrameLayout(this).apply { clipChildren = false }
-        blocoPerfil.addView(bolinha, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END))
-        topo.addView(blocoPerfil, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(36) })
+        topo.addView(bolinha, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(12)) })
         linhaTemp.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             bolinha.translationY = ((v.height - bolinha.height) / 2f).coerceAtLeast(0f)
         }
-        raiz.addView(topo, LinearLayout.LayoutParams(MATCH, WRAP))
+        raiz.addView(topo, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.TOPO) })
 
-        // Espaço elástico empurra a linha de apps para o meio da tela.
-        raiz.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
-
-        // ---- Linha de apps (rola na horizontal).
+        // ---- Linha de apps (rola na horizontal). O padding de cima/baixo e a folga para o card focado crescer;
+        // por isso a rolagem comeca FOLGA acima da linha da grade.
+        val folga = 24
         rolagem = HorizontalScrollView(this).apply {
             clipChildren = false    // senão a rolagem corta o card focado quando ele cresce
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
-            setPadding(dp(56), dp(24), dp(56), dp(24))
+            setPadding(dp(Grade.MARGEM), dp(folga), dp(Grade.MARGEM), dp(folga))
         }
         linhaApps = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             clipChildren = false
         }
         rolagem.addView(linhaApps)
-        raiz.addView(rolagem, LinearLayout.LayoutParams(MATCH, WRAP))
-
-        raiz.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
+        raiz.addView(rolagem, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.LINHA_APPS - folga) })
 
         // ---- Guia de teclas do modo mover: uma faixa na parte de baixo, por cima de tudo. Some fora do modo mover.
         txtDica = texto(15f, corMover).apply {
@@ -318,16 +324,18 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Fundo: a textura de res/drawable-nodpi/fundo.jpg (1920x1080, já no tamanho da tela).
-     * "nodpi" manda o Android NÃO redimensionar a imagem conforme a densidade da tela.
-     * Custa ~8 MB de RAM enquanto o launcher está aberto (1920 x 1080 x 4 bytes); a TV tem folga.
+     * Fundo: degrade escuro e liso (do canto superior esquerdo, levemente mais claro, para o inferior direito).
+     * Substitui a textura pontilhada (res/drawable-nodpi/fundo.jpg, que ficou sem uso). Tambem gasta menos RAM que a imagem.
      */
-    private fun montarFundo(): Drawable = resources.getDrawable(R.drawable.fundo, theme)
+    private fun montarFundo(): Drawable = GradientDrawable(
+        GradientDrawable.Orientation.TL_BR,
+        intArrayOf(0xFF1B2326.toInt(), 0xFF0F1416.toInt(), 0xFF0A0D0E.toInt())
+    )
 
     /** A bolinha do perfil, no canto superior direito: mostra a foto/inicial da conta ativa e abre o popup (OK). */
     private fun botaoPerfil(): View {
         fotoPerfil = ImageView(this).apply {
-            setImageBitmap(Perfil.avatar(this@MainActivity, dp(56)))
+            setImageBitmap(Perfil.avatar(this@MainActivity, dp(44)))
             scaleType = ImageView.ScaleType.CENTER_CROP
             clipToOutline = true
             outlineProvider = object : ViewOutlineProvider() {
@@ -340,9 +348,9 @@ class MainActivity : Activity() {
             contentDescription = "Perfil"
             isFocusable = true
             isClickable = true
-            setPadding(dp(4), dp(4), dp(4), dp(4))
+            setPadding(dp(3), dp(3), dp(3), dp(3))
             background = anel(false)
-            addView(fotoPerfil, FrameLayout.LayoutParams(dp(56), dp(56)))
+            addView(fotoPerfil, FrameLayout.LayoutParams(dp(44), dp(44)))
             setOnClickListener { abrirPopup() }
             setOnFocusChangeListener { v, temFoco ->
                 v.background = anel(temFoco)
@@ -354,7 +362,7 @@ class MainActivity : Activity() {
 
     /** Redesenha a bolinha: a conta ativa mudou, ou chegou uma foto nova. */
     private fun atualizarFotoPerfil() {
-        fotoPerfil.setImageBitmap(Perfil.avatar(this, dp(56)))
+        fotoPerfil.setImageBitmap(Perfil.avatar(this, dp(44)))
     }
 
     /** Abre o menu do perfil (trocar perfil, Configurações, DNS, Wi-Fi). Ver PopupPerfil.kt. */
@@ -487,18 +495,15 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Um card: a miniatura (184x104 dp) e o nome embaixo. Serve para a linha principal e para dentro das pastas.
-     * [token] identifica o card (modo de mover e menu), [aoAbrir] roda ao apertar OK.
+     * Um card: o banner (3 colunas da grade, 16:9) e o nome embaixo, alinhado a esquerda. Sem moldura: o foco aparece
+     * como um contorno branco no banner, o card cresce um pouco e o nome fica branco. Serve para a linha principal e
+     * para dentro das pastas. [token] identifica o card (modo de mover e menu), [aoAbrir] roda ao apertar OK.
      */
     private fun montarCartao(token: String, nome: String, miniatura: View, aoAbrir: () -> Unit, aoFocar: (View) -> Unit): View {
         val cartao = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
             isFocusable = true
             isClickable = true
-            // sem transparência nos cards: banners brancos ficariam acinzentados
-            background = fundoVidro(false, dp(18))
-            setPadding(dp(8), dp(8), dp(8), dp(12))
             tag = token
             setOnClickListener { aoAbrir() }
             setOnFocusChangeListener { v, temFoco ->
@@ -506,18 +511,20 @@ class MainActivity : Activity() {
                 if (temFoco) aoFocar(v)
             }
         }
-        cartao.addView(miniatura, LinearLayout.LayoutParams(dp(184), dp(104)))
+        // filho 0: o banner (a "moldura" desenha o contorno de foco POR CIMA, no foreground). filho 1: o nome.
+        val moldura = FrameLayout(this).apply { addView(miniatura, FrameLayout.LayoutParams(MATCH, MATCH)) }
+        cartao.addView(moldura, LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), dp(Grade.CARD_ALTURA)))
         cartao.addView(
-            texto(14f, textoClaro, fonteMedia).apply {
+            texto(14f, textoSuave).apply {
                 text = nome
-                gravity = Gravity.CENTER
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
                 letterSpacing = 0.01f
+                setPadding(dp(2), 0, 0, 0)
             },
-            LinearLayout.LayoutParams(dp(184), WRAP).apply { topMargin = dp(10) }
+            LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), WRAP).apply { topMargin = dp(10) }
         )
-        cartao.layoutParams = LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(16) }
+        cartao.layoutParams = LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(Grade.VAO) }
         return cartao
     }
 
@@ -544,8 +551,8 @@ class MainActivity : Activity() {
                 alpha = if (i == 0) 1f else 0.8f - 0.25f * (i - 1)
                 arredondar(this, 10)
             }
-            // frente: 164x92 colada embaixo; cada camada de trás sobe 6 dp e vai 10 dp para a direita (total 184x104)
-            caixa.addView(vista, FrameLayout.LayoutParams(dp(164), dp(92)).apply {
+            // frente: (card - 20) x (card - 12) colada embaixo; cada camada de tras sobe 6 dp e vai 10 dp para a direita
+            caixa.addView(vista, FrameLayout.LayoutParams(dp(Grade.CARD_LARGURA - 20), dp(Grade.CARD_ALTURA - 12)).apply {
                 leftMargin = dp(10) * i
                 topMargin = dp(12) - dp(6) * i
             })
@@ -577,10 +584,19 @@ class MainActivity : Activity() {
     /** Cópia independente da imagem: o mesmo Drawable em duas views ao mesmo tempo pode se atrapalhar. */
     private fun copia(d: Drawable): Drawable = d.constantState?.newDrawable(resources)?.mutate() ?: d
 
-    /** Rola [barra] para deixar o card focado no centro (nas pontas, respeita a margem de 56dp). */
+    /**
+     * Rola [barra] so o necessario para o card focado caber entre as margens da grade. Assim os cards ficam sempre
+     * nas colunas: com 4 ou menos nada se mexe; com mais, a fila anda um card por vez.
+     */
     private fun centralizar(card: View, barra: HorizontalScrollView) {
-        val alvo = card.left + card.width / 2 - barra.width / 2 + barra.paddingLeft
-        barra.smoothScrollTo(alvo, 0)
+        val esquerda = card.left - barra.scrollX
+        val direita = card.right - barra.scrollX
+        val minimo = barra.paddingLeft
+        val maximo = barra.width - barra.paddingRight
+        when {
+            esquerda < minimo -> barra.smoothScrollBy(esquerda - minimo, 0)
+            direita > maximo -> barra.smoothScrollBy(direita - maximo, 0)
+        }
     }
 
     // ---------------------------------------------------------------- ▲▼ numa pilha: trocar o app da frente
@@ -785,18 +801,28 @@ class MainActivity : Activity() {
 
     private val corMover = 0xFF7FD6C2.toInt()
 
-    /** Visual de um card: normal, focado, ou "sendo movido" (borda verde-agua e maior). */
+    /**
+     * Visual de um card: normal (sem contorno), focado (contorno branco no banner, nome branco) ou
+     * "sendo movido" (contorno verde-agua e maior). Funciona com os cards de montarCartao (filho 0 = banner, 1 = nome).
+     */
     private fun estilizar(card: View, token: String, focado: Boolean) {
         val movendo = modoMover && token == tokenMovendo
-        card.background = if (movendo) fundoMover() else fundoVidro(focado, dp(18))
-        val escala = if (movendo) 1.12f else if (focado) 1.06f else 1f
+        val grupo = card as? ViewGroup
+        (grupo?.getChildAt(0))?.foreground = when {
+            movendo -> contorno(corMover, 0x2E7FD6C2)
+            focado -> contorno(Color.WHITE, Color.TRANSPARENT)
+            else -> null
+        }
+        (grupo?.getChildAt(1) as? TextView)?.setTextColor(if (focado || movendo) Color.WHITE else textoSuave)
+        val escala = if (movendo) 1.10f else if (focado) 1.06f else 1f
         card.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
     }
 
-    private fun fundoMover(): GradientDrawable = GradientDrawable().apply {
-        cornerRadius = dp(18).toFloat()
-        setColor(0x2E7FD6C2)
-        setStroke(dp(3), corMover)
+    /** Contorno de 3 dp com o mesmo arredondamento do banner, desenhado por cima dele. */
+    private fun contorno(cor: Int, preenchimento: Int): GradientDrawable = GradientDrawable().apply {
+        cornerRadius = dp(12).toFloat()
+        setColor(preenchimento)
+        setStroke(dp(3), cor)
     }
 
     /**
@@ -969,7 +995,7 @@ class MainActivity : Activity() {
                 val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
                 val url = "https://api.open-meteo.com/v1/forecast" +
                     "?latitude=${Config.LATITUDE}&longitude=${Config.LONGITUDE}" +
-                    "&current=temperature_2m,weather_code,precipitation,is_day" +
+                    "&current=temperature_2m,relative_humidity_2m,weather_code,precipitation,is_day" +
                     "&hourly=precipitation_probability&forecast_hours=4" +
                     "&daily=temperature_2m_max,temperature_2m_min" +
                     "&timezone=auto&forecast_days=1$unidade"
@@ -978,7 +1004,10 @@ class MainActivity : Activity() {
                 val dia = json.getJSONObject("daily")
                 // Temperatura: a MEDIDA na estacao do aeroporto (METAR) vence a do modelo da Open-Meteo. Em 31/10 as 16:15
                 // o modelo dizia 26,6 °C e o aeroporto de Ribeirao Preto mediu 32 °C. Sem METAR recente, fica o modelo.
-                val temp = temperaturaMedida() ?: Math.round(atual.getDouble("temperature_2m")).toInt()
+                val medida = medidaAeroporto()
+                val temp = medida?.temp ?: Math.round(atual.getDouble("temperature_2m")).toInt()
+                // Umidade: a do aeroporto (calculada da temperatura e do ponto de orvalho medidos); sem ela, a do modelo.
+                val umidade = medida?.umidade ?: atual.optInt("relative_humidity_2m", -1).takeIf { it >= 0 }
                 // Minima/maxima do dia vem do modelo; se a medida de agora ja passou delas, o modelo errou: corrige com ela.
                 val max = maxOf(temp, Math.round(dia.getJSONArray("temperature_2m_max").getDouble(0)).toInt())
                 val min = minOf(temp, Math.round(dia.getJSONArray("temperature_2m_min").getDouble(0)).toInt())
@@ -988,8 +1017,8 @@ class MainActivity : Activity() {
                 var chance = -1   // maior probabilidade entre a hora atual e as proximas 2
                 for (i in 0 until minOf(3, horas.length())) chance = maxOf(chance, horas.optInt(i, -1))
                 val chuva = when {
-                    chovendoAgora -> "Chovendo agora"
-                    chance >= 0 -> "Chuva $chance% nas próx. 3 h"
+                    chovendoAgora -> "☔  Chovendo agora"
+                    chance >= 0 -> "☔  Chuva $chance% em 3 h"
                     else -> ""
                 }
                 val codigo = atual.getInt("weather_code")
@@ -1010,6 +1039,7 @@ class MainActivity : Activity() {
                     txtTemp.text = "$temp°"
                     txtDescricao.text = resumo
                     textoChuva = chuva
+                    textoUmidade = umidade?.let { "💧  Umidade $it%" } ?: ""
                     luaNoIcone = luaVirouIcone
                     atualizarEclipse()   // escolhe o icone (clima ou eclipse) e chama atualizarLua()
                 }
@@ -1030,10 +1060,12 @@ class MainActivity : Activity() {
                 "Eclipse solar parcial · $cobertura" + if (ceuCoberto) " (encoberto)" else ""
             }
             luaNoIcone -> ""   // de noite a lua ja e o icone do clima: nao repete
-            else -> Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE)
+            // so o emoji e o nome da fase ("🌗 Quarto minguante"); a % iluminada fica de fora para a linha caber
+            else -> Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE).substringBeforeLast("  ·  ")
         }
-        // 3a linha do clima: chuva e lua juntas, separadas por " · " (so as que existirem).
-        txtDetalhe.text = listOf(textoChuva, lua).filter { it.isNotEmpty() }.joinToString("  ·  ")
+        // As 3 linhas de informacao, de cima para baixo, so as que existirem (sem buraco no meio).
+        val linhas = listOf(textoChuva, lua, textoUmidade).filter { it.isNotEmpty() }
+        txtInfo.forEachIndexed { i, t -> t.text = linhas.getOrElse(i) { "" } }
     }
 
     /**
@@ -1093,12 +1125,15 @@ class MainActivity : Activity() {
         else -> "🌡️" to "—"
     }
 
+    /** O que o aeroporto mediu: temperatura (ja na unidade do Config) e umidade relativa em % (null se faltar o orvalho). */
+    private class Medida(val temp: Int, val umidade: Int?)
+
     /**
-     * Temperatura medida agora na estacao Config.ESTACAO_METAR (o boletim METAR que todo aeroporto publica, em geral
-     * a cada hora), arredondada e na unidade do Config. null se nao houver estacao, se a busca falhar ou se o boletim
-     * tiver mais de 90 min (ai o modelo e melhor que um numero velho). Chamar fora da thread da tela.
+     * Ultimo boletim METAR da estacao Config.ESTACAO_METAR (todo aeroporto publica, em geral a cada hora).
+     * null se nao houver estacao, se a busca falhar ou se o boletim tiver mais de 90 min (ai o modelo e melhor que
+     * um numero velho). Chamar fora da thread da tela.
      */
-    private fun temperaturaMedida(): Int? {
+    private fun medidaAeroporto(): Medida? {
         if (Config.ESTACAO_METAR.isEmpty()) return null
         return try {
             val texto = httpGet("https://aviationweather.gov/api/data/metar?ids=${Config.ESTACAO_METAR}&format=json") ?: return null
@@ -1106,7 +1141,14 @@ class MainActivity : Activity() {
             val idadeMin = (System.currentTimeMillis() / 1000 - boletim.getLong("obsTime")) / 60
             if (idadeMin > 90 || !boletim.has("temp")) return null
             val celsius = boletim.getDouble("temp")
-            Math.round(if (Config.USAR_FAHRENHEIT) celsius * 9 / 5 + 32 else celsius).toInt()
+            // Umidade relativa pela formula de Magnus: compara a pressao de vapor no ponto de orvalho com a da temperatura.
+            val umidade = if (boletim.has("dewp")) {
+                val orvalho = boletim.getDouble("dewp")
+                val vapor = { t: Double -> Math.exp(17.625 * t / (243.04 + t)) }
+                Math.round(100 * vapor(orvalho) / vapor(celsius)).toInt().coerceIn(0, 100)
+            } else null
+            val temp = Math.round(if (Config.USAR_FAHRENHEIT) celsius * 9 / 5 + 32 else celsius).toInt()
+            Medida(temp, umidade)
         } catch (e: Exception) {
             null   // formato mudou, sem internet etc.: fica o modelo
         }
