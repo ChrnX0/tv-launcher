@@ -93,6 +93,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(montarTela())
+        Privilegio.religarAcessibilidade(this)   // antes de falar com o Shizuku, para o serviço já estar de pé
         Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
     }
 
@@ -103,6 +104,7 @@ class MainActivity : Activity() {
         ui.post(tarefaLua)
         ui.post(tarefaRede)
         txtDns.text = Dns.rotulo(this)   // pode ter mudado na tela de DNS
+        Privilegio.religarAcessibilidade(this)
         Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
     }
 

@@ -38,6 +38,7 @@ object Config {
 
     // --- Shizuku: true = o serviço de acessibilidade aprova SOZINHO qualquer app que pedir acesso (cada um ganha shell).
     //     false = o diálogo do Shizuku aparece e você decide. Também dá para desligar em Configurações > Acessibilidade.
+    //     Com true, o launcher também RELIGA o serviço sozinho se o Android o desligar (ver Privilegio.religarAcessibilidade).
     const val SHIZUKU_AUTORIZAR_TUDO = true
 
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
