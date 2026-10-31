@@ -475,7 +475,7 @@ class MainActivity : Activity() {
 
     /**
      * Pilha: o app da [frente] na frente e até 2 atrás, deslocados para cima e para a direita, como uma pilha de cartas.
-     * Uma etiqueta mostra qual é o da frente (ex.: "▲ 2/3 ▼"): ▲▼ trocam.
+     * (▲▼ trocam qual fica na frente; o nome embaixo do card é o do app da frente.)
      */
     private fun miniaturaPilha(itens: List<Item>, frente: Int): View {
         val camadas = (listOf(itens[frente]) + itens.filterIndexed { i, _ -> i != frente }).take(3)
@@ -495,17 +495,6 @@ class MainActivity : Activity() {
                 topMargin = dp(12) - dp(6) * i
             })
         }
-        caixa.addView(texto(11f, Color.WHITE, fonteMedia).apply {
-            text = "▲ ${frente + 1}/${itens.size} ▼"
-            setPadding(dp(7), dp(2), dp(7), dp(2))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(9).toFloat()
-                setColor(0xB3000000.toInt())
-            }
-        }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START).apply {
-            leftMargin = dp(6)
-            bottomMargin = dp(6)
-        })
         return caixa
     }
 
@@ -542,18 +531,19 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- ▲▼ numa pilha: trocar o app da frente
 
     /**
-     * ▲▼ num card de pilha trocam o app da frente (o que o OK abre). Nas pontas (primeiro/último app) a tecla segue
-     * o caminho normal, ex.: ▼ no último vai para o rodapé. Em card solto não faz nada (também segue o caminho normal).
+     * ▲▼ num card de pilha trocam o app da frente (o que o OK abre) e dão a volta: depois do último vem o primeiro.
+     * Por isso, numa pilha, ▲▼ nunca saem para o topo/rodapé (para chegar lá, vá para um card solto).
+     * Em card solto não faz nada: a tecla segue o caminho normal (avatar, chip de DNS).
      */
     private fun trocarDaFrente(event: KeyEvent): Boolean {
         val sobe = event.keyCode == KeyEvent.KEYCODE_DPAD_UP
         if (!sobe && event.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false
         val token = currentFocus?.tag as? String ?: return false
         val pilha = lista.firstOrNull { it.token == token } as? Entrada.Pilha ?: return false
-        val novo = pilha.frente + if (sobe) -1 else 1
-        // Na ponta: um toque novo segue para fora da pilha, mas segurar a tecla não "foge" dela.
-        if (novo !in pilha.itens.indices) return event.repeatCount > 0
-        if (event.action == KeyEvent.ACTION_DOWN) {
+        val total = pilha.itens.size
+        val novo = (pilha.frente + (if (sobe) -1 else 1) + total) % total   // % dá a volta; "+ total" evita número negativo
+        // Um passo por toque: segurar a tecla não gira a pilha inteira (as repetições são consumidas e ignoradas).
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             Organizacao.definirFrente(this, pilha.id, pilha.itens[novo].pacote)
             val posicao = lista.indexOf(pilha)
             val nova = Entrada.Pilha(pilha.id, pilha.itens, novo)

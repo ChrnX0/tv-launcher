@@ -105,7 +105,7 @@ Tudo reversível com `pm enable` (ou `-Desfazer`).
 
 **Usar uma pilha:**
 
-- ▲ ▼ no card da pilha trocam o app da frente (etiqueta "▲ 2/3 ▼"); **OK abre o app da frente**. A escolha fica salva. No primeiro/ultimo app a tecla segue para fora da pilha (▲ para o topo, ▼ para o rodape); segurar a tecla nao "foge".
+- ▲ ▼ no card da pilha trocam o app da frente e dao a volta (depois do ultimo vem o primeiro); **OK abre o app da frente**. A escolha fica salva. Um passo por toque (segurar a tecla nao gira). Por isso, numa pilha, ▲ ▼ nunca saem para o topo/rodape: para chegar la, va para um card solto.
 - Em app solto, ▲ ▼ vao para os outros elementos da tela (foto de perfil, chip de DNS).
 - Segure OK na pilha: **Mover** · **Remover cards do grupo**. O segundo abre uma pasta com os apps; OK num app pede confirmacao ("Remover X do grupo?", foco em Cancelar). Uma pilha que fica com 1 app se desfaz.
 - **Ocultar** (▲ no modo mover) tira o app da fila e o poe no card "Ocultos (n)", sempre o ultimo. La dentro, segure OK → "Mostrar na tela inicial".
