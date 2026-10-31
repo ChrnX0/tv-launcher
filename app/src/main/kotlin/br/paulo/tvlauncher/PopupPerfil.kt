@@ -25,7 +25,8 @@ import android.widget.TextView
  *  - troca rápida de perfil (uma bolinha por conta Google da TV) e "+" para adicionar;
  *  - Configurações do sistema;
  *  - DNS (abre a tela de DNS);
- *  - Wi-Fi: só o nome da rede e o ícone de sinal (não é botão, não recebe foco).
+ *  - Wi-Fi: conectado = sinal colorido, nome da rede e velocidade do enlace; sem rede = "Conectar ao Wi-Fi".
+ *    Nos dois casos OK abre as configurações de Wi-Fi da TV.
  *
  * É um Dialog: uma janela por cima da tela inicial, com as próprias teclas. Voltar fecha.
  * [aoTrocarPerfil] avisa a tela inicial para redesenhar a bolinha; [aoAbrirConfig] abre as Configurações.
@@ -43,6 +44,7 @@ class PopupPerfil(
     private var dialogo: Dialog? = null
     private var sinal: SinalWifi? = null
     private var txtRede: TextView? = null
+    private var txtVelocidade: TextView? = null
 
     fun abrir(rede: Rede.Resultado?) {
         fechar()
@@ -105,24 +107,39 @@ class PopupPerfil(
             tela.startActivity(Intent(tela, DnsActivity::class.java))
         }
 
-        // ---- Wi-Fi (só informação).
+        // ---- Wi-Fi: um botão. Conectado: sinal colorido + nome + velocidade do enlace. Sem rede: atalho para conectar.
         val icone = SinalWifi(tela)
         val nome = TextView(tela).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setTextColor(textoClaro)
             typeface = fonteMedia
             maxLines = 1
-            text = rede?.nome ?: "Wi-Fi"
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        val velocidade = TextView(tela).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTextColor(textoSuave)
+            maxLines = 1
         }
         sinal = icone
         txtRede = nome
-        rede?.let { icone.definir(it.barras, corDoNivel(it.nivel)) }
+        txtVelocidade = velocidade
+        mostrarRede(rede)
         val blocoWifi = LinearLayout(tela).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(18), dp(4), dp(18), dp(4))
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            isFocusable = true
+            isClickable = true
+            background = vidro(false)
+            setOnClickListener { fechar(); abrirWifi() }
+            setOnFocusChangeListener { v, temFoco ->
+                v.background = vidro(temFoco)
+                escalar(v, temFoco, 1.03f)
+            }
             addView(icone, LinearLayout.LayoutParams(dp(28), dp(22)).apply { marginEnd = dp(14) })
             addView(nome, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(velocidade, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(10) })
         }
 
         val painel = LinearLayout(tela).apply {
@@ -164,7 +181,7 @@ class PopupPerfil(
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
         janela.setOnDismissListener {
-            if (dialogo === janela) { dialogo = null; sinal = null; txtRede = null }
+            if (dialogo === janela) { dialogo = null; sinal = null; txtRede = null; txtVelocidade = null }
         }
         dialogo = janela
         janela.show()
@@ -176,12 +193,43 @@ class PopupPerfil(
         dialogo = null
         sinal = null
         txtRede = null
+        txtVelocidade = null
     }
 
-    /** Chega uma medição nova da rede: se o menu estiver aberto, atualiza o nome e o ícone na hora. */
-    fun atualizarRede(r: Rede.Resultado) {
-        txtRede?.text = r.nome
-        sinal?.definir(r.barras, corDoNivel(r.nivel))
+    /** Chega uma medição nova da rede: se o menu estiver aberto, atualiza na hora. */
+    fun atualizarRede(r: Rede.Resultado) = mostrarRede(r)
+
+    /**
+     * [r] null = a primeira medição ainda não chegou. A velocidade é a do ENLACE Wi-Fi (TV <-> roteador), que o Android
+     * informa; não é a velocidade da internet (isso exigiria baixar um arquivo de teste).
+     */
+    private fun mostrarRede(r: Rede.Resultado?) {
+        when {
+            r == null -> {
+                txtRede?.text = "Wi-Fi"
+                txtVelocidade?.text = ""
+            }
+            !r.conectado -> {
+                sinal?.definir(0, textoSuave)
+                txtRede?.text = "Conectar ao Wi-Fi"
+                txtVelocidade?.text = ""
+            }
+            else -> {
+                sinal?.definir(r.barras, corDoNivel(r.nivel))
+                txtRede?.text = r.nome
+                txtVelocidade?.text = if (r.mbps > 0) "${r.mbps} Mbps" else ""
+            }
+        }
+    }
+
+    /** Abre a tela de Wi-Fi da TV (escolher e conectar numa rede). Se a TV não tiver essa tela, cai nas Configurações. */
+    private fun abrirWifi() {
+        val wifi = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            tela.startActivity(wifi)
+        } catch (e: android.content.ActivityNotFoundException) {
+            tela.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     // ---------------------------------------------------------------- peças

@@ -77,7 +77,7 @@ class MainActivity : Activity() {
     private lateinit var txtTemp: TextView
     private lateinit var txtDescricao: TextView
     private lateinit var txtDetalhe: TextView
-    private lateinit var txtLua: TextView
+    private var textoChuva = ""   // "Chuva 91% nas próx. 3 h" ou "Chovendo agora"; vai na 3a linha do clima, junto da lua
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
     private lateinit var fotoPerfil: ImageView        // a bolinha do perfil, no canto superior direito
@@ -190,8 +190,9 @@ class MainActivity : Activity() {
             clipToPadding = false
         }
 
-        // ---- Topo: hora e data a esquerda; temperatura e icone do clima no meio; bolinha do perfil a direita.
-        // As colunas da esquerda e da direita tem o mesmo peso (1), entao a do meio fica no centro da tela.
+        // ---- Topo em duas colunas: hora e data a esquerda; clima alinhado a direita, encostado na bolinha do perfil.
+        // A linha grande (hora / temperatura) usa a mesma fonte e o mesmo tamanho dos dois lados, e a 2a linha tambem
+        // (data / descricao): assim as duas colunas caem exatamente nas mesmas alturas.
         val topo = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(56), 0, dp(56), 0)
@@ -219,52 +220,58 @@ class MainActivity : Activity() {
         })
         topo.addView(blocoHora, LinearLayout.LayoutParams(0, WRAP, 1f))
 
-        // Meio: [icone][temperatura] em cima; descricao, minima/maxima (+ chuva) e fase da lua embaixo, tudo centralizado.
-        txtIcone = texto(38f, Color.WHITE).apply { gravity = Gravity.CENTER }
+        // Direita: [icone][temperatura] em cima; "descricao · min – max" e "chuva · lua" embaixo, tudo alinhado a direita.
+        txtIcone = texto(44f, Color.WHITE).apply {
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+        }
         iconeEclipse = IconeEclipse(this).apply { visibility = View.GONE }
         val caixaIcone = FrameLayout(this).apply {
             addView(txtIcone, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
             addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
-        txtTemp = texto(54f, Color.WHITE, fonteLeve).apply {
-            setPadding(dp(14), 0, 0, 0)
+        txtTemp = texto(72f, Color.WHITE, fonteLeve).apply {   // mesmo tamanho e fonte da hora
+            letterSpacing = -0.02f
             includeFontPadding = false
             text = "…"
         }
         val linhaTemp = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(caixaIcone, LinearLayout.LayoutParams(dp(60), dp(60)))
+            addView(caixaIcone, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginEnd = dp(14) })
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
         }
-        txtDescricao = texto(17f, textoClaro, fonteMedia).apply { gravity = Gravity.CENTER_HORIZONTAL }
-        txtDetalhe = texto(14f, textoSuave).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            setLineSpacing(0f, 1.25f)   // as 2 linhas (cidade/min-max e chuva) com mais ar entre elas
+        // minLines = 1: a linha ocupa a altura mesmo vazia (antes do clima chegar, ou sem chuva a noite),
+        // entao o bloco nunca muda de altura e os cards nao pulam.
+        txtDescricao = texto(16f, textoClaro).apply {   // mesmo tamanho e espacamento da data, do outro lado
+            gravity = Gravity.END
+            letterSpacing = 0.03f
             setPadding(0, dp(6), 0, 0)
+            minLines = 1
         }
-        txtLua = texto(14f, textoSuave).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
+        txtDetalhe = texto(14f, textoSuave).apply {
+            gravity = Gravity.END
             letterSpacing = 0.02f
-            setPadding(0, dp(14), 0, 0)   // a lua fica separada do clima, como um rodapé do bloco
+            setPadding(0, dp(6), 0, 0)
+            minLines = 1
         }
         val blocoClima = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            // Altura fixa (a do bloco cheio): os cards nao pulam quando o clima chega, quando some a linha da chuva
-            // nem quando a linha da lua some (a noite, com a lua no icone).
-            minimumHeight = dp(204)
+            gravity = Gravity.END
             addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(txtDescricao, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(10) })
+            addView(txtDescricao, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(txtDetalhe, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(txtLua, LinearLayout.LayoutParams(WRAP, WRAP))
         }
         topo.addView(blocoClima, LinearLayout.LayoutParams(WRAP, WRAP))
 
-        // Direita: a bolinha do perfil, encostada no canto superior direito.
+        // A bolinha do perfil, depois do clima. Fica centrada na altura da linha grande (hora/temperatura).
+        val bolinha = botaoPerfil()
         val blocoPerfil = FrameLayout(this).apply { clipChildren = false }
-        blocoPerfil.addView(botaoPerfil(), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END))
-        topo.addView(blocoPerfil, LinearLayout.LayoutParams(0, WRAP, 1f))
+        blocoPerfil.addView(bolinha, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END))
+        topo.addView(blocoPerfil, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(36) })
+        linhaTemp.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            bolinha.translationY = ((v.height - bolinha.height) / 2f).coerceAtLeast(0f)
+        }
         raiz.addView(topo, LinearLayout.LayoutParams(MATCH, WRAP))
 
         // Espaço elástico empurra a linha de apps para o meio da tela.
@@ -977,8 +984,8 @@ class MainActivity : Activity() {
                 var chance = -1   // maior probabilidade entre a hora atual e as proximas 2
                 for (i in 0 until minOf(3, horas.length())) chance = maxOf(chance, horas.optInt(i, -1))
                 val chuva = when {
-                    chovendoAgora -> "chovendo agora"
-                    chance >= 0 -> "chuva nas próx. 3 h: $chance%"
+                    chovendoAgora -> "Chovendo agora"
+                    chance >= 0 -> "Chuva $chance% nas próx. 3 h"
                     else -> ""
                 }
                 val codigo = atual.getInt("weather_code")
@@ -992,14 +999,13 @@ class MainActivity : Activity() {
                     chovendoAgora && codigo < 51 -> "🌧️"   // o codigo diz "nublado", mas esta chovendo: vale a chuva
                     else -> iconeDoTempo
                 }
-                val detalhe = "${Config.CIDADE}  ·  $min° – $max°" +
-                    if (chuva.isNotEmpty()) "\n$chuva" else ""
+                val resumo = "$descricao  ·  $min° – $max°"
                 ui.post {
                     iconeClima = icone
                     ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
-                    txtDescricao.text = descricao
-                    txtDetalhe.text = detalhe
+                    txtDescricao.text = resumo
+                    textoChuva = chuva
                     luaNoIcone = luaVirouIcone
                     atualizarEclipse()   // escolhe o icone (clima ou eclipse) e chama atualizarLua()
                 }
@@ -1012,17 +1018,18 @@ class MainActivity : Activity() {
     /** A lua e calculada no aparelho (ver Lua.kt): nao usa internet. */
     private fun atualizarLua() {
         val eclipse = eclipseAgora
-        if (eclipse != null) {
-            // Durante um eclipse real, a linha da fase da lua vira a porcentagem do sol coberta.
-            val pct = Math.round(eclipse.coberto * 100).toInt()
-            val cobertura = if (eclipse.coberto < 0.01) "menos de 1%" else "$pct%"
-            txtLua.text = "Eclipse solar parcial · $cobertura" + if (ceuCoberto) " (encoberto)" else ""
-            txtLua.visibility = View.VISIBLE
-            return
+        val lua = when {
+            // Durante um eclipse real, no lugar da fase da lua vai a porcentagem do sol coberta.
+            eclipse != null -> {
+                val pct = Math.round(eclipse.coberto * 100).toInt()
+                val cobertura = if (eclipse.coberto < 0.01) "menos de 1%" else "$pct%"
+                "Eclipse solar parcial · $cobertura" + if (ceuCoberto) " (encoberto)" else ""
+            }
+            luaNoIcone -> ""   // de noite a lua ja e o icone do clima: nao repete
+            else -> Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE)
         }
-        // Quando o icone do clima ja e a lua (noite, ceu visivel), a linha ficaria repetida: some.
-        txtLua.visibility = if (luaNoIcone) View.GONE else View.VISIBLE
-        txtLua.text = Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE)
+        // 3a linha do clima: chuva e lua juntas, separadas por " · " (so as que existirem).
+        txtDetalhe.text = listOf(textoChuva, lua).filter { it.isNotEmpty() }.joinToString("  ·  ")
     }
 
     /**
