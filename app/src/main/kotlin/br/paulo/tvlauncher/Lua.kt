@@ -31,18 +31,25 @@ object Lua {
         return if (resto < 0) resto + CICLO_DIAS else resto
     }
 
+    /** Qual das 8 fases (0..7). Cada fase ocupa 1/8 do ciclo, centrada no seu ponto (por isso o +0,5). */
+    private fun indiceDaFase(idade: Double): Int = (((idade / CICLO_DIAS) * 8) + 0.5).toInt() % 8
+
     /**
-     * Ex.: "🌖  Minguante gibosa  ·  75%  ·  nova em 10 d".
-     * [latitude] negativa = hemisfério sul: lá a lua aparece espelhada, então espelhamos o emoji.
+     * Só o emoji da fase. [latitude] negativa = hemisfério sul: lá a lua aparece espelhada
+     * (cresce com o lado iluminado para a esquerda), então espelhamos o emoji.
+     * Também é o ícone do clima à noite, no lugar do sol.
      */
+    fun emoji(agoraMs: Long, latitude: Double): String {
+        val i = indiceDaFase(idade(agoraMs))
+        return if (latitude < 0) EMOJIS[(8 - i) % 8] else EMOJIS[i]
+    }
+
+    /** Ex.: "🌔  Minguante gibosa  ·  75%  ·  nova em 10 d". */
     fun resumo(agoraMs: Long, latitude: Double): String {
         val idade = idade(agoraMs)
         val fracao = idade / CICLO_DIAS
         // Fração iluminada do disco: 0% na nova, 100% na cheia (curva de cosseno).
         val iluminada = ((1 - cos(2 * PI * fracao)) / 2 * 100).roundToInt()
-        // 8 fases; cada uma ocupa 1/8 do ciclo, centrada no seu ponto (por isso o +0,5).
-        val indice = ((fracao * 8) + 0.5).toInt() % 8
-        val emoji = if (latitude < 0) EMOJIS[(8 - indice) % 8] else EMOJIS[indice]
 
         val metade = CICLO_DIAS / 2
         val diasParaCheia = if (idade < metade) metade - idade else CICLO_DIAS - idade + metade
@@ -52,6 +59,6 @@ object Lua {
         } else {
             "nova em ${ceil(diasParaNova).toInt()} d"
         }
-        return "$emoji  ${NOMES[indice]}  ·  $iluminada%  ·  $proxima"
+        return "${emoji(agoraMs, latitude)}  ${NOMES[indiceDaFase(idade)]}  ·  $iluminada%  ·  $proxima"
     }
 }
