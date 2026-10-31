@@ -132,6 +132,7 @@ class MainActivity : Activity() {
         setContentView(montarTela())
         Privilegio.religarAcessibilidade(this)   // antes de falar com o Shizuku, para o serviço já estar de pé
         Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
+        Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
     }
 
     override fun onResume() {

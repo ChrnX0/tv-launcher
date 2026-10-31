@@ -22,6 +22,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != ACAO_TESTE) return
         Privilegio.religarDepuracaoSemFio(context)
+        Privilegio.vigiarDepuracaoSemFio(context)   // e continua de olho: o Android pode desligá-la logo depois, no boot
         if (Config.ABRIR_AO_LIGAR.isEmpty()) return
         val abrir = context.packageManager.getLeanbackLaunchIntentForPackage(Config.ABRIR_AO_LIGAR)
         if (abrir == null) {
