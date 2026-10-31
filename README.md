@@ -98,6 +98,18 @@ Tudo reversível com `pm enable` (ou `-Desfazer`).
 - **Religar o serviço:** o Android o desliga a cada `force-stop` do app (inclusive o que o Shizuku faz ao revogar um app). O próprio launcher o religa ao abrir (`Privilegio.religarAcessibilidade`), porque tem `WRITE_SECURE_SETTINGS`. Basta apertar HOME.
 - **DNS (chip "DNS: …" no rodapé):** escolhe o DNS privado (DoT) da TV. Precisa uma vez de `adb shell pm grant br.paulo.tvlauncher android.permission.WRITE_SECURE_SETTINGS`, que continua valendo após reinstalar. O Android só aceita **nome** de servidor, nunca IP. Servidor fixo que não responde deixa a TV sem resolver nomes (não volta ao normal sozinho): na tela, escolha "Automático", ou `adb shell settings put global private_dns_mode opportunistic`.
 
+## Pilhas, ocultar e mover cards
+
+Segure **OK** num card para abrir o menu de opções:
+
+- **App solto:** Mover · Empilhar com… · Ocultar · Ordem automática.
+- **Pilha** (vários apps num card, ex.: YouTube + YouTube Music): OK abre como uma pasta. Segure OK num card da pilha: Mover · Desfazer pilha · Ordem automática. Segure OK num app dentro da pilha: Tirar da pilha · Ocultar. Uma pilha que fica com 1 app se desfaz sozinha.
+- **Ocultar** tira o app da fila e o põe no card "Ocultos (n)", sempre o último. Lá dentro, segure OK → "Mostrar na tela inicial".
+- "Ordem automática" só apaga a ordem manual (volta a ordenar por uso); pilhas e ocultos continuam como estão.
+
+Onde fica: `Organizacao.kt` guarda tudo nas SharedPreferences `launcher`: `ordem` (lista de tokens: o pacote do app ou `pilha:<id>`), `pilhas` (JSON) e `ocultos` (conjunto de pacotes). `MainActivity` só desenha.
+
+Testado no Chromecast simulando o "segurar" com `adb shell input keyevent --longpress KEYCODE_DPAD_CENTER` (menu, empilhar, pilha de 3, ocultar, mostrar, desfazer, mover). Não testado com o controle remoto de verdade: o "segurar" depende do `repeatCount` que o controle envia.
 ## Device owner (ativo desde 31/10/2026)
 
 O launcher é o **Device Owner** do aparelho (`adb shell dpm list-owners` mostra `br.paulo.tvlauncher/.AdminReceiver`). O receptor `AdminReceiver` está vazio por enquanto: ser owner já dá a base para políticas futuras (ex.: `DevicePolicyManager.setPermissionGrantState`, `setApplicationHidden`, `setLockTaskPackages`), que ainda não usamos.
