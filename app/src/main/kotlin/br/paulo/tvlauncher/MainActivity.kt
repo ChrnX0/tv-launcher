@@ -160,6 +160,7 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaRede)
         menuAberto?.dismiss()
         popup?.fechar()
+        previsao?.fechar()
         fecharPasta()
         if (modoMover) cancelarMover()
     }
@@ -261,12 +262,29 @@ class MainActivity : Activity() {
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
         }
+        // O bloco do clima e um botao (OK abre a previsao de 7 dias). Folga de 12 dp em volta para o realce de foco:
+        // o padding empurra o conteudo 12 dp e a margem negativa puxa de volta, entao o texto fica na grade.
+        val folgaFoco = 12
         val blocoClima = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dp(folgaFoco), dp(folgaFoco), dp(folgaFoco), dp(folgaFoco))
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { abrirPrevisao() }
+            setOnFocusChangeListener { v, temFoco ->
+                v.background = if (temFoco) GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    setColor(0x14FFFFFF)
+                    setStroke(dp(2), 0xD9FFFFFF.toInt())
+                } else null
+            }
             addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(txtDescricao, LinearLayout.LayoutParams(MATCH, WRAP))
         }
-        topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(5)) })
+        topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(4) + 2 * folgaFoco), WRAP).apply {
+            leftMargin = dp(Grade.x(5) - folgaFoco)
+            topMargin = -dp(folgaFoco)
+        })
 
         // Tres linhas de informacao (lua, umidade, chuva), cada uma com 1/3 da altura dos blocos ao lado.
         txtInfo = List(3) {
@@ -376,6 +394,21 @@ class MainActivity : Activity() {
     /** Redesenha a bolinha: a conta ativa mudou, ou chegou uma foto nova. */
     private fun atualizarFotoPerfil() {
         fotoPerfil.setImageBitmap(Perfil.avatar(this, dp(44)))
+    }
+
+    private var previsao: PrevisaoSemana? = null
+    private var ultimaTemp: Int? = null   // a temperatura mostrada no topo (para a linha "Hoje" da previsao bater com ela)
+
+    /** Abre o painel da previsao de 7 dias (ver PrevisaoSemana.kt). */
+    private fun abrirPrevisao() {
+        val painel = previsao ?: PrevisaoSemana(
+            tela = this,
+            emSegundoPlano = { bloco -> rede.execute { bloco() } },
+            buscar = { httpGet(it) },
+            descricao = { descricaoClima(it) },
+            tempAgora = { ultimaTemp },
+        ).also { previsao = it }
+        painel.abrir()
     }
 
     /** Abre o menu do perfil (trocar perfil, Configurações, DNS, Wi-Fi). Ver PopupPerfil.kt. */
@@ -614,31 +647,53 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- ▲▼ numa pilha: trocar o app da frente
 
+    private var cimaSaiu = false   // true: este "segurar ▲" ja tirou o foco da pilha; o soltar nao troca o app
+
     /**
-     * ▲▼ num card de pilha trocam o app da frente (o que o OK abre) e dão a volta: depois do último vem o primeiro.
-     * Por isso, numa pilha, ▲▼ nunca saem para o topo/rodapé (para chegar lá, vá para um card solto).
-     * Em card solto não faz nada: a tecla segue o caminho normal (avatar, chip de DNS).
+     * Num card de pilha:
+     *  - ▼ (toque) troca o app da frente para o proximo, na hora;
+     *  - ▲ (toque) troca para o anterior, ao SOLTAR a tecla;
+     *  - ▲ segurado por 2 s sai da pilha e vai para o topo da tela (clima, bolinha do perfil).
+     * Os dois dao a volta (depois do ultimo vem o primeiro). Segurar ▼ nao gira a pilha inteira.
+     * Em card solto nao faz nada: a tecla segue o caminho normal.
      */
     private fun trocarDaFrente(event: KeyEvent): Boolean {
         val sobe = event.keyCode == KeyEvent.KEYCODE_DPAD_UP
         if (!sobe && event.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false
-        val token = currentFocus?.tag as? String ?: return false
+        val atual = currentFocus ?: return false
+        val token = atual.tag as? String ?: return false
         val pilha = lista.firstOrNull { it.token == token } as? Entrada.Pilha ?: return false
-        val total = pilha.itens.size
-        val novo = (pilha.frente + (if (sobe) -1 else 1) + total) % total   // % dá a volta; "+ total" evita número negativo
-        // Um passo por toque: segurar a tecla não gira a pilha inteira (as repetições são consumidas e ignoradas).
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-            Organizacao.definirFrente(this, pilha.id, pilha.itens[novo].pacote)
-            val posicao = lista.indexOf(pilha)
-            val nova = Entrada.Pilha(pilha.id, pilha.itens, novo)
-            lista[posicao] = nova
-            // Põe o card novo ANTES de tirar o velho: tirar o card com foco faria o Android jogar o foco para o 1º card.
-            val vista = criarCartao(nova)
-            linhaApps.addView(vista, posicao)
-            vista.requestFocus()
-            linhaApps.removeViewAt(posicao + 1)
+        if (!sobe) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) girarPilha(pilha, +1)
+            return true
+        }
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (event.repeatCount == 0) cimaSaiu = false
+                // As repeticoes da tecla segurada chegam a cada ~50 ms; quando passam de 2 s desde o aperto, sai da pilha.
+                if (!cimaSaiu && event.eventTime - event.downTime >= 2000) {
+                    cimaSaiu = true
+                    atual.focusSearch(View.FOCUS_UP)?.requestFocus()
+                }
+            }
+            KeyEvent.ACTION_UP -> if (!cimaSaiu) girarPilha(pilha, -1)
         }
         return true
+    }
+
+    /** Troca o app da frente da [pilha] em [passo] (+1 proximo, -1 anterior) e redesenha so aquele card. */
+    private fun girarPilha(pilha: Entrada.Pilha, passo: Int) {
+        val total = pilha.itens.size
+        val novo = (pilha.frente + passo + total) % total   // % da a volta; "+ total" evita numero negativo
+        Organizacao.definirFrente(this, pilha.id, pilha.itens[novo].pacote)
+        val posicao = lista.indexOf(pilha)
+        val nova = Entrada.Pilha(pilha.id, pilha.itens, novo)
+        lista[posicao] = nova
+        // Poe o card novo ANTES de tirar o velho: tirar o card com foco faria o Android jogar o foco para o 1o card.
+        val vista = criarCartao(nova)
+        linhaApps.addView(vista, posicao)
+        vista.requestFocus()
+        linhaApps.removeViewAt(posicao + 1)
     }
 
     // ---------------------------------------------------------------- pastas (apps ocultos e "remover do grupo")
@@ -1060,6 +1115,7 @@ class MainActivity : Activity() {
                     ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
                     txtDescricao.text = descricao
+                    ultimaTemp = temp
                     txtMax.text = "↑ $max°"
                     txtMin.text = "↓ $min°"
                     textoChuva = chuva
