@@ -1024,8 +1024,16 @@ class MainActivity : Activity() {
                 // Minima/maxima do dia vem do modelo; se a medida de agora ja passou delas, o modelo errou: corrige com ela.
                 val max = maxOf(temp, Math.round(dia.getJSONArray("temperature_2m_max").getDouble(0)).toInt())
                 val min = minOf(temp, Math.round(dia.getJSONArray("temperature_2m_min").getDouble(0)).toInt())
-                // Chuva: so o que vale AGORA. O maximo do DIA inclui horas que ja passaram (dava 99% sem chover).
-                val chovendoAgora = atual.optDouble("precipitation", 0.0) > 0.0
+                // Tempo AGORA: o aeroporto (o que um observador VIU) vence o modelo. Em 31/10 as 16:54 o modelo dizia
+                // "garoa, chovendo agora" com ceu aberto; o aeroporto dizia CAVOK (sem chuva).
+                var codigo = atual.getInt("weather_code")
+                var chovendoAgora = atual.optDouble("precipitation", 0.0) > 0.0
+                if (medida != null) {
+                    val visto = medida.fenomeno
+                    if (visto != null) codigo = visto                 // chuva, garoa, trovoada ou neblina observada
+                    else if (codigo >= 45) codigo = medida.nuvens     // o modelo inventou chuva/neblina: fica so a nebulosidade
+                    chovendoAgora = visto != null && visto >= 51
+                }
                 val horas = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
                 var chance = -1   // maior probabilidade entre a hora atual e as proximas 2
                 for (i in 0 until minOf(3, horas.length())) chance = maxOf(chance, horas.optInt(i, -1))
@@ -1034,7 +1042,6 @@ class MainActivity : Activity() {
                     chance >= 0 -> "☔  Chuva $chance% em 3 h"
                     else -> ""
                 }
-                val codigo = atual.getInt("weather_code")
                 val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
                 val (iconeDoTempo, descricao) = descricaoClima(codigo)
                 // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol
@@ -1139,8 +1146,12 @@ class MainActivity : Activity() {
         else -> "🌡️" to "—"
     }
 
-    /** O que o aeroporto mediu: temperatura (ja na unidade do Config) e umidade relativa em % (null se faltar o orvalho). */
-    private class Medida(val temp: Int, val umidade: Int?)
+    /**
+     * O que o aeroporto mediu: temperatura (ja na unidade do Config), umidade relativa em % (null se faltar o orvalho),
+     * [fenomeno] = codigo WMO do tempo observado (95 trovoada, 80 pancada, 61 chuva, 51 garoa, 45 neblina; null = nada) e
+     * [nuvens] = codigo WMO da nebulosidade (1 poucas, 2 parcial, 3 nublado).
+     */
+    private class Medida(val temp: Int, val umidade: Int?, val fenomeno: Int?, val nuvens: Int)
 
     /**
      * Ultimo boletim METAR da estacao Config.ESTACAO_METAR (todo aeroporto publica, em geral a cada hora).
@@ -1162,7 +1173,28 @@ class MainActivity : Activity() {
                 Math.round(100 * vapor(orvalho) / vapor(celsius)).toInt().coerceIn(0, 100)
             } else null
             val temp = Math.round(if (Config.USAR_FAHRENHEIT) celsius * 9 / 5 + 32 else celsius).toInt()
-            Medida(temp, umidade)
+            // Tempo presente do METAR (ex.: "-RA" chuva fraca, "SHRA" pancada, "TSRA" trovoada, "DZ" garoa, "BR"/"FG" nevoa).
+            val wx = boletim.optString("wxString", "")
+            val fenomeno = when {
+                "TS" in wx -> 95
+                "SH" in wx -> 80
+                "RA" in wx -> 61
+                "DZ" in wx -> 51
+                "FG" in wx || "BR" in wx -> 45
+                else -> null
+            }
+            // Nebulosidade: a camada mais cheia. CAVOK/sem camadas = nada abaixo de 1500 m; nuvens altas podem existir,
+            // por isso vira "poucas nuvens" e nao "ceu limpo".
+            val camadas = boletim.optJSONArray("clouds")
+            var nuvens = 1
+            if (camadas != null) for (i in 0 until camadas.length()) {
+                nuvens = maxOf(nuvens, when (camadas.optJSONObject(i)?.optString("cover")) {
+                    "SCT" -> 2
+                    "BKN", "OVC" -> 3
+                    else -> 1
+                })
+            }
+            Medida(temp, umidade, fenomeno, nuvens)
         } catch (e: Exception) {
             null   // formato mudou, sem internet etc.: fica o modelo
         }
