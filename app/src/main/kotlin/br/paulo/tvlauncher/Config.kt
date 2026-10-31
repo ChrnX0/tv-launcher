@@ -34,7 +34,7 @@ object Config {
     const val PACOTE_CONFIG = "com.android.tv.settings"
 
     // --- App aberto automaticamente quando a TV REINICIA (não quando acorda do standby). "" desliga.
-    const val ABRIR_AO_LIGAR = "com.onestream.player"
+    const val ABRIR_AO_LIGAR = ""   // desligado: o OneStream tem opcao propria de abrir ao reiniciar; ponha o pacote aqui so se quiser que o launcher faca isso
 
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
     const val CLIMA_A_CADA_MIN = 15L
