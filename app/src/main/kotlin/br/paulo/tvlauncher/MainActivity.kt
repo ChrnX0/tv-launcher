@@ -79,7 +79,8 @@ class MainActivity : Activity() {
     private lateinit var txtDescricao: TextView
     private lateinit var txtMax: TextView   // "↑ 32°" ao lado da temperatura
     private lateinit var txtMin: TextView   // "↓ 18°"
-    private lateinit var txtInfo: List<TextView>   // as 2 linhas de informacao do topo (colunas 9-11): lua e chuva
+    private lateinit var txtInfo: List<TextView>   // as 3 linhas de informacao do topo (colunas 9-11): lua, umidade, chuva
+    private var textoUmidade = ""   // "💧  Umidade 38%"
     private var textoChuva = ""   // "Chuva 91% nas próx. 3 h" ou "Chovendo agora"; vai na 3a linha do clima, junto da lua
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
@@ -192,8 +193,9 @@ class MainActivity : Activity() {
         }
 
         // ---- Topo, nas colunas da grade (ver Grade.kt):
-        //   linha grande:  1-4 hora        5-8 temperatura        9-11 duas linhas de informacao (lua, chuva)   12 bolinha
-        //   linha de baixo: 1-4 data       5-11 descricao do clima ("Parcialmente nublado"); maxima/minima ficam ao lado da temperatura
+        //   1-4: hora / data     5-8: temperatura (+ maxima/minima ao lado) / descricao     9-11: tres linhas de info     12: bolinha
+        // Hora e temperatura tem a mesma fonte e tamanho; data e descricao tambem: tudo cai nas mesmas alturas.
+        // As 3 linhas de informacao (lua, umidade, chuva) se dividem igualmente na altura dos blocos ao lado.
         // Hora e temperatura tem a mesma fonte e tamanho; data e descricao tambem: tudo cai nas mesmas alturas.
         val topo = FrameLayout(this).apply {
             clipChildren = false
@@ -264,10 +266,10 @@ class MainActivity : Activity() {
             addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(txtDescricao, LinearLayout.LayoutParams(MATCH, WRAP))
         }
-        topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(7)), WRAP).apply { leftMargin = dp(Grade.x(5)) })
+        topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(5)) })
 
-        // Duas linhas de informacao (lua, chuva), cada uma com metade da altura da linha grande.
-        txtInfo = List(2) {
+        // Tres linhas de informacao (lua, umidade, chuva), cada uma com 1/3 da altura dos blocos ao lado.
+        txtInfo = List(3) {
             texto(14f, textoSuave).apply {
                 gravity = Gravity.CENTER_VERTICAL or Gravity.START
                 letterSpacing = 0.02f
@@ -280,8 +282,8 @@ class MainActivity : Activity() {
             txtInfo.forEach { addView(it, LinearLayout.LayoutParams(MATCH, 0, 1f)) }
         }
         topo.addView(blocoInfo, FrameLayout.LayoutParams(dp(Grade.largura(3)), WRAP).apply { leftMargin = dp(Grade.x(9)) })
-        // A altura do bloco de informacao copia a da linha grande (hora/temperatura): embaixo dele fica a descricao.
-        linhaTemp.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+        // A altura do bloco de informacao copia a do bloco da hora (hora + data).
+        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             if (blocoInfo.layoutParams.height != v.height) {
                 blocoInfo.layoutParams = blocoInfo.layoutParams.apply { height = v.height }
             }
@@ -1006,7 +1008,7 @@ class MainActivity : Activity() {
                 val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
                 val url = "https://api.open-meteo.com/v1/forecast" +
                     "?latitude=${Config.LATITUDE}&longitude=${Config.LONGITUDE}" +
-                    "&current=temperature_2m,weather_code,precipitation,is_day" +
+                    "&current=temperature_2m,relative_humidity_2m,weather_code,precipitation,is_day" +
                     "&hourly=precipitation_probability&forecast_hours=4" +
                     "&daily=temperature_2m_max,temperature_2m_min" +
                     "&timezone=auto&forecast_days=1$unidade"
@@ -1015,7 +1017,10 @@ class MainActivity : Activity() {
                 val dia = json.getJSONObject("daily")
                 // Temperatura: a MEDIDA na estacao do aeroporto (METAR) vence a do modelo da Open-Meteo. Em 31/10 as 16:15
                 // o modelo dizia 26,6 °C e o aeroporto de Ribeirao Preto mediu 32 °C. Sem METAR recente, fica o modelo.
-                val temp = temperaturaMedida() ?: Math.round(atual.getDouble("temperature_2m")).toInt()
+                val medida = medidaAeroporto()
+                // Umidade: a do aeroporto (calculada da temperatura e do ponto de orvalho medidos); sem ela, a do modelo.
+                val umidade = medida?.umidade ?: atual.optInt("relative_humidity_2m", -1).takeIf { it >= 0 }
+                val temp = medida?.temp ?: Math.round(atual.getDouble("temperature_2m")).toInt()
                 // Minima/maxima do dia vem do modelo; se a medida de agora ja passou delas, o modelo errou: corrige com ela.
                 val max = maxOf(temp, Math.round(dia.getJSONArray("temperature_2m_max").getDouble(0)).toInt())
                 val min = minOf(temp, Math.round(dia.getJSONArray("temperature_2m_min").getDouble(0)).toInt())
@@ -1048,6 +1053,7 @@ class MainActivity : Activity() {
                     txtMax.text = "↑ $max°"
                     txtMin.text = "↓ $min°"
                     textoChuva = chuva
+                    textoUmidade = umidade?.let { "💧  Umidade $it%" } ?: ""
                     luaNoIcone = luaVirouIcone
                     atualizarEclipse()   // escolhe o icone (clima ou eclipse) e chama atualizarLua()
                 }
@@ -1072,7 +1078,7 @@ class MainActivity : Activity() {
             else -> Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE).substringBeforeLast("  ·  ")
         }
         // As linhas de informacao, de cima para baixo, so as que existirem (sem buraco no meio).
-        val linhas = listOf(lua, textoChuva).filter { it.isNotEmpty() }
+        val linhas = listOf(lua, textoUmidade, textoChuva).filter { it.isNotEmpty() }
         txtInfo.forEachIndexed { i, t -> t.text = linhas.getOrElse(i) { "" } }
     }
 
@@ -1133,12 +1139,15 @@ class MainActivity : Activity() {
         else -> "🌡️" to "—"
     }
 
+    /** O que o aeroporto mediu: temperatura (ja na unidade do Config) e umidade relativa em % (null se faltar o orvalho). */
+    private class Medida(val temp: Int, val umidade: Int?)
+
     /**
-     * Temperatura medida agora na estacao Config.ESTACAO_METAR (o boletim METAR que todo aeroporto publica, em geral
-     * a cada hora), arredondada e na unidade do Config. null se nao houver estacao, se a busca falhar ou se o boletim
-     * tiver mais de 90 min (ai o modelo e melhor que um numero velho). Chamar fora da thread da tela.
+     * Ultimo boletim METAR da estacao Config.ESTACAO_METAR (todo aeroporto publica, em geral a cada hora).
+     * null se nao houver estacao, se a busca falhar ou se o boletim tiver mais de 90 min (ai o modelo e melhor que
+     * um numero velho). Chamar fora da thread da tela.
      */
-    private fun temperaturaMedida(): Int? {
+    private fun medidaAeroporto(): Medida? {
         if (Config.ESTACAO_METAR.isEmpty()) return null
         return try {
             val texto = httpGet("https://aviationweather.gov/api/data/metar?ids=${Config.ESTACAO_METAR}&format=json") ?: return null
@@ -1146,7 +1155,14 @@ class MainActivity : Activity() {
             val idadeMin = (System.currentTimeMillis() / 1000 - boletim.getLong("obsTime")) / 60
             if (idadeMin > 90 || !boletim.has("temp")) return null
             val celsius = boletim.getDouble("temp")
-            Math.round(if (Config.USAR_FAHRENHEIT) celsius * 9 / 5 + 32 else celsius).toInt()
+            // Umidade relativa pela formula de Magnus: compara a pressao de vapor no ponto de orvalho com a da temperatura.
+            val umidade = if (boletim.has("dewp")) {
+                val orvalho = boletim.getDouble("dewp")
+                val vapor = { t: Double -> Math.exp(17.625 * t / (243.04 + t)) }
+                Math.round(100 * vapor(orvalho) / vapor(celsius)).toInt().coerceIn(0, 100)
+            } else null
+            val temp = Math.round(if (Config.USAR_FAHRENHEIT) celsius * 9 / 5 + 32 else celsius).toInt()
+            Medida(temp, umidade)
         } catch (e: Exception) {
             null   // formato mudou, sem internet etc.: fica o modelo
         }
