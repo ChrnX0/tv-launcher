@@ -3,6 +3,13 @@ package br.paulo.tvlauncher
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import android.database.ContentObserver
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import rikka.shizuku.Shizuku
@@ -23,6 +30,7 @@ object Privilegio {
     // Quando o último pedido foi feito (0 = nenhum aberto). Evita empilhar diálogos, mas libera um novo pedido após 60 s,
     // para o caso de o diálogo ter sido dispensado sem resposta (aí nenhum retorno chega e o launcher ficaria mudo).
     @Volatile private var pedindoDesde = 0L
+    private var vigiando = false   // os ouvintes da Depuração sem fio são registrados uma vez por processo
 
     /** Liga os ouvintes uma única vez (chamado em MainActivity.onCreate). */
     fun iniciar() {
@@ -86,6 +94,42 @@ object Privilegio {
         } catch (e: SecurityException) {
             Log.w("TvLauncher.Adb", "sem WRITE_SECURE_SETTINGS: nao consigo religar a Depuracao sem fio")
         }
+    }
+
+    /**
+     * Olhar uma vez não basta: no boot de 31/10 o launcher abriu às 15:51:16.1 com a depuração ligada e, 0,6 s depois,
+     * o Android a desligou ("Network disconnected. Disabling adbwifi": o Wi-Fi oscila durante o boot).
+     * Então ficamos de olho em duas coisas enquanto o processo do launcher viver (como é a tela inicial, ele vive quase sempre):
+     *  1. o ajuste "adb_wifi_enabled" mudou para 0 -> religa, se houver Wi-Fi;
+     *  2. o Wi-Fi conectou -> religa 3 s depois (dá tempo da rede assentar; sem Wi-Fi o Android recusa ligar).
+     * Chamado no onCreate da tela e no BootReceiver; só registra uma vez.
+     */
+    fun vigiarDepuracaoSemFio(ctx: Context) {
+        if (!Config.DEPURACAO_SEM_FIO_SEMPRE_LIGADA || vigiando) return
+        vigiando = true
+        val app = ctx.applicationContext   // o contexto do app inteiro, que não morre com uma tela
+        val principal = Handler(Looper.getMainLooper())
+        val cm = app.getSystemService(ConnectivityManager::class.java)
+        val temWifi = {
+            cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        }
+        app.contentResolver.registerContentObserver(
+            Settings.Global.getUriFor("adb_wifi_enabled"), false,
+            object : ContentObserver(principal) {
+                override fun onChange(selfChange: Boolean) {
+                    if (temWifi()) principal.postDelayed({ religarDepuracaoSemFio(app) }, 3000)
+                }
+            }
+        )
+        cm.registerNetworkCallback(
+            NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build(),
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    principal.postDelayed({ religarDepuracaoSemFio(app) }, 3000)
+                }
+            }
+        )
+        Log.i("TvLauncher.Adb", "vigiando a Depuracao sem fio")
     }
 
     /** true quando o Shizuku está rodando E este app está autorizado. */
