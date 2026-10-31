@@ -36,6 +36,10 @@ object Config {
     // --- App aberto automaticamente quando a TV REINICIA (não quando acorda do standby). "" desliga.
     const val ABRIR_AO_LIGAR = ""   // desligado: o OneStream tem opcao propria de abrir ao reiniciar; ponha o pacote aqui so se quiser que o launcher faca isso
 
+    // --- Shizuku: true = o serviço de acessibilidade aprova SOZINHO qualquer app que pedir acesso (cada um ganha shell).
+    //     false = o diálogo do Shizuku aparece e você decide. Também dá para desligar em Configurações > Acessibilidade.
+    const val SHIZUKU_AUTORIZAR_TUDO = true
+
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
     const val CLIMA_A_CADA_MIN = 15L
     const val LUA_A_CADA_MIN = 30L   // fase da lua: recalculada no proprio aparelho, sem internet

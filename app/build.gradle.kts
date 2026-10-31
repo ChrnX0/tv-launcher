@@ -34,4 +34,9 @@ android {
     }
 }
 
-// Sem dependências extras de propósito: só o framework do Android. APK menor e menos RAM na TV.
+// Antes eram zero dependências, de propósito (APK menor, menos RAM na TV). Agora só a API do Shizuku:
+// "api" faz as chamadas; "provider" recebe o canal (binder) quando o Shizuku inicia. Custo medido: o APK foi de 1,0 MB para 1,8 MB.
+dependencies {
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
+}
