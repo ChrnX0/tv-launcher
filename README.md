@@ -12,7 +12,7 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 |---|---|
 | `app/src/main/kotlin/br/paulo/tvlauncher/Config.kt` | **Tudo que você quer mudar**: cidade, apps fixos, ordem, app aberto ao ligar |
 | `MainActivity.kt` | A tela inteira (montada por código, sem XML) |
-| `Grade.kt` | A grade da tela: margens de 48 dp, 12 colunas de 50 dp com vãos de 24 dp, alturas fixas. Topo: hora (col. 1-4), clima (5-8), 3 linhas de informação (9-11), bolinha (12); cada card ocupa 3 colunas |
+| `Grade.kt` | A grade da tela: margens de 48 dp, 12 colunas de 50 dp com vãos de 24 dp, alturas fixas. Topo: hora (col. 1-4), temperatura (5-8), lua e chuva (9-11), bolinha (12); embaixo, data (1-4) e descrição do clima (5-11); cada card ocupa 3 colunas |
 | `Rede.kt` | Nome da rede (SSID), sinal, velocidade do enlace e latência; decide a cor do ícone de Wi-Fi |
 | `PopupPerfil.kt` | O menu da bolinha do perfil: trocar perfil, adicionar, Configurações, DNS, Wi-Fi |
 | `Perfil.kt` | Contas Google da TV, perfil ativo do launcher e a imagem de cada perfil (foto ou inicial) |
