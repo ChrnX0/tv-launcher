@@ -45,6 +45,18 @@ object Config {
     const val CLIMA_A_CADA_MIN = 15L
     const val LUA_A_CADA_MIN = 30L   // fase da lua: recalculada no proprio aparelho, sem internet
     const val REDE_A_CADA_SEG = 30L
+    const val ECLIPSE_A_CADA_SEG = 60L   // so importa durante um eclipse solar: a lua anda no icone a cada tanto
+
+    // --- Eclipses solares visíveis daqui (todos parciais). O ícone do clima só vira "sol coberto pela lua" dentro
+    //     destes horários, com a cobertura do momento; fora deles nunca aparece. Fonte: timeanddate.com/eclipse/in/brazil/ribeirao-preto
+    //     Horários em UTC (Brasília + 3 h): 1º contato, máximo, último contato; depois a magnitude (fração do diâmetro coberta).
+    //     A tabela termina em 2034. Em outra cidade, troque as linhas (sem linhas, nunca aparece eclipse).
+    val ECLIPSES_SOLARES = listOf(
+        EclipseSolar("2027-02-06T14:34:50Z", "2027-02-06T16:25:17Z", "2027-02-06T18:02:41Z", 0.778),
+        EclipseSolar("2028-01-26T13:08:24Z", "2028-01-26T14:32:31Z", "2028-01-26T15:58:05Z", 0.330),
+        EclipseSolar("2032-05-09T11:51:25Z", "2032-05-09T12:18:47Z", "2032-05-09T12:47:31Z", 0.055),
+        EclipseSolar("2034-09-12T15:47:18Z", "2034-09-12T17:26:12Z", "2034-09-12T18:52:30Z", 0.694),
+    )
 
     // --- Qualidade da rede: o ícone de Wi-Fi do menu do perfil fica verde, amarelo ou vermelho conforme
     //     estes limites. A cor segue a PIOR das três medidas (sinal, latência, velocidade do enlace).

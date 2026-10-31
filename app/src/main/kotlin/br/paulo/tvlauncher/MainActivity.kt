@@ -14,6 +14,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -37,7 +38,7 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val TOKEN_OCULTOS = "ocultos"   // identifica o card "Ocultos" (nenhum pacote tem esse nome)
 private const val ID_PREVIA = "previa"       // id da pilha provisoria mostrada enquanto se arrasta um app para cima de outro
-private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: sol coberto pela lua (IconeEclipse). Reservado para eclipse solar real; hoje nenhum clima usa
+private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: sol coberto pela lua (IconeEclipse). So aparece durante um eclipse solar REAL (ver Eclipse.kt e o Config.kt)
 
 /**
  * A tela inicial inteira. A interface é montada por código (sem arquivos XML de layout):
@@ -88,6 +89,9 @@ class MainActivity : Activity() {
     private var lista: MutableList<Entrada> = mutableListOf()   // cards da linha principal, na ordem da tela
     private var modoMover = false
     private var luaNoIcone = false   // true: o icone do clima ja e a lua, entao a linha da fase some
+    private var iconeClima: String? = null        // icone que o CLIMA mandou na ultima busca (o eclipse so o substitui enquanto dura)
+    private var ceuCoberto = false                // nuvens ou chuva (codigo > 2): o eclipse nao seria visto, entao fica o icone do clima
+    private var eclipseAgora: Eclipse.Estado? = null   // null = nao ha eclipse neste minuto
     private var tokenMovendo: String? = null   // card que destaca em verde-agua no modo mover (o arrastado, ou a pre-pilha)
     private var arrastado: Entrada? = null     // card que esta sendo arrastado (a lista [lista] nao muda ate confirmar)
     private var posMover = 0                   // posicao de teste do arrastado: par = ao lado, impar = em cima de um card
@@ -106,6 +110,12 @@ class MainActivity : Activity() {
         override fun run() {
             atualizarLua()
             ui.postDelayed(this, Config.LUA_A_CADA_MIN * 60_000L)
+        }
+    }
+    private val tarefaEclipse = object : Runnable {
+        override fun run() {
+            atualizarEclipse()
+            ui.postDelayed(this, Config.ECLIPSE_A_CADA_SEG * 1000L)
         }
     }
     private val tarefaRede = object : Runnable {
@@ -129,6 +139,7 @@ class MainActivity : Activity() {
         preencherApps()
         ui.post(tarefaClima)
         ui.post(tarefaLua)
+        ui.post(tarefaEclipse)
         ui.post(tarefaRede)
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         Privilegio.religarAcessibilidade(this)
@@ -139,6 +150,7 @@ class MainActivity : Activity() {
         super.onPause()
         ui.removeCallbacks(tarefaClima)
         ui.removeCallbacks(tarefaLua)
+        ui.removeCallbacks(tarefaEclipse)
         ui.removeCallbacks(tarefaRede)
         menuAberto?.dismiss()
         popup?.fechar()
@@ -981,12 +993,13 @@ class MainActivity : Activity() {
                 val detalhe = "${Config.CIDADE}  ·  $min° – $max°" +
                     if (chuva.isNotEmpty()) "\n$chuva" else ""
                 ui.post {
-                    mostrarIcone(icone)
+                    iconeClima = icone
+                    ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
                     txtDescricao.text = descricao
                     txtDetalhe.text = detalhe
                     luaNoIcone = luaVirouIcone
-                    atualizarLua()
+                    atualizarEclipse()   // escolhe o icone (clima ou eclipse) e chama atualizarLua()
                 }
             } catch (e: Exception) {
                 // Sem internet ou API fora do ar: mantem o ultimo valor mostrado.
@@ -996,9 +1009,36 @@ class MainActivity : Activity() {
 
     /** A lua e calculada no aparelho (ver Lua.kt): nao usa internet. */
     private fun atualizarLua() {
+        val eclipse = eclipseAgora
+        if (eclipse != null) {
+            // Durante um eclipse real, a linha da fase da lua vira a porcentagem do sol coberta.
+            val pct = Math.round(eclipse.coberto * 100).toInt()
+            val cobertura = if (eclipse.coberto < 0.01) "menos de 1%" else "$pct%"
+            txtLua.text = "Eclipse solar parcial · $cobertura" + if (ceuCoberto) " (encoberto)" else ""
+            txtLua.visibility = View.VISIBLE
+            return
+        }
         // Quando o icone do clima ja e a lua (noite, ceu visivel), a linha ficaria repetida: some.
         txtLua.visibility = if (luaNoIcone) View.GONE else View.VISIBLE
         txtLua.text = Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE)
+    }
+
+    /**
+     * Durante um eclipse solar REAL (tabela do Config.kt) e com o ceu visivel, o icone do clima vira o sol coberto
+     * pela lua, na cobertura do minuto. Com nuvem ou chuva fica o icone do clima (o eclipse nao seria visto).
+     * Fora do eclipse, volta para o ultimo icone do clima.
+     */
+    private fun atualizarEclipse() {
+        val e = Eclipse.estado(System.currentTimeMillis())
+        eclipseAgora = e
+        if (e != null) Log.i("TvLauncher.Eclipse", "lua x=${e.luaX} y=${e.luaY} coberto=${"%.1f".format(e.coberto * 100)}% ceuCoberto=$ceuCoberto")
+        if (e != null && !ceuCoberto) {
+            iconeEclipse.definir(e.luaX, e.luaY, e.raioLua)
+            mostrarIcone(ICONE_ECLIPSE)
+        } else {
+            iconeClima?.let { mostrarIcone(it) }
+        }
+        atualizarLua()
     }
 
     /** Mede a rede fora da thread da tela e entrega o resultado ao popup do perfil (que mostra o nome e o sinal). */
@@ -1025,7 +1065,7 @@ class MainActivity : Activity() {
     }
 
 
-    /** Códigos de clima da Open-Meteo (padrão WMO) -> ícone + texto. O ícone é um emoji (ICONE_ECLIPSE existe, mas nenhum clima o usa hoje). */
+    /** Códigos de clima da Open-Meteo (padrão WMO) -> ícone + texto. O ícone é um emoji; o desenho do eclipse (ICONE_ECLIPSE) só entra em atualizarEclipse(). */
     private fun descricaoClima(codigo: Int): Pair<String, String> = when (codigo) {
         0 -> "☀️" to "Céu limpo"
         1 -> "🌤️" to "Poucas nuvens"

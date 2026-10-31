@@ -15,7 +15,8 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 | `Rede.kt` | Nome da rede (SSID), sinal, velocidade do enlace e latência; decide a cor do ícone de Wi-Fi |
 | `PopupPerfil.kt` | O menu da bolinha do perfil: trocar perfil, adicionar, Configurações, DNS, Wi-Fi |
 | `Perfil.kt` | Contas Google da TV, perfil ativo do launcher e a imagem de cada perfil (foto ou inicial) |
-| `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua (este reservado para eclipse solar real; hoje sem uso) |
+| `Eclipse.kt` | Dos horários da tabela de eclipses (`Config.kt`) calcula onde a lua está em relação ao sol e quanto dele ela cobre, no minuto |
+| `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua (este só aparece durante um eclipse solar real) |
 | `Lua.kt` | Fase da lua calculada no aparelho (sem internet) |
 | `Uso.kt` | Quando cada app foi usado pela última vez (ordem por uso recente) |
 | `BootReceiver.kt` | Abre um app quando a TV **reinicia** (não quando acorda do standby) |
@@ -42,6 +43,12 @@ Topo, da esquerda para a direita: **hora e data** · **temperatura com o ícone 
 
 **Ícone do clima:** ☀️ céu limpo · 🌤️ poucas nuvens · ⛅ parcialmente nublado · ☁️ nublado · 🌫️ neblina · 🌧️ garoa e chuva · ⛈️ tempestade. De noite, céu limpo, poucas nuvens e parcialmente nublado mostram a lua na fase do dia; chuva, tempestade e neblina ficam iguais ao dia. Se a Open-Meteo informa precipitação agora e o código diz "limpo/nublado", vale o ícone de chuva.
 
+**Eclipse solar (só quando existe de verdade):** dentro dos horários da tabela `ECLIPSES_SOLARES` (`Config.kt`) e com o céu visível, o ícone do clima vira o sol coberto pela lua, com a cobertura do minuto (atualiza a cada 60 s), e a linha da fase da lua mostra "Eclipse solar parcial · NN%" (NN = % da **área** do sol coberta). Com nuvem ou chuva (código do clima acima de 2) o ícone continua o do clima e a linha ganha "(encoberto)". Fora desses horários o ícone nunca aparece.
+
+- **Fonte da tabela:** [timeanddate.com](https://www.timeanddate.com/eclipse/in/brazil/ribeirao-preto), lida em 31/10/2026. Os 4 eclipses visíveis de Ribeirão Preto até 2034 são todos parciais: 06/02/2027 (máximo 13:25 BRT, magnitude 0,778), 26/01/2028 (11:32, 0,330), 09/05/2032 (09:18, 0,055) e 12/09/2034 (14:26, 0,694). **A tabela termina em 2034**; depois disso (ou em outra cidade) é preciso trocar/acrescentar linhas em `ECLIPSES_SOLARES`: 1º contato, máximo e último contato em **UTC** (Brasília + 3 h) e a magnitude.
+- **A conta** (`Eclipse.kt`): sol e lua são dois discos e a lua passa em linha reta. A magnitude dá a distância mínima entre os centros; os 3 horários dão a velocidade; a cobertura é a área da interseção dos discos. A razão entre os tamanhos aparentes da lua e do sol não vem na tabela: usei 1,0. Para razões de 0,90 a 1,03 o percentual mudaria no máximo 3,1 pontos (calculado em Python).
+- **Não calculado:** de que lado a lua entra. O desenho a faz passar da esquerda para a direita, por baixo do sol; o lado real depende de onde o sol está no céu e não foi calculado.
+
 **Bolinha do perfil** (OK abre o menu; ▲ a partir de um card solto chega nela):
 
 - uma bolinha por conta Google da TV (anel verde-água = perfil ativo; a legenda mostra o nome); OK troca. O perfil ativo é **só do launcher**: muda a bolinha, não troca a conta do YouTube nem a do Gemini (isso é do Google TV);
@@ -60,7 +67,7 @@ A foto nao vem sozinha da conta: le-la exige OAuth numa API da Google. As fotos 
 
 ## Mudar para os EUA
 
-Em `Config.kt`: `CIDADE`, `LATITUDE`, `LONGITUDE` e `USAR_FAHRENHEIT = true`. Depois recompile e reinstale.
+Em `Config.kt`: `CIDADE`, `LATITUDE`, `LONGITUDE`, `USAR_FAHRENHEIT = true` e a tabela `ECLIPSES_SOLARES` (os horários são de Ribeirão Preto; apague as linhas se não tiver a tabela da nova cidade, assim nunca aparece eclipse). Depois recompile e reinstale.
 
 ## Compilar
 
@@ -113,6 +120,7 @@ O botão de microfone do controle dispara a intent `ASSIST`. Com o `launcherx` d
 - **BootReceiver:** depois do reboot o OneStream abriu sozinho, mas o próprio OneStream também declara um receiver de `BOOT_COMPLETED`, então não dá para atribuir com certeza. O `ABRIR_AO_LIGAR` do `Config.kt` agora vem vazio, para não haver dois lugares controlando isso; se o OneStream parar de abrir sozinho no próximo reboot, a opção dele não estava ativa.
 - **Segurar OK para mover apps:** testado com `input keyevent --longpress`, não com o controle de verdade.
 - **`restaurar-tv.ps1`:** testado em `-DryRun` e nos comandos equivalentes feitos à mão, não numa TV zerada.
+- **Eclipse solar:** testado no aparelho (31/10/2026) com um relógio falso, depois removido do código: 7 instantes dentro de eclipses (72%, 35%, 34%, 22%, 1,5%, 62%, 0,1%) e 1 fora; a porcentagem do app bateu com a do modelo em Python nos 7, e fora do eclipse o ícone voltou ao do clima. Não testado: um eclipse de verdade (o primeiro é 06/02/2027) e o caso de céu encoberto durante um eclipse (só lido no código, o clima de hoje estava com poucas nuvens).
 - **Topo novo e menu do perfil: testados** na Sala (31/10/2026) por screenshot e `input keyevent`: layout, ▲ do card até a bolinha, abrir o menu, trocar de perfil e voltar, linhas de Configurações/DNS, ícone de Wi-Fi verde (sinal -60 dBm, enlace 292 Mbps, latência 14 ms), faixa de teclas do modo mover.
 - **Não testado:** o ícone da lua à noite e o de chuva (só apareceu o clima do momento, "poucas nuvens"); o **+** de adicionar conta; o menu com o controle de verdade.
 
