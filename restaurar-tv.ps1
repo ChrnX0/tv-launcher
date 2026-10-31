@@ -172,7 +172,7 @@ Adb @("-s", $serial, "shell", "pm trim-caches 3G") | Out-Null
 
 Passo "Instalando o launcher"
 if (-not $DryRun -and -not (Test-Path $Apk)) { throw "APK nao encontrado: $Apk" }
-Adb @("-s", $serial, "install", "-r", $Apk) | Out-Host
+Adb @("-s", $serial, "install", "-r", "-t", $Apk) | Out-Host   # -t: o APK e testOnly (permite desfazer o device owner por adb)
 Adb @("-s", $serial, "shell", "appops set $LauncherPkg GET_USAGE_STATS allow") | Out-Null   # ordem por uso recente
 Adb @("-s", $serial, "shell", "pm grant $LauncherPkg android.permission.ACCESS_FINE_LOCATION") | Out-Null   # nome do Wi-Fi
 Adb @("-s", $serial, "shell", "pm grant $LauncherPkg android.permission.WRITE_SECURE_SETTINGS") | Out-Null   # tela de DNS (vale apos reinstalar)
