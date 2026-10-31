@@ -37,6 +37,7 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val TOKEN_OCULTOS = "ocultos"   // identifica o card "Ocultos" (nenhum pacote tem esse nome)
 private const val ID_PREVIA = "previa"       // id da pilha provisoria mostrada enquanto se arrasta um app para cima de outro
+private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: desenhar o sol parcialmente coberto pela lua (IconeEclipse)
 
 /**
  * A tela inicial inteira. A interface é montada por código (sem arquivos XML de layout):
@@ -76,8 +77,11 @@ class MainActivity : Activity() {
     private lateinit var txtDescricao: TextView
     private lateinit var txtDetalhe: TextView
     private lateinit var txtLua: TextView
-    private lateinit var txtRede: TextView
-    private lateinit var txtDns: TextView   // chip do rodapé: mostra o DNS em uso e abre a DnsActivity
+    private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
+    private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
+    private lateinit var fotoPerfil: ImageView        // a bolinha do perfil, no canto superior direito
+    private var popup: PopupPerfil? = null            // menu da bolinha: perfis, Configuracoes, DNS, Wi-Fi
+    private var ultimaRede: Rede.Resultado? = null    // ultima medicao de rede (o menu mostra esta ao abrir)
     private lateinit var linhaApps: LinearLayout
     private lateinit var rolagem: HorizontalScrollView
     private var instalados: List<Item> = emptyList()          // todos os apps de TV instalados (inclui os ocultos)
@@ -126,7 +130,7 @@ class MainActivity : Activity() {
         ui.post(tarefaClima)
         ui.post(tarefaLua)
         ui.post(tarefaRede)
-        txtDns.text = Dns.rotulo(this)   // pode ter mudado na tela de DNS
+        atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         Privilegio.religarAcessibilidade(this)
         Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
     }
@@ -137,6 +141,7 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaLua)
         ui.removeCallbacks(tarefaRede)
         menuAberto?.dismiss()
+        popup?.fechar()
         fecharPasta()
         if (modoMover) cancelarMover()
     }
@@ -167,13 +172,17 @@ class MainActivity : Activity() {
             // Margem de segurança de TV só em cima/embaixo; as laterais ficam em cada bloco,
             // assim a linha de apps pode rolar até a borda da tela.
             setPadding(0, dp(30), 0, dp(26))
-            background = montarFundo()
+            clipChildren = false   // a bolinha do perfil cresce com o foco e passa um pouco da margem
+            clipToPadding = false
         }
 
-        // ---- Topo: hora e data a esquerda; clima e fase da lua a direita.
+        // ---- Topo: hora e data a esquerda; temperatura e icone do clima no meio; bolinha do perfil a direita.
+        // As colunas da esquerda e da direita tem o mesmo peso (1), entao a do meio fica no centro da tela.
         val topo = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(56), 0, dp(56), 0)
+            clipChildren = false
+            clipToPadding = false
         }
 
         val blocoHora = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -196,35 +205,48 @@ class MainActivity : Activity() {
         })
         topo.addView(blocoHora, LinearLayout.LayoutParams(0, WRAP, 1f))
 
-        val blocoInfo = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.END
+        // Meio: [icone][temperatura] em cima; descricao, minima/maxima (+ chuva) e fase da lua embaixo, tudo centralizado.
+        txtIcone = texto(38f, Color.WHITE).apply { gravity = Gravity.CENTER }
+        iconeEclipse = IconeEclipse(this).apply { visibility = View.GONE }
+        val caixaIcone = FrameLayout(this).apply {
+            addView(txtIcone, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
+            addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
-        val linhaClima = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        txtIcone = texto(34f, Color.WHITE)
         txtTemp = texto(54f, Color.WHITE, fonteLeve).apply {
-            setPadding(dp(14), 0, dp(18), 0)
+            setPadding(dp(14), 0, 0, 0)
             includeFontPadding = false
             text = "…"
         }
-        txtDescricao = texto(17f, textoClaro, fonteMedia)
-        txtDetalhe = texto(13f, textoSuave).apply { setPadding(0, dp(2), 0, 0) }
-        val colunaClima = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        colunaClima.addView(txtDescricao)
-        colunaClima.addView(txtDetalhe)
-        linhaClima.addView(txtIcone)
-        linhaClima.addView(txtTemp)
-        linhaClima.addView(colunaClima)
-        txtLua = texto(14f, textoSuave).apply { letterSpacing = 0.02f }
-        blocoInfo.addView(linhaClima, LinearLayout.LayoutParams(WRAP, WRAP).apply { gravity = Gravity.END })
-        blocoInfo.addView(txtLua, LinearLayout.LayoutParams(WRAP, WRAP).apply {
-            gravity = Gravity.END
-            topMargin = dp(8)
-        })
-        topo.addView(blocoInfo, LinearLayout.LayoutParams(WRAP, WRAP))
+        val linhaTemp = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(caixaIcone, LinearLayout.LayoutParams(dp(60), dp(60)))
+            addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
+        }
+        txtDescricao = texto(17f, textoClaro, fonteMedia).apply { gravity = Gravity.CENTER_HORIZONTAL }
+        txtDetalhe = texto(13f, textoSuave).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(2), 0, 0)
+        }
+        txtLua = texto(14f, textoSuave).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            letterSpacing = 0.02f
+            setPadding(0, dp(6), 0, 0)
+        }
+        val blocoClima = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
+            addView(txtDescricao, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(4) })
+            addView(txtDetalhe, LinearLayout.LayoutParams(WRAP, WRAP))
+            addView(txtLua, LinearLayout.LayoutParams(WRAP, WRAP))
+        }
+        topo.addView(blocoClima, LinearLayout.LayoutParams(WRAP, WRAP))
+
+        // Direita: a bolinha do perfil, encostada no canto superior direito.
+        val blocoPerfil = FrameLayout(this).apply { clipChildren = false }
+        blocoPerfil.addView(botaoPerfil(), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END))
+        topo.addView(blocoPerfil, LinearLayout.LayoutParams(0, WRAP, 1f))
         raiz.addView(topo, LinearLayout.LayoutParams(MATCH, WRAP))
 
         // Espaço elástico empurra a linha de apps para o meio da tela.
@@ -246,20 +268,27 @@ class MainActivity : Activity() {
 
         raiz.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
 
-        // ---- Rodape: rede (nome, sinal, velocidade, latencia) a esquerda; botao de perfil/Configuracoes a direita.
-        val base = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(56), 0, dp(56), 0)
+        // ---- Guia de teclas do modo mover: uma faixa na parte de baixo, por cima de tudo. Some fora do modo mover.
+        txtDica = texto(15f, corMover).apply {
+            visibility = View.GONE
+            gravity = Gravity.CENTER
+            maxLines = 2
+            maxWidth = dp(1000)
+            setPadding(dp(22), dp(10), dp(22), dp(10))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(22).toFloat()
+                setColor(0xE60E1311.toInt())
+                setStroke(dp(1), 0x667FD6C2)
+            }
         }
-        txtRede = texto(14f, textoSuave).apply { letterSpacing = 0.01f; maxLines = 1 }
-        base.addView(txtRede, LinearLayout.LayoutParams(0, WRAP, 1f))
-        // (sem o botao Liberar RAM)
-        base.addView(chipDns(), LinearLayout.LayoutParams(WRAP, WRAP).apply { rightMargin = dp(20) })
-        base.addView(botaoPerfil())
-        raiz.addView(base, LinearLayout.LayoutParams(MATCH, WRAP))
 
-        return raiz
+        return FrameLayout(this).apply {
+            background = montarFundo()
+            addView(raiz, FrameLayout.LayoutParams(MATCH, MATCH))
+            addView(txtDica, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                bottomMargin = dp(32)
+            })
+        }
     }
 
     /**
@@ -268,26 +297,10 @@ class MainActivity : Activity() {
      * Custa ~8 MB de RAM enquanto o launcher está aberto (1920 x 1080 x 4 bytes); a TV tem folga.
      */
     private fun montarFundo(): Drawable = resources.getDrawable(R.drawable.fundo, theme)
-    /** Botão do rodapé: mostra o DNS em uso (ex.: "DNS: AdGuard") e abre a tela de DNS (DnsActivity). */
-    private fun chipDns(): View {
-        txtDns = texto(14f, textoClaro, fonteMedia).apply {
-            maxLines = 1
-            setPadding(dp(18), dp(10), dp(18), dp(10))
-            isFocusable = true
-            isClickable = true
-            background = fundoVidro(false, dp(22))
-            setOnClickListener { startActivity(Intent(this@MainActivity, DnsActivity::class.java)) }
-            setOnFocusChangeListener { v, temFoco ->
-                v.background = fundoVidro(temFoco, dp(22))
-                val escala = if (temFoco) 1.08f else 1f
-                v.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
-            }
-        }
-        return txtDns
-    }
 
+    /** A bolinha do perfil, no canto superior direito: mostra a foto/inicial da conta ativa e abre o popup (OK). */
     private fun botaoPerfil(): View {
-        val foto = ImageView(this).apply {
+        fotoPerfil = ImageView(this).apply {
             setImageBitmap(Perfil.avatar(this@MainActivity, dp(56)))
             scaleType = ImageView.ScaleType.CENTER_CROP
             clipToOutline = true
@@ -298,19 +311,35 @@ class MainActivity : Activity() {
             }
         }
         return FrameLayout(this).apply {
-            contentDescription = "Configurações"
+            contentDescription = "Perfil"
             isFocusable = true
             isClickable = true
             setPadding(dp(4), dp(4), dp(4), dp(4))
             background = anel(false)
-            addView(foto, FrameLayout.LayoutParams(dp(56), dp(56)))
-            setOnClickListener { abrir(Config.PACOTE_CONFIG) }
+            addView(fotoPerfil, FrameLayout.LayoutParams(dp(56), dp(56)))
+            setOnClickListener { abrirPopup() }
             setOnFocusChangeListener { v, temFoco ->
                 v.background = anel(temFoco)
                 val escala = if (temFoco) 1.12f else 1f
                 v.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
             }
         }
+    }
+
+    /** Redesenha a bolinha: a conta ativa mudou, ou chegou uma foto nova. */
+    private fun atualizarFotoPerfil() {
+        fotoPerfil.setImageBitmap(Perfil.avatar(this, dp(56)))
+    }
+
+    /** Abre o menu do perfil (trocar perfil, Configurações, DNS, Wi-Fi). Ver PopupPerfil.kt. */
+    private fun abrirPopup() {
+        val menu = popup ?: PopupPerfil(
+            tela = this,
+            aoTrocarPerfil = { atualizarFotoPerfil() },
+            aoAbrirConfig = { abrir(Config.PACOTE_CONFIG) },
+        ).also { popup = it }
+        menu.abrir(ultimaRede)
+        atualizarRede()   // uma medição nova chega em instantes e atualiza o menu aberto
     }
 
     /** Anel ao redor da foto: quase invisível normalmente, branco quando o botão está focado. */
@@ -882,25 +911,20 @@ class MainActivity : Activity() {
         preencherApps()
     }
 
-    /** Durante o modo de mover, o rodape vira um guia de teclas. */
+    /** Durante o modo de mover, aparece um guia de teclas na parte de baixo da tela. */
     private fun mostrarDica(ligada: Boolean) {
-        if (ligada) {
-            txtRede.setTextColor(corMover)
-            txtRede.textSize = 13f
-            txtRede.maxLines = 2     // a dica é longa: pode usar 2 linhas ao lado do chip de DNS
-            val alvo = alvoDeEmpilhar()
-            txtRede.text = when {
-                alvo is Entrada.Pilha -> "OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
-                alvo != null -> "OK forma a pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
-                arrastado is Entrada.App -> "◀ ▶ mover · OK confirma · Voltar cancela · ▲ ocultar · ▼ ordem automática"
-                else -> "◀ ▶ mover · OK confirma · Voltar cancela · ▼ ordem automática"
-            }
-        } else {
-            txtRede.setTextColor(textoSuave)
-            txtRede.textSize = 14f
-            txtRede.maxLines = 1
-            atualizarRede()
+        if (!ligada) {
+            txtDica.visibility = View.GONE
+            return
         }
+        val alvo = alvoDeEmpilhar()
+        txtDica.text = when {
+            alvo is Entrada.Pilha -> "OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
+            alvo != null -> "OK forma a pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
+            arrastado is Entrada.App -> "◀ ▶ mover · OK confirma · Voltar cancela · ▲ ocultar · ▼ ordem automática"
+            else -> "◀ ▶ mover · OK confirma · Voltar cancela · ▼ ordem automática"
+        }
+        txtDica.visibility = View.VISIBLE
     }
 
     private fun abrir(pacote: String) {
@@ -942,14 +966,18 @@ class MainActivity : Activity() {
                 val codigo = atual.getInt("weather_code")
                 val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
                 val (iconeDoTempo, descricao) = descricaoClima(codigo)
-                // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol.
-                // Chuva, neblina etc. (codigo 3 em diante) mantem o proprio icone.
-                val luaVirouIcone = !eDia && codigo in 0..2
-                val icone = if (luaVirouIcone) Lua.emoji(System.currentTimeMillis(), Config.LATITUDE) else iconeDoTempo
+                // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol
+                // (se estiver chovendo, vale a chuva, como de dia). Chuva, neblina etc. mantem o proprio icone.
+                val luaVirouIcone = !eDia && codigo in 0..2 && !chovendoAgora
+                val icone = when {
+                    luaVirouIcone -> Lua.emoji(System.currentTimeMillis(), Config.LATITUDE)
+                    chovendoAgora && codigo < 51 -> "🌧️"   // o codigo diz "nublado", mas esta chovendo: vale a chuva
+                    else -> iconeDoTempo
+                }
                 val detalhe = "${Config.CIDADE}  ·  $min° – $max°" +
-                    if (chuva.isNotEmpty()) "  ·  $chuva" else ""
+                    if (chuva.isNotEmpty()) "\n$chuva" else ""
                 ui.post {
-                    txtIcone.text = icone
+                    mostrarIcone(icone)
                     txtTemp.text = "$temp°"
                     txtDescricao.text = descricao
                     txtDetalhe.text = detalhe
@@ -966,35 +994,41 @@ class MainActivity : Activity() {
     private fun atualizarLua() {
         // Quando o icone do clima ja e a lua (noite, ceu visivel), a linha ficaria repetida: some.
         txtLua.visibility = if (luaNoIcone) View.GONE else View.VISIBLE
-        txtLua.text = Lua.resumo(System.currentTimeMillis(), Config.LATITUDE)
+        txtLua.text = Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE)
     }
 
+    /** Mede a rede fora da thread da tela e entrega o resultado ao popup do perfil (que mostra o nome e o sinal). */
     private fun atualizarRede() {
         rede.execute {
             val r = Rede.medir(this)
             ui.post {
-                if (modoMover) return@post
-                txtRede.text = r.texto
-                txtRede.setTextColor(
-                    when (r.nivel) {
-                        0 -> textoSuave
-                        1 -> 0xFFE8C66A.toInt()    // amarelo: atenção
-                        else -> 0xFFE88A7A.toInt() // vermelho: ruim
-                    }
-                )
+                ultimaRede = r
+                popup?.atualizarRede(r)
             }
         }
     }
 
+    /** Troca o icone do clima: o eclipse e desenhado em codigo; os outros sao emojis. */
+    private fun mostrarIcone(icone: String) {
+        if (icone == ICONE_ECLIPSE) {
+            iconeEclipse.visibility = View.VISIBLE
+            txtIcone.visibility = View.GONE
+        } else {
+            txtIcone.text = icone
+            txtIcone.visibility = View.VISIBLE
+            iconeEclipse.visibility = View.GONE
+        }
+    }
 
-    /** Códigos de clima da Open-Meteo (padrão WMO) -> emoji + texto. */
+
+    /** Códigos de clima da Open-Meteo (padrão WMO) -> ícone + texto. O ícone é um emoji, ou ICONE_ECLIPSE (desenhado em código). */
     private fun descricaoClima(codigo: Int): Pair<String, String> = when (codigo) {
         0 -> "☀️" to "Céu limpo"
-        1 -> "🌤️" to "Poucas nuvens"
-        2 -> "⛅" to "Parcialmente nublado"
+        1 -> ICONE_ECLIPSE to "Poucas nuvens"
+        2 -> ICONE_ECLIPSE to "Parcialmente nublado"
         3 -> "☁️" to "Nublado"
         45, 48 -> "🌫️" to "Neblina"
-        in 51..57 -> "🌦️" to "Garoa"
+        in 51..57 -> "🌧️" to "Garoa"
         in 61..67 -> "🌧️" to "Chuva"
         in 71..77, 85, 86 -> "❄️" to "Neve"
         in 80..82 -> "🌧️" to "Pancadas de chuva"

@@ -2,6 +2,7 @@ package br.paulo.tvlauncher
 
 import android.content.Context
 import android.net.wifi.WifiManager
+import android.util.Log
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -9,10 +10,15 @@ import java.net.Socket
  * Qualidade da conexão: sinal do Wi-Fi (dBm), velocidade do enlace (Mbps) e latência
  * (quanto tempo leva para abrir uma conexão TCP até a internet).
  * Para IPTV, sinal fraco ou latência alta costumam ser a causa de travadas.
+ * Os limites de "bom / atenção / ruim" ficam no Config.kt.
  */
 object Rede {
-    /** nivel: 0 = bom, 1 = atenção, 2 = ruim. Define a cor do texto na tela. */
-    class Resultado(val texto: String, val nivel: Int)
+    /**
+     * [nome]: nome da rede (SSID). [barras]: quantas das 4 barrinhas do ícone acendem (0 a 4), só pelo sinal.
+     * [nivel]: 0 = bom, 1 = atenção, 2 = ruim; é a PIOR das três medidas (sinal, latência e velocidade do enlace)
+     * e define a cor do ícone. [ms] é -1 quando não há internet.
+     */
+    class Resultado(val nome: String, val dbm: Int, val mbps: Int, val ms: Int, val barras: Int, val nivel: Int)
 
     @Suppress("DEPRECATION")
     fun medir(contexto: Context): Resultado {
@@ -23,25 +29,37 @@ object Rede {
         val ms = latenciaMs()
 
         val temSinal = dbm in -126..-1
-        val partes = ArrayList<String>()
-        partes += nomeDaRede(info?.ssid) ?: if (temSinal) "Wi-Fi" else "Rede"
-        if (temSinal) partes += "$dbm dBm"
-        if (mbps > 0) partes += "$mbps Mbps"
-        partes += if (ms >= 0) "$ms ms" else "sem internet"
+        val nome = nomeDaRede(info?.ssid) ?: if (temSinal) "Wi-Fi" else "Rede"
 
         val nivelSinal = when {
             !temSinal -> 0
-            dbm >= -60 -> 0
-            dbm >= -70 -> 1
+            dbm >= Config.WIFI_DBM_BOM -> 0
+            dbm >= Config.WIFI_DBM_OK -> 1
             else -> 2
         }
         val nivelLatencia = when {
             ms < 0 -> 2
-            ms <= 60 -> 0
-            ms <= 120 -> 1
+            ms <= Config.LATENCIA_BOA_MS -> 0
+            ms <= Config.LATENCIA_OK_MS -> 1
             else -> 2
         }
-        return Resultado(partes.joinToString("  ·  "), maxOf(nivelSinal, nivelLatencia))
+        val nivelEnlace = when {
+            mbps <= 0 -> 0   // o Android não informou: não pune
+            mbps >= Config.LINK_BOM_MBPS -> 0
+            mbps >= Config.LINK_OK_MBPS -> 1
+            else -> 2
+        }
+        val barras = when {
+            !temSinal -> 0
+            dbm >= -55 -> 4
+            dbm >= -65 -> 3
+            dbm >= -75 -> 2
+            else -> 1
+        }
+        val nivel = maxOf(nivelSinal, nivelLatencia, nivelEnlace)
+        // Para calibrar os limites do Config.kt: mostra qual das 3 medidas definiu a cor.
+        Log.i("TvLauncher.Rede", "dbm=$dbm (nivel $nivelSinal)  link=${mbps}Mbps (nivel $nivelEnlace)  latencia=${ms}ms (nivel $nivelLatencia)  -> nivel $nivel")
+        return Resultado(nome, dbm, mbps, ms, barras, nivel)
     }
 
     /**
@@ -52,6 +70,7 @@ object Rede {
         val nome = bruto?.trim('"')
         return if (nome.isNullOrBlank() || nome == "<unknown ssid>") null else nome
     }
+
     /** Menor tempo de 3 tentativas de conexão ao DNS da Cloudflare (1.1.1.1), em milissegundos. -1 se falhar. */
     private fun latenciaMs(): Int {
         var melhor = Int.MAX_VALUE

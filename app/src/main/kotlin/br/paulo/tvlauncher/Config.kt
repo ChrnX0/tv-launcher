@@ -30,7 +30,7 @@ object Config {
         "com.android.vending",
     )
 
-    // --- Botão de Configurações (fica no canto de baixo, separado da grade de apps).
+    // --- Pacote das Configurações do sistema (abre pelo menu da bolinha do perfil, no canto superior direito).
     const val PACOTE_CONFIG = "com.android.tv.settings"
 
     // --- App aberto automaticamente quando a TV REINICIA (não quando acorda do standby). "" desliga.
@@ -45,4 +45,14 @@ object Config {
     const val CLIMA_A_CADA_MIN = 15L
     const val LUA_A_CADA_MIN = 30L   // fase da lua: recalculada no proprio aparelho, sem internet
     const val REDE_A_CADA_SEG = 30L
+
+    // --- Qualidade da rede: o ícone de Wi-Fi do menu do perfil fica verde, amarelo ou vermelho conforme
+    //     estes limites. A cor segue a PIOR das três medidas (sinal, latência, velocidade do enlace).
+    //     Sinal em dBm (mais perto de 0 = melhor), latência em ms, velocidade do enlace em Mbps.
+    const val WIFI_DBM_BOM = -67      // sinal igual ou melhor que isto: verde (-67 e o minimo comum para video fluido)
+    const val WIFI_DBM_OK = -75       // entre este e o BOM: amarelo; pior que este: vermelho
+    const val LATENCIA_BOA_MS = 60    // até aqui: verde
+    const val LATENCIA_OK_MS = 120    // até aqui: amarelo; acima: vermelho (sem internet = vermelho)
+    const val LINK_BOM_MBPS = 60      // enlace igual ou acima disto: verde
+    const val LINK_OK_MBPS = 25       // entre este e o BOM: amarelo; abaixo: vermelho
 }
