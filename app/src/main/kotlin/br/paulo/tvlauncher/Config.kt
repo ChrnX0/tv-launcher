@@ -10,6 +10,9 @@ object Config {
     const val LATITUDE = -21.1775
     const val LONGITUDE = -47.8103
     const val USAR_FAHRENHEIT = false
+    // Estação de aeroporto (código ICAO) de onde vem a temperatura MEDIDA agora; "" = só o modelo da Open-Meteo.
+    // SBRP = aeroporto de Ribeirão Preto. Na Flórida, troque pelo aeroporto mais perto (ex.: KMCO em Orlando).
+    const val ESTACAO_METAR = "SBRP"
 
     // --- Quais apps aparecem: os instalados por você + estes pacotes de sistema (a Play Store).
     val SEMPRE_MOSTRAR = listOf("com.android.vending")

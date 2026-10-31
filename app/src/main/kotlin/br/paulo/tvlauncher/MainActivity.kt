@@ -28,6 +28,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextClock
 import android.widget.TextView
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -975,9 +976,12 @@ class MainActivity : Activity() {
                 val json = JSONObject(httpGet(url) ?: return@execute)
                 val atual = json.getJSONObject("current")
                 val dia = json.getJSONObject("daily")
-                val temp = Math.round(atual.getDouble("temperature_2m")).toInt()
-                val max = Math.round(dia.getJSONArray("temperature_2m_max").getDouble(0)).toInt()
-                val min = Math.round(dia.getJSONArray("temperature_2m_min").getDouble(0)).toInt()
+                // Temperatura: a MEDIDA na estacao do aeroporto (METAR) vence a do modelo da Open-Meteo. Em 31/10 as 16:15
+                // o modelo dizia 26,6 °C e o aeroporto de Ribeirao Preto mediu 32 °C. Sem METAR recente, fica o modelo.
+                val temp = temperaturaMedida() ?: Math.round(atual.getDouble("temperature_2m")).toInt()
+                // Minima/maxima do dia vem do modelo; se a medida de agora ja passou delas, o modelo errou: corrige com ela.
+                val max = maxOf(temp, Math.round(dia.getJSONArray("temperature_2m_max").getDouble(0)).toInt())
+                val min = minOf(temp, Math.round(dia.getJSONArray("temperature_2m_min").getDouble(0)).toInt())
                 // Chuva: so o que vale AGORA. O maximo do DIA inclui horas que ja passaram (dava 99% sem chover).
                 val chovendoAgora = atual.optDouble("precipitation", 0.0) > 0.0
                 val horas = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
@@ -1087,6 +1091,25 @@ class MainActivity : Activity() {
         in 80..82 -> "🌧️" to "Pancadas de chuva"
         95, 96, 99 -> "⛈️" to "Tempestade"
         else -> "🌡️" to "—"
+    }
+
+    /**
+     * Temperatura medida agora na estacao Config.ESTACAO_METAR (o boletim METAR que todo aeroporto publica, em geral
+     * a cada hora), arredondada e na unidade do Config. null se nao houver estacao, se a busca falhar ou se o boletim
+     * tiver mais de 90 min (ai o modelo e melhor que um numero velho). Chamar fora da thread da tela.
+     */
+    private fun temperaturaMedida(): Int? {
+        if (Config.ESTACAO_METAR.isEmpty()) return null
+        return try {
+            val texto = httpGet("https://aviationweather.gov/api/data/metar?ids=${Config.ESTACAO_METAR}&format=json") ?: return null
+            val boletim = JSONArray(texto).optJSONObject(0) ?: return null
+            val idadeMin = (System.currentTimeMillis() / 1000 - boletim.getLong("obsTime")) / 60
+            if (idadeMin > 90 || !boletim.has("temp")) return null
+            val celsius = boletim.getDouble("temp")
+            Math.round(if (Config.USAR_FAHRENHEIT) celsius * 9 / 5 + 32 else celsius).toInt()
+        } catch (e: Exception) {
+            null   // formato mudou, sem internet etc.: fica o modelo
+        }
     }
 
     private fun httpGet(endereco: String): String? {
