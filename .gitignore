@@ -14,7 +14,12 @@ shot*.png
 *.iml
 
 # Foto pessoal (nao vai para o repositorio)
-perfil.*
+perfil.jpg
+perfil.jpeg
+perfil.png
+perfil-*.jpg
+perfil-*.jpeg
+perfil-*.png
 externos/
 dist/tela.png
 dist/tela*.png

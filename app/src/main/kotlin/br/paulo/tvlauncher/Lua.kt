@@ -61,4 +61,8 @@ object Lua {
         }
         return "${emoji(agoraMs, latitude)}  ${NOMES[indiceDaFase(idade)]}  ·  $iluminada%  ·  $proxima"
     }
+
+    /** Versão curta, para caber no meio do topo: "🌖  Minguante gibosa  ·  70%" (sem o "nova em 10 d"). */
+    fun resumoCurto(agoraMs: Long, latitude: Double): String =
+        resumo(agoraMs, latitude).substringBeforeLast("  ·  ")
 }
