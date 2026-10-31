@@ -149,6 +149,7 @@ class MainActivity : Activity() {
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         Privilegio.religarAcessibilidade(this)
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
+        Despertador.agendar(this)   // garante o proximo alarme agendado (barato: so le as preferencias)
         Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
     }
 
@@ -203,7 +204,16 @@ class MainActivity : Activity() {
             clipToPadding = false
         }
 
-        val blocoHora = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        // A hora e um botao: OK abre o despertador (AlarmesActivity). Mesma folga de foco do clima (ver abaixo).
+        val folgaFoco = 12
+        val blocoHora = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(folgaFoco), dp(folgaFoco), dp(folgaFoco), dp(folgaFoco))
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { startActivity(Intent(this@MainActivity, AlarmesActivity::class.java)) }
+            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
+        }
         blocoHora.addView(TextClock(this).apply {
             format12Hour = "HH:mm"
             format24Hour = "HH:mm"
@@ -221,7 +231,10 @@ class MainActivity : Activity() {
             letterSpacing = 0.03f
             setPadding(0, dp(4), 0, 0)
         })
-        topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
+        topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4) + 2 * folgaFoco), WRAP).apply {
+            leftMargin = dp(Grade.x(1) - folgaFoco)
+            topMargin = -dp(folgaFoco)
+        })
 
         // Clima: [icone][temperatura] em cima e "descricao · min – max" embaixo, alinhados a esquerda como a hora.
         txtIcone = texto(44f, Color.WHITE).apply {
@@ -264,20 +277,13 @@ class MainActivity : Activity() {
         }
         // O bloco do clima e um botao (OK abre a previsao de 7 dias). Folga de 12 dp em volta para o realce de foco:
         // o padding empurra o conteudo 12 dp e a margem negativa puxa de volta, entao o texto fica na grade.
-        val folgaFoco = 12
         val blocoClima = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(folgaFoco), dp(folgaFoco), dp(folgaFoco), dp(folgaFoco))
             isFocusable = true
             isClickable = true
             setOnClickListener { abrirPrevisao() }
-            setOnFocusChangeListener { v, temFoco ->
-                v.background = if (temFoco) GradientDrawable().apply {
-                    cornerRadius = dp(16).toFloat()
-                    setColor(0x14FFFFFF)
-                    setStroke(dp(2), 0xD9FFFFFF.toInt())
-                } else null
-            }
+            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
             addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(txtDescricao, LinearLayout.LayoutParams(MATCH, WRAP))
         }
@@ -302,8 +308,9 @@ class MainActivity : Activity() {
         topo.addView(blocoInfo, FrameLayout.LayoutParams(dp(Grade.largura(3)), WRAP).apply { leftMargin = dp(Grade.x(9)) })
         // A altura do bloco de informacao copia a do bloco da hora (hora + data).
         blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            if (blocoInfo.layoutParams.height != v.height) {
-                blocoInfo.layoutParams = blocoInfo.layoutParams.apply { height = v.height }
+            val altura = v.height - dp(2 * folgaFoco)   // o bloco da hora tem a folga do realce em cima e embaixo
+            if (blocoInfo.layoutParams.height != altura) {
+                blocoInfo.layoutParams = blocoInfo.layoutParams.apply { height = altura }
             }
         }
 
@@ -397,6 +404,13 @@ class MainActivity : Activity() {
     }
 
     private var previsao: PrevisaoSemana? = null
+
+    /** Contorno branco dos blocos do topo (hora, clima) quando estao com foco. */
+    private fun realceFoco() = GradientDrawable().apply {
+        cornerRadius = dp(16).toFloat()
+        setColor(0x14FFFFFF)
+        setStroke(dp(2), 0xD9FFFFFF.toInt())
+    }
     private var ultimaTemp: Int? = null   // a temperatura mostrada no topo (para a linha "Hoje" da previsao bater com ela)
 
     /** Abre o painel da previsao de 7 dias (ver PrevisaoSemana.kt). */
