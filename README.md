@@ -82,9 +82,9 @@ sistema abre `setupwraith/.RecoveryActivity` como Home, em loop. O shell não po
 (`SecurityException`), então o script desativa o pacote `setupwraith` inteiro e o `launcherx`, para o usuário 0.
 Tudo reversível com `pm enable` (ou `-Desfazer`).
 
-## O que NÃO foi testado
+## Testado e não testado
 
-- **Reboot da TV** com o Home trocado. Antes de reiniciar, confira que as Configurações abrem pela engrenagem do
-  launcher (é por lá que se religa a Depuração sem fio). Pior caso: factory reset.
-- O `BootReceiver` foi testado com uma ação de teste (o shell não pode enviar `BOOT_COMPLETED`), não com um reboot real.
-- O `restaurar-tv.ps1` foi testado em `-DryRun` e nos comandos equivalentes feitos à mão, não numa TV zerada.
+- **Reboot com o Home trocado: testado** (30/10/2026). A TV voltou em ~146 s; a Depuração sem fio persistiu sem novo pareamento (a porta muda a cada boot: ache por `adb mdns services`); o Home abriu o launcher; `setupwraith` e `launcherx` seguiram desativados; 0 lançamentos do `RecoveryActivity`; 0 crashes.
+- **BootReceiver:** depois do reboot o OneStream abriu sozinho, mas o próprio OneStream também declara um receiver de `BOOT_COMPLETED`, então não dá para atribuir com certeza. Para isolar: `ABRIR_AO_LIGAR = ""` no `Config.kt`, recompilar, reinstalar e reiniciar.
+- **Segurar OK para mover apps:** testado com `input keyevent --longpress`, não com o controle de verdade.
+- **`restaurar-tv.ps1`:** testado em `-DryRun` e nos comandos equivalentes feitos à mão, não numa TV zerada.
