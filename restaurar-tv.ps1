@@ -161,6 +161,7 @@ Passo "Instalando o launcher"
 if (-not $DryRun -and -not (Test-Path $Apk)) { throw "APK nao encontrado: $Apk" }
 Adb @("-s", $serial, "install", "-r", $Apk) | Out-Host
 Adb @("-s", $serial, "shell", "appops set $LauncherPkg GET_USAGE_STATS allow") | Out-Null   # ordem por uso recente
+Adb @("-s", $serial, "shell", "pm grant $LauncherPkg android.permission.ACCESS_FINE_LOCATION") | Out-Null   # ordem por uso recente
 
 if ($PularHome) {
     Write-Host "`n-PularHome: o Home NAO foi trocado. O launcher abre pelo menu de apps da TV." -ForegroundColor Yellow

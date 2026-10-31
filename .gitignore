@@ -15,3 +15,5 @@ shot*.png
 
 # Foto pessoal (nao vai para o repositorio)
 perfil.*
+externos/
+dist/tela.png

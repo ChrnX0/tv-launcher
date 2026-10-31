@@ -10,6 +10,8 @@
     <!-- Chip de rede: sinal e velocidade do Wi-Fi -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Nome da rede Wi-Fi (SSID): o Android so entrega com permissao de localizacao (concedida por adb, ver README). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Foto do perfil: inicial da conta Google da TV. Liberada uma vez por adb (pm grant) -->
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <!-- Ordenar por uso recente: precisa ser liberada uma vez por adb (appops), não aparece como pop-up na TV -->

@@ -1,7 +1,7 @@
 # tv-launcher
 
 Launcher próprio, leve e escuro para **Chromecast com Google TV** (Android TV 14). Mostra só os apps que você instalou
-e a Play Store, com hora, clima, cotação USD/BRL, RAM/disco livres e qualidade do Wi-Fi.
+e a Play Store, com hora, clima, fase da lua e a rede Wi-Fi (nome, sinal, velocidade e latência).
 
 - ~800 KB de APK, sem bibliotecas externas (só o framework do Android).
 - ~53 MB de RAM em uso (PSS) contra ~157 MB do Google TV Home (`launcherx`), medidos na mesma TV.
@@ -12,7 +12,8 @@ e a Play Store, com hora, clima, cotação USD/BRL, RAM/disco livres e qualidade
 |---|---|
 | `app/src/main/kotlin/br/paulo/tvlauncher/Config.kt` | **Tudo que você quer mudar**: cidade, apps fixos, ordem, app aberto ao ligar |
 | `MainActivity.kt` | A tela inteira (montada por código, sem XML) |
-| `Rede.kt` | Sinal do Wi-Fi, velocidade do enlace e latência |
+| `Rede.kt` | Nome da rede (SSID), sinal, velocidade do enlace e latência |
+| `Lua.kt` | Fase da lua calculada no aparelho (sem internet) |
 | `Uso.kt` | Quando cada app foi usado pela última vez (ordem por uso recente) |
 | `BootReceiver.kt` | Abre um app quando a TV **reinicia** (não quando acorda do standby) |
 | `restaurar-tv.ps1` | Refaz o setup numa TV nova ou depois de factory reset |
@@ -55,6 +56,7 @@ $env:ANDROID_HOME = "$env:USERPROFILE\android-sdk"
 gradle assembleDebug
 adb -s IP:PORTA install -r app\build\outputs\apk\debug\app-debug.apk
 adb -s IP:PORTA shell appops set br.paulo.tvlauncher GET_USAGE_STATS allow
+adb -s IP:PORTA shell pm grant br.paulo.tvlauncher android.permission.ACCESS_FINE_LOCATION
 ```
 
 Crie `local.properties` com `sdk.dir=C:/caminho/do/android-sdk`.
