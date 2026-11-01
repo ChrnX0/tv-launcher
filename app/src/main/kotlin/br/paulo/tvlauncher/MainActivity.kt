@@ -256,11 +256,11 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             includeFontPadding = false
         }
-        imgIcone = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; visibility = View.GONE }
+        imgIcone = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_START; adjustViewBounds = true; visibility = View.GONE }   // FIT_START: o desenho encosta na esquerda, alinhado com o texto de baixo
         iconeEclipse = IconeEclipse(this).apply { visibility = View.GONE }
         val caixaIcone = FrameLayout(this).apply {
             addView(txtIcone, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
-            addView(imgIcone, FrameLayout.LayoutParams(MATCH, MATCH))
+            addView(imgIcone, FrameLayout.LayoutParams(WRAP, MATCH, Gravity.START))
             addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
         txtMax = texto(16f, textoClaro).apply { includeFontPadding = false }
@@ -277,7 +277,7 @@ class MainActivity : Activity() {
         val linhaIcone = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(caixaIcone, LinearLayout.LayoutParams(dp(80), dp(80)).apply { marginEnd = dp(6) })
+            addView(caixaIcone, LinearLayout.LayoutParams(WRAP, dp(80)).apply { marginEnd = dp(10) })
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -324,7 +324,8 @@ class MainActivity : Activity() {
             val data = blocoHora.getChildAt(1).height - 2 * f
             // O icone do clima tem a altura do numero da hora.
             if (caixaIcone.layoutParams.height != hora) {
-                caixaIcone.layoutParams = caixaIcone.layoutParams.apply { width = hora; height = hora }
+                caixaIcone.layoutParams = caixaIcone.layoutParams.apply { height = hora }
+                iconeEclipse.layoutParams = FrameLayout.LayoutParams(hora, hora, Gravity.START)
             }
             if (linhaIcone.layoutParams.height != hora || linhaChuva.layoutParams.height != data) {
                 linhaIcone.layoutParams = linhaIcone.layoutParams.apply { height = hora }

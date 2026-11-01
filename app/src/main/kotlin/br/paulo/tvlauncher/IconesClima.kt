@@ -57,8 +57,18 @@ object IconesClima {
     /** A imagem da chave (lida do assets uma vez só). null se o arquivo faltar: quem chama cai no texto. */
     fun bitmap(ctx: Context, chave: String): Bitmap? = cache.getOrPut(chave) {
         try {
-            ctx.assets.open("clima/" + chave.removePrefix(PREFIXO) + ".png").use { BitmapFactory.decodeStream(it) }
+            val img = ctx.assets.open("clima/" + chave.removePrefix(PREFIXO) + ".png").use { BitmapFactory.decodeStream(it) }
+            aparar(img)
         } catch (e: Exception) { null }
+    }
+
+    /** Corta a folga transparente dos lados (esquerda e direita), para o desenho encostar na borda e alinhar com o texto. */
+    private fun aparar(img: Bitmap): Bitmap {
+        val w = img.width; val h = img.height
+        val px = IntArray(w * h); img.getPixels(px, 0, w, 0, 0, w, h)
+        var ini = w; var fim = -1
+        for (x in 0 until w) for (y in 0 until h) if ((px[y * w + x] ushr 24) > 8) { if (x < ini) ini = x; if (x > fim) fim = x; break }
+        return if (fim < ini) img else Bitmap.createBitmap(img, ini, 0, fim - ini + 1, h)
     }
 
     /** Um ImageView já com o ícone, para colocar em qualquer linha. */
