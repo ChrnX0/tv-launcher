@@ -42,6 +42,19 @@ interface FundoVivo {
 
 private fun Context.dpf(v: Float) = v * resources.displayMetrics.density
 
+/**
+ * Veu escuro no topo, atras da hora, do clima e das 3 linhas de informacao (que ocupam ate ~30% da altura).
+ * Forte onde fica o texto (~70% de escuro no alto, ~55% no meio do bloco) e some em 48% da altura.
+ * [rgb] = a cor do veu sem transparencia. E o que garante o contraste do texto em qualquer cor de fundo.
+ */
+private fun veuDoTopo(c: Canvas, w: Float, h: Float, rgb: Int) {
+    val p = Paint()
+    p.shader = LinearGradient(0f, 0f, 0f, h * 0.48f,
+        intArrayOf((0xB3 shl 24) or rgb, (0x8C shl 24) or rgb, rgb),
+        floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+    c.drawRect(0f, 0f, w, h * 0.48f, p)
+}
+
 /** Desenha a lua com a fase de [agoraMs]: fração iluminada e lado (no hemisfério sul a lua crescente acende à esquerda). */
 internal fun desenharLua(c: Canvas, x: Float, y: Float, r: Float, agoraMs: Long, lat: Double, brilho: Paint) {
     val idade = Lua.idade(agoraMs)
@@ -142,8 +155,7 @@ class FundoCeu(ctx: Context) : View(ctx), FundoVivo {
         // Véu escuro embaixo: os cards e os nomes ficam legíveis em qualquer céu.
         p.shader = LinearGradient(0f, h * 0.48f, 0f, h, 0x00030510, 0xD1030510.toInt(), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, p); p.shader = null
-        p.shader = LinearGradient(0f, 0f, 0f, h * 0.35f, 0x59030510, 0x00030510, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h * 0.35f, p); p.shader = null
+        veuDoTopo(c, w, h, 0x030510)
     }
 
     /** Três cores (topo, meio, horizonte) conforme a altura do sol, misturando noite → crepúsculo → dia. */
@@ -274,6 +286,7 @@ class FundoAstrolabio(ctx: Context) : View(ctx), FundoVivo {
         // véu embaixo para os cards
         p.shader = LinearGradient(0f, h * 0.55f, 0f, h, 0x000A0E13, 0xCC0A0E13.toInt(), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, p); p.shader = null
+        veuDoTopo(c, w, h, 0x0A0E13)
     }
 }
 
@@ -330,8 +343,12 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
         addView(imagem, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         // Sombra no canto da hora e embaixo, onde ficam os cards: a pintura continua viva no meio.
         addView(View(ctx).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x8C0A0C08.toInt(), 0x000A0C08, 0x000A0C08, 0xDB080907.toInt()))
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x000A0C08, 0x000A0C08, 0x000A0C08, 0xDB080907.toInt()))
         }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        // Veu do topo, atras da hora e do clima: mantem o texto legivel mesmo sobre o ceu claro de uma pintura.
+        addView(View(ctx).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xB30A0C08.toInt(), 0x800A0C08.toInt(), 0x000A0C08))
+        }, LayoutParams(LayoutParams.MATCH_PARENT, ctx.dpf(260f).toInt(), Gravity.TOP))
         addView(etiqueta, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.BOTTOM).apply {
             rightMargin = ctx.dpf(Grade.MARGEM.toFloat()).toInt()
             bottomMargin = ctx.dpf((540 - Grade.LINHA_APPS + 14).toFloat()).toInt()
@@ -408,4 +425,9 @@ fun criarFundo(ctx: Context, t: Tema, emSegundoPlano: (() -> Unit) -> Unit): Vie
     Tema.ESCURO -> View(ctx).apply {
         background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF1B2326.toInt(), 0xFF0F1416.toInt(), 0xFF0A0D0E.toInt()))
     }
+}.also {
+    // Camada de hardware: a GPU guarda o fundo pronto numa textura e so o "cola" a cada quadro. Sem isto, os degrades
+    // de tela cheia eram refeitos em TODO quadro (medido na TV: 69 ms por quadro no Ceu e no Astrolabio, contra 24 ms sem fundo).
+    // O fundo so e redesenhado de verdade quando atualizar() chama invalidate() (1x por minuto e a cada clima novo).
+    it.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 }

@@ -50,6 +50,10 @@ object Config {
     //     aberta na rede (só aceita computadores já pareados, com chave). false = fica como o Android deixar (ver Privilegio.religarDepuracaoSemFio).
     const val DEPURACAO_SEM_FIO_SEMPRE_LIGADA = true
 
+    // --- Pilhas de cards: segurar ▲ por este tempo (ms) tira o foco da pilha e sobe para o topo (hora, clima, bolinha).
+    //     Um toque rápido em ▲ continua trocando o app da frente da pilha.
+    const val PILHA_SUBIR_MS = 1000L
+
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
     const val CLIMA_A_CADA_MIN = 5L   // as fontes mudam a cada 15 min (modelo) e ~60 min (aeroporto, ou antes se o tempo virar); 5 min pega a mudança cedo
     const val LUA_A_CADA_MIN = 30L   // fase da lua: recalculada no proprio aparelho, sem internet
