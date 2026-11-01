@@ -436,6 +436,8 @@ class MainActivity : Activity() {
         setColor(0x14FFFFFF)
         setStroke(dp(2), 0xD9FFFFFF.toInt())
     }
+    private var ultimaMedida: Medida? = null   // a ultima leitura boa do aeroporto (ver buscarClima)
+    private var ultimaMedidaMs = 0L
     private var ultimaTemp: Int? = null   // a temperatura mostrada no topo (para a linha "Hoje" da previsao bater com ela)
 
     /** Abre o painel da previsao de 7 dias (ver PrevisaoSemana.kt). */
@@ -1140,7 +1142,11 @@ class MainActivity : Activity() {
                 val dia = json.getJSONObject("daily")
                 // Temperatura: a MEDIDA na estacao do aeroporto (METAR) vence a do modelo da Open-Meteo. Em 31/10 as 16:15
                 // o modelo dizia 26,6 °C e o aeroporto de Ribeirao Preto mediu 32 °C. Sem METAR recente, fica o modelo.
-                val medida = medidaAeroporto(ponto)
+                // Se o METAR falhar (timeout acontece), vale a ultima medida boa de ate 60 min, e nao o modelo: em 01/11 as 19:13 e 19:20
+                // o METAR deu timeout e o modelo mostrou 24 C e "chovendo agora" com o aeroporto em 31 C, CAVOK.
+                val nova = medidaAeroporto(ponto) ?: medidaAeroporto(ponto)   // uma segunda tentativa
+                if (nova != null) { ultimaMedida = nova; ultimaMedidaMs = System.currentTimeMillis() }
+                val medida = nova ?: ultimaMedida?.takeIf { System.currentTimeMillis() - ultimaMedidaMs < 60 * 60_000L }
                 // Umidade: a do aeroporto (calculada da temperatura e do ponto de orvalho medidos); sem ela, a do modelo.
                 val umidade = medida?.umidade ?: atual.optInt("relative_humidity_2m", -1).takeIf { it >= 0 }
                 val temp = medida?.temp ?: Math.round(atual.getDouble("temperature_2m")).toInt()
@@ -1150,7 +1156,7 @@ class MainActivity : Activity() {
                 // Tempo AGORA: o aeroporto (o que um observador VIU) vence o modelo. Em 31/10 as 16:54 o modelo dizia
                 // "garoa, chovendo agora" com ceu aberto; o aeroporto dizia CAVOK (sem chuva).
                 var codigo = atual.getInt("weather_code")
-                var chovendoAgora = atual.optDouble("precipitation", 0.0) > 0.0
+                var chovendoAgora = atual.optDouble("precipitation", 0.0) >= 0.2 && codigo >= 51   // so o modelo (sem METAR): exige chuva de verdade, nao qualquer traco
                 if (medida != null) {
                     val visto = medida.fenomeno
                     if (visto != null) codigo = visto                 // chuva, garoa, trovoada ou neblina observada
