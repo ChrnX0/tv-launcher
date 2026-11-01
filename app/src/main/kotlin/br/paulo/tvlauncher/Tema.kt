@@ -7,12 +7,11 @@ import android.graphics.Typeface
  * Os visuais da tela inicial. Escolhe-se no menu da bolinha do perfil ("Aparência"); fica salvo.
  *  - CEU: o céu de agora, desenhado a partir da posição real do sol, do clima e da fase da lua.
  *  - GALERIA: uma pintura de domínio público por dia (acervo aberto do The Met), com etiqueta de museu.
- *  - ASTROLABIO: um mostrador de 24 h ao fundo, com o sol e a lua nas posições de agora.
- *  - ESCURO: o fundo liso de antes.
+ *  - ESCURO: grafite azulado com brilhos bem suaves, desenhado em código.
  * As fontes (em assets/fonts, licença SIL Open Font) dão a personalidade de cada um.
  */
 enum class Tema(val nome: String) {
-    CEU("Céu ao vivo"), GALERIA("Galeria"), ASTROLABIO("Astrolábio"), ESCURO("Escuro");
+    CEU("Céu ao vivo"), GALERIA("Galeria"), ESCURO("Escuro");
 
     companion object {
         private const val CHAVE = "tema"
@@ -46,7 +45,6 @@ object Fontes {
     fun display(ctx: Context, tema: Tema): Typeface = when (tema) {
         Tema.CEU -> carregar(ctx, "instrument_serif.ttf")
         Tema.GALERIA -> carregar(ctx, "cormorant.ttf", "'wght' 500")
-        Tema.ASTROLABIO -> carregar(ctx, "fraunces.ttf", "'wght' 300, 'opsz' 144, 'SOFT' 50")
         Tema.ESCURO -> Typeface.create("sans-serif-light", Typeface.NORMAL)
     }
 

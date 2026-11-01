@@ -12,13 +12,13 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 |---|---|
 | `app/src/main/kotlin/br/paulo/tvlauncher/Config.kt` | **Tudo que você quer mudar**: cidade, apps fixos, ordem, app aberto ao ligar |
 | `MainActivity.kt` | A tela inteira (montada por código, sem XML) |
-| `Grade.kt` | A grade da tela: margens de 48 dp, 12 colunas de 50 dp com vãos de 24 dp, alturas fixas. Topo: hora e data (col. 1-4), temperatura com máxima/mínima e descrição (5-8), lua, umidade e chuva (9-11), bolinha (12); cada card ocupa 3 colunas |
+| `Grade.kt` | A grade da tela: margens de 48 dp, 12 colunas de 50 dp com vãos de 24 dp, alturas fixas. Topo: hora e data (col. 1-4), ícone, temperatura, máxima/mínima e chuva (5-8), lua (9-11), bolinha (12); cada card ocupa 3 colunas |
 | `Rede.kt` | Nome da rede (SSID), sinal, velocidade do enlace e latência; decide a cor do ícone de Wi-Fi |
 | `PopupPerfil.kt` | O menu da bolinha do perfil: trocar perfil, adicionar, Configurações, DNS, aparência, teste de velocidade, Wi-Fi |
-| `Tema.kt`, `Fundos.kt`, `Astronomia.kt` | Aparência: 4 temas (fonte, cor do foco e fundo desenhado em código). `Astronomia.kt` calcula a altura do sol e o nascer/pôr no aparelho, sem internet |
-| `Fundos.kt` (desempenho e contraste) | Cada fundo e uma **camada de hardware** (`criarFundo`): a GPU guarda o fundo pronto e so o cola a cada quadro; ele so e redesenhado 1x por minuto ou com clima novo. Medido na TV da Sala (12 teclas de navegacao, mediana por quadro): Ceu e Astrolabio 69 ms → 22 ms, Galeria 32 → 22 ms, Escuro 24 → 22 ms. Veu escuro no topo (`veuDoTopo`, ~70% no alto) e texto mais claro nos temas com fundo desenhado garantem o contraste da hora, clima, umidade e chuva |
+| `Tema.kt`, `Fundos.kt`, `Astronomia.kt` | Aparência: 3 temas (fonte, cor do foco e fundo desenhado em código). `Astronomia.kt` calcula a altura do sol e o nascer/pôr no aparelho, sem internet |
+| `Fundos.kt` (desempenho e contraste) | Cada fundo e uma **camada de hardware** (`criarFundo`): a GPU guarda o fundo pronto e so o cola a cada quadro; ele so e redesenhado 1x por minuto ou com clima novo. Medido na TV da Sala (12 teclas de navegacao, mediana por quadro): Ceu 69 ms → 22 ms, Galeria 32 → 22 ms, Escuro 24 → 22 ms. Veu escuro no topo (`veuDoTopo`, ~70% no alto) e texto mais claro nos temas com fundo desenhado garantem o contraste da hora, clima, umidade e chuva |
 | `Velocidade.kt` | Teste de velocidade: baixa 25 MB de speed.cloudflare.com e mostra os Mbps |
-| `app/src/main/assets/fonts/` | Fontes dos temas (Instrument Serif, Cormorant, Fraunces, Figtree, IBM Plex Mono), baixadas de github.com/google/fonts (licença OFL) |
+| `app/src/main/assets/fonts/` | Fontes dos temas (Instrument Serif, Cormorant, Figtree, IBM Plex Mono), baixadas de github.com/google/fonts (licença OFL) |
 | `Perfil.kt` | Contas Google da TV, perfil ativo do launcher e a imagem de cada perfil (foto ou inicial) |
 | `Eclipse.kt` | Dos horários da tabela de eclipses (`Config.kt`) calcula onde a lua está em relação ao sol e quanto dele ela cobre, no minuto |
 | `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua (este só aparece durante um eclipse solar real) |
@@ -67,8 +67,8 @@ Topo, da esquerda para a direita: **hora e data** · **temperatura com o ícone 
 - **Aparência:** OK passa para o próximo tema e a tela é remontada. Fica salvo (`tema` nas preferências do app):
   - **Céu ao vivo** (padrão): o fundo é o céu de agora, desenhado em código. Cor pela altura do sol, estrelas à noite, nuvens/chuva/neblina pelo clima medido, o arco do sol (nascer → pôr) e a lua na fase e posição aproximadas. Atualiza a cada minuto e a cada leitura do clima;
   - **Galeria:** uma pintura de domínio público do Metropolitan Museum por dia (28 obras, títulos em português), com etiqueta de museu no canto. A imagem é baixada uma vez e guardada no aparelho;
-  - **Astrolábio:** mostrador de 24 h com dia/noite, ponteiro do sol, lua e nascer/pôr. Foco dourado. A lua anda pelo mostrador e, em alguns horários, passa por trás do texto do topo;
-  - **Escuro:** o visual antigo, sem fundo desenhado;
+  - **Escuro:** grafite azulado com dois brilhos suaves (frio atrás da hora, quente no canto de baixo), vinheta e véu embaixo, desenhado em código (`FundoEscuro`). (O tema Astrolábio foi removido: grande demais para ler o resto da tela.)
+  - **Topo:** hora e data à esquerda; uma barra vertical; à direita dela, na altura da hora, o ícone do tempo + temperatura + máxima/mínima empilhadas, e na altura da data a linha de chuva. Descrição do tempo e umidade foram removidas; só a lua (de dia) fica nas colunas 9-11;
 - **Testar velocidade da internet:** baixa 25 MB e mostra os Mbps na própria linha (medido na Sala em 01/11/2026: 96 Mbps). Gasta os 25 MB a cada teste;
 - **Wi-Fi:** nome da rede, ícone de sinal (4 barras pelo sinal em dBm) e velocidade do enlace em Mbps; sem rede conectada vira o atalho **Conectar ao Wi-Fi**. A **cor** é a pior de três medidas: sinal, latência e velocidade do enlace. Os limites ficam em `Config.kt` (`WIFI_DBM_*`, `LATENCIA_*`, `LINK_*`) e o log `TvLauncher.Rede` mostra qual medida definiu a cor.
 

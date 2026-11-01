@@ -218,75 +218,33 @@ class FundoCeu(ctx: Context) : View(ctx), FundoVivo {
     }
 }
 
-// ======================================================================== Astrolábio
+// ======================================================================== Escuro
 
 /**
- * Um mostrador de 24 h ao fundo, como um instrumento antigo: 0 h embaixo, 12 h em cima (o sol sobe pela esquerda).
- * O setor da noite fica escuro, o do dia levemente dourado; o ponteiro dourado é o sol agora, e a lua aparece na
- * posição aproximada da fase. Linhas finas e transparentes: é fundo, não compete com a hora.
+ * O fundo escuro: grafite azulado com dois brilhos bem suaves (um frio atrás da hora, um quente no canto de baixo),
+ * vinheta nas bordas e um véu embaixo para os cards. Desenhado uma vez só (camada de hardware); não muda com o tempo.
  */
-class FundoAstrolabio(ctx: Context) : View(ctx), FundoVivo {
-    private var e: EstadoCeu? = null
-    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val mono = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fontes.mono(ctx); textAlign = Paint.Align.CENTER }
-    private val ouro = 0xFFE8B55A.toInt()
-
-    override fun atualizar(e: EstadoCeu) { this.e = e; invalidate() }
+class FundoEscuro(ctx: Context) : View(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { isDither = true }   // dither: sem "faixas" nos degradês escuros
 
     override fun onDraw(c: Canvas) {
-        val est = e ?: EstadoCeu(System.currentTimeMillis(), Config.LATITUDE, Config.LONGITUDE, -1, false)
         val w = width.toFloat(); val h = height.toFloat()
-        p.shader = RadialGradient(w * 0.3f, h * 0.4f, w * 0.8f, 0xFF16202A.toInt(), 0xFF0A0E13.toInt(), Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p); p.shader = null
-
-        val cx = w * 0.5f; val cy = h * 0.47f; val raio = h * 0.6f
-        fun ang(hora: Double) = (hora / 24 * 2 * PI + PI / 2).toFloat()   // 0 h embaixo
-        val np = Astronomia.nascerEPor(est.agoraMs, est.lat, est.lon)
-        val nasc = np?.let { horaDecimal(it.first) } ?: 6.0
-        val por = np?.let { horaDecimal(it.second) } ?: 18.0
-        val graus = { a: Float -> Math.toDegrees(a.toDouble()).toFloat() }
-        // setores: noite e dia
-        p.color = 0x8C060A14.toInt()
-        c.drawArc(cx - raio, cy - raio, cx + raio, cy + raio, graus(ang(por)), graus(ang(nasc + 24) - ang(por)), true, p)
-        p.color = 0x12E8B55A
-        c.drawArc(cx - raio, cy - raio, cx + raio, cy + raio, graus(ang(nasc)), graus(ang(por) - ang(nasc)), true, p)
-        // aros
-        p.style = Paint.Style.STROKE; p.strokeWidth = context.dpf(0.75f); p.color = 0x4DEFE6D2
-        listOf(raio, raio * 0.85f, raio * 0.55f).forEach { c.drawCircle(cx, cy, it, p) }
-        // marcas de 15 min, 1 h e 3 h
-        for (m in 0 until 96) {
-            val a = ang(m / 4.0)
-            val l = context.dpf(if (m % 4 != 0) 4f else if (m % 12 != 0) 8f else 14f)
-            p.color = if (m % 4 != 0) 0x33EFE6D2 else 0x80EFE6D2.toInt()
-            val r0 = raio * 0.85f
-            c.drawLine(cx + cos(a) * r0, cy + sin(a) * r0, cx + cos(a) * (r0 + l), cy + sin(a) * (r0 + l), p)
-        }
-        p.style = Paint.Style.FILL
-        mono.textSize = context.dpf(10f); mono.color = 0x99EFE6D2.toInt()
-        for (hh in 0 until 24 step 3) {
-            val a = ang(hh.toDouble()); val r = raio * 0.93f
-            c.drawText("%02d".format(hh), cx + cos(a) * r, cy + sin(a) * r + context.dpf(4f), mono)
-        }
-        // sol agora
-        val agora = horaDecimal(est.agoraMs)
-        val a = ang(agora); val rs = raio * 0.80f
-        p.color = ouro; p.strokeWidth = context.dpf(1.25f); p.alpha = 200
-        c.drawLine(cx, cy, cx + cos(a) * rs, cy + sin(a) * rs, p)
-        p.alpha = 255
-        c.drawCircle(cx + cos(a) * rs, cy + sin(a) * rs, context.dpf(7f), p)
-        // lua: atrasa ~24 h por ciclo em relação ao sol
-        val atraso = Lua.idade(est.agoraMs) / 29.530588853 * 24
-        val al = ang(((agora - atraso) % 24 + 24) % 24)
-        desenharLua(c, cx + cos(al) * raio * 0.70f, cy + sin(al) * raio * 0.70f, context.dpf(10f), est.agoraMs, est.lat, p)
-        // legenda no aro interno
-        mono.textSize = context.dpf(9f); mono.color = 0x80EFE6D2.toInt()
-        val fmt = SimpleDateFormat("HH:mm", Locale.US)
-        val legenda = if (np != null) "NASCER ${fmt.format(np.first)}  ·  PÔR ${fmt.format(np.second)}  ·  %.2f° S".format(abs(est.lat)) else ""
-        c.drawText(legenda, cx, cy + raio * 0.55f - context.dpf(10f), mono)
-        // véu embaixo para os cards
-        p.shader = LinearGradient(0f, h * 0.55f, 0f, h, 0x000A0E13, 0xCC0A0E13.toInt(), Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p); p.shader = null
-        veuDoTopo(c, w, h, 0x0A0E13)
+        p.shader = LinearGradient(0f, 0f, 0f, h,
+            intArrayOf(0xFF0E1317.toInt(), 0xFF0A0D10.toInt(), 0xFF07090B.toInt()), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, p)
+        // brilho frio, atrás da hora e do clima
+        p.shader = RadialGradient(w * 0.24f, h * 0.14f, w * 0.58f, 0x5A4A7388, 0x004A7388, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, p)
+        // brilho quente, no canto de baixo à direita
+        p.shader = RadialGradient(w * 0.94f, h * 1.0f, w * 0.52f, 0x3C8A5A2E, 0x008A5A2E, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, p)
+        // vinheta: as bordas escurecem e o olho vai para o centro
+        p.shader = RadialGradient(w / 2, h * 0.46f, w * 0.74f, 0x00000000, 0x80000000.toInt(), Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, p)
+        // véu embaixo: os nomes dos cards ficam sobre um fundo mais escuro
+        p.shader = LinearGradient(0f, h * 0.62f, 0f, h, 0x00000000, 0x80000000.toInt(), Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, p)
+        p.shader = null
     }
 }
 
@@ -417,14 +375,11 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
     }
 }
 
-/** O fundo do tema [t]. ESCURO = o degradê liso de antes (não muda com o tempo). */
+/** O fundo do tema [t]. */
 fun criarFundo(ctx: Context, t: Tema, emSegundoPlano: (() -> Unit) -> Unit): View = when (t) {
     Tema.CEU -> FundoCeu(ctx)
     Tema.GALERIA -> FundoGaleria(ctx, emSegundoPlano)
-    Tema.ASTROLABIO -> FundoAstrolabio(ctx)
-    Tema.ESCURO -> View(ctx).apply {
-        background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF1B2326.toInt(), 0xFF0F1416.toInt(), 0xFF0A0D0E.toInt()))
-    }
+    Tema.ESCURO -> FundoEscuro(ctx)
 }.also {
     // Camada de hardware: a GPU guarda o fundo pronto numa textura e so o "cola" a cada quadro. Sem isto, os degrades
     // de tela cheia eram refeitos em TODO quadro (medido na TV: 69 ms por quadro no Ceu e no Astrolabio, contra 24 ms sem fundo).

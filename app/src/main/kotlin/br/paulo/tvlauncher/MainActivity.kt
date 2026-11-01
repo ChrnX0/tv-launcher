@@ -77,7 +77,7 @@ class MainActivity : Activity() {
     private val fonteLeve by lazy { Fontes.display(this, tema) }   // hora e temperatura
     private val fonteMedia by lazy { Fontes.uiMedia(this, tema) }
     private val fonteUi by lazy { Fontes.ui(this, tema) }
-    private val corFoco by lazy { if (tema == Tema.ASTROLABIO) 0xFFE8B55A.toInt() else Color.WHITE }
+    private val corFoco by lazy { Color.WHITE }
     private var fundo: View? = null                 // o fundo vivo do tema (céu, pintura, mostrador)
     @Volatile private var pontoAtual: Localizacao.Ponto? = null
     private var ultimoCodigo = -1
@@ -85,10 +85,11 @@ class MainActivity : Activity() {
 
     private lateinit var txtIcone: TextView
     private lateinit var txtTemp: TextView
-    private lateinit var txtDescricao: TextView
+    private lateinit var txtChuva: TextView   // a linha da chuva, embaixo da temperatura
+    private var textoDescricao = ""   // "Céu limpo" etc.; vai no bloco de informacao da direita
     private lateinit var txtMax: TextView   // "↑ 32°" ao lado da temperatura
     private lateinit var txtMin: TextView   // "↓ 18°"
-    private lateinit var txtInfo: List<TextView>   // as 3 linhas de informacao do topo (colunas 9-11): lua, umidade, chuva
+    private lateinit var txtInfo: List<TextView>   // as 3 linhas de informacao do topo (colunas 9-11): descricao, umidade, lua
     private var textoUmidade = ""   // "💧  Umidade 38%"
     private var textoChuva = ""   // "Chuva 91% nas próx. 3 h" ou "Chovendo agora"; vai na 3a linha do clima, junto da lua
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
@@ -206,7 +207,7 @@ class MainActivity : Activity() {
         }
 
         // ---- Topo, nas colunas da grade (ver Grade.kt):
-        //   1-4: hora / data     5-8: temperatura (+ maxima/minima ao lado) / descricao     9-11: tres linhas de info     12: bolinha
+        //   1-4: hora / data   |   5-8: icone (+ maxima/minima ao lado), temperatura, chuva   9-11: tres linhas de info   12: bolinha
         // Hora e temperatura tem a mesma fonte e tamanho; data e descricao tambem: tudo cai nas mesmas alturas.
         // As 3 linhas de informacao (lua, umidade, chuva) se dividem igualmente na altura dos blocos ao lado.
         // Hora e temperatura tem a mesma fonte e tamanho; data e descricao tambem: tudo cai nas mesmas alturas.
@@ -256,7 +257,12 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
         topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
 
-        // Clima: [icone][temperatura] em cima e "descricao · min – max" embaixo, alinhados a esquerda como a hora.
+        // Clima (como na foto de referencia), em tres linhas, alinhadas a esquerda como a hora:
+        //   [icone] ↑ max         icone do tempo, com a maxima em cima e a minima embaixo, ao lado dele
+        //           ↓ min
+        //   31°                   temperatura
+        //   ☔ Chuva 80% em 3 h    previsao de chuva
+        // Antes dele, uma barra fina vertical separa o clima da hora.
         txtIcone = texto(44f, Color.WHITE).apply {
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -266,34 +272,34 @@ class MainActivity : Activity() {
             addView(txtIcone, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
             addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
-        txtTemp = texto(if (tema == Tema.ESCURO) 72f else 84f, Color.WHITE, fonteLeve).apply {   // mesmo tamanho e fonte da hora
+        txtMax = texto(16f, textoClaro).apply { includeFontPadding = false }
+        txtMin = texto(16f, textoClaro).apply {
+            includeFontPadding = false
+            setPadding(0, dp(6), 0, 0)
+        }
+        txtTemp = texto(if (tema == Tema.ESCURO) 56f else 60f, Color.WHITE, fonteLeve).apply {
             letterSpacing = -0.02f
             includeFontPadding = false
             text = "…"
         }
-        val linhaTemp = LinearLayout(this).apply {
+        // Linha 1 (mesma altura do numero da hora): [icone][temperatura][max / min empilhadas]
+        val linhaIcone = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(caixaIcone, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginEnd = dp(12) })
+            addView(caixaIcone, LinearLayout.LayoutParams(dp(56), dp(56)).apply { marginEnd = dp(12) })
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
-            // Ao lado da temperatura, pequenas: maxima em cima, minima embaixo.
-            txtMax = texto(16f, textoClaro).apply { includeFontPadding = false }
-            txtMin = texto(16f, textoClaro).apply {
-                includeFontPadding = false
-                setPadding(0, dp(8), 0, 0)
-            }
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(txtMax)
                 addView(txtMin)
             }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(14) })
         }
-        txtDescricao = texto(16f, textoClaro).apply {   // mesmo tamanho e espacamento da data
+        // Linha 2 (mesma altura da data): a chuva, com o mesmo tamanho da data.
+        txtChuva = texto(16f, textoClaro).apply {
             letterSpacing = 0.03f
-            setPadding(0, dp(4), 0, 0)
-            minLines = 1
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, dp(4), 0, 0)
         }
         // O bloco do clima e um botao (OK abre a previsao de 7 dias). Folga de 12 dp em volta para o realce de foco:
         // o padding empurra o conteudo 12 dp e a margem negativa puxa de volta, entao o texto fica na grade.
@@ -304,16 +310,19 @@ class MainActivity : Activity() {
             isClickable = true
             setOnClickListener { abrirPrevisao() }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
-            addView(linhaTemp, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(txtDescricao, LinearLayout.LayoutParams(MATCH, WRAP))
+            addView(linhaIcone, LinearLayout.LayoutParams(WRAP, WRAP))
+            addView(txtChuva, LinearLayout.LayoutParams(MATCH, WRAP))
         }
         topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(4) + 2 * folgaFoco), WRAP).apply {
             leftMargin = dp(Grade.x(5) - folgaFoco)
             topMargin = -dp(folgaFoco)
         })
+        // A barra separadora: no meio da calha entre as colunas 4 e 5, com a altura do bloco da hora.
+        val barra = View(this).apply { setBackgroundColor(0x66FFFFFF) }
+        topo.addView(barra, FrameLayout.LayoutParams(dp(2), WRAP).apply { leftMargin = dp(Grade.x(5) - Grade.VAO / 2 - 1) })
 
-        // Tres linhas de informacao (lua, umidade, chuva), cada uma com 1/3 da altura dos blocos ao lado.
-        txtInfo = List(3) {
+        // Tres linhas de informacao (descricao, umidade, lua), cada uma com 1/3 da altura dos blocos ao lado.
+        txtInfo = List(1) {
             texto(14f, textoClaro).apply {
                 gravity = Gravity.CENTER_VERTICAL or Gravity.START
                 letterSpacing = 0.02f
@@ -332,13 +341,25 @@ class MainActivity : Activity() {
             if (blocoInfo.layoutParams.height != altura) {
                 blocoInfo.layoutParams = blocoInfo.layoutParams.apply { height = altura }
             }
+            // As duas linhas do clima tem a altura das duas linhas da esquerda: icone/temperatura/max-min na da hora, chuva na da data.
+            val hora = blocoHora.getChildAt(0).height - 2 * f
+            val data = blocoHora.getChildAt(1).height - 2 * f
+            if (linhaIcone.layoutParams.height != hora || txtChuva.layoutParams.height != data) {
+                linhaIcone.layoutParams = linhaIcone.layoutParams.apply { height = hora }
+                txtChuva.layoutParams = txtChuva.layoutParams.apply { height = data }
+            }
+            if (barra.layoutParams.height != altura) {
+                barra.layoutParams = barra.layoutParams.apply { height = altura }
+            }
         }
 
         // Bolinha: exatamente a coluna 12 (50 dp). Centrada na altura da linha grande (hora/temperatura).
         val bolinha = botaoPerfil()
         topo.addView(bolinha, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(12)) })
-        linhaTemp.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            bolinha.translationY = ((v.height - bolinha.height) / 2f).coerceAtLeast(0f)
+        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            // centro do numero da hora = metade da altura do TextClock sem a folga do realce (a folga se anula com a margem negativa)
+            val alturaHora = (v as LinearLayout).getChildAt(0).height - 2 * dp(folgaFoco)
+            bolinha.translationY = ((alturaHora - bolinha.height) / 2f).coerceAtLeast(0f)
         }
         raiz.addView(topo, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.TOPO) })
 
@@ -1179,11 +1200,12 @@ class MainActivity : Activity() {
                     iconeClima = icone
                     ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
-                    txtDescricao.text = descricao
+                    textoDescricao = descricao
                     ultimaTemp = temp
                     txtMax.text = "↑ $max°"
                     txtMin.text = "↓ $min°"
                     textoChuva = chuva
+                    txtChuva.text = chuva.ifEmpty { "Sem previsão de chuva" }
                     textoUmidade = umidade?.let { "💧  Umidade $it%" } ?: ""
                     luaNoIcone = luaVirouIcone
                     atualizarEclipse()   // escolhe o icone (clima ou eclipse) e chama atualizarLua()
@@ -1208,8 +1230,8 @@ class MainActivity : Activity() {
             // so o emoji e o nome da fase ("🌗 Quarto minguante"); a % iluminada fica de fora para a linha caber
             else -> Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE).substringBeforeLast("  ·  ")
         }
-        // As linhas de informacao, de cima para baixo, so as que existirem (sem buraco no meio).
-        val linhas = listOf(lua, textoUmidade, textoChuva).filter { it.isNotEmpty() }
+        // As linhas de informacao (so a lua), de cima para baixo, so as que existirem (sem buraco no meio).
+        val linhas = listOf(lua).filter { it.isNotEmpty() }
         txtInfo.forEachIndexed { i, t -> t.text = linhas.getOrElse(i) { "" } }
     }
 
