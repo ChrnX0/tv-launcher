@@ -107,7 +107,7 @@ class PopupPerfil(
             tela.startActivity(Intent(tela, DnsActivity::class.java))
         }
 
-        // ---- Aparência: OK passa para o próximo visual (Céu ao vivo, Galeria, Astrolábio, Escuro) e redesenha a tela.
+        // ---- Aparência: OK passa para o próximo visual (Céu ao vivo, Galeria, Escuro) e redesenha a tela.
         val linhaTema = linha("Aparência: ${Tema.atual(tela).nome}") {
             Tema.proximo(tela)
             fechar()
