@@ -307,9 +307,9 @@ class MainActivity : Activity() {
             setOnClickListener { abrirPrevisao() }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
             addView(linhaIcone, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(linhaChuva, LinearLayout.LayoutParams(MATCH, WRAP))
+            addView(linhaChuva, LinearLayout.LayoutParams(WRAP, WRAP))
         }
-        topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(4) + 2 * folgaFoco), WRAP).apply {
+        topo.addView(blocoClima, FrameLayout.LayoutParams(WRAP, WRAP).apply {
             leftMargin = dp(Grade.x(5) - folgaFoco)
             topMargin = -dp(folgaFoco)
         })
@@ -322,6 +322,10 @@ class MainActivity : Activity() {
             // As duas linhas do clima tem a altura das duas linhas da esquerda: icone/temperatura/max-min na da hora, chuva na da data.
             val hora = blocoHora.getChildAt(0).height - 2 * f
             val data = blocoHora.getChildAt(1).height - 2 * f
+            // O icone do clima tem a altura do numero da hora.
+            if (caixaIcone.layoutParams.height != hora) {
+                caixaIcone.layoutParams = caixaIcone.layoutParams.apply { width = hora; height = hora }
+            }
             if (linhaIcone.layoutParams.height != hora || linhaChuva.layoutParams.height != data) {
                 linhaIcone.layoutParams = linhaIcone.layoutParams.apply { height = hora }
                 linhaChuva.layoutParams = linhaChuva.layoutParams.apply { height = data }
@@ -1168,8 +1172,8 @@ class MainActivity : Activity() {
                 }
                 val textoLinha = when {
                     chovendoAgora -> "Chovendo agora"
-                    primeira == 0 -> "Chuva $picoChuva% nesta hora"
-                    primeira > 0 -> "Chuva $picoChuva% em $primeira h"
+                    primeira == 0 -> "$descricao - Chuva $picoChuva% neste momento"
+                    primeira > 0 -> "$descricao - Chuva $picoChuva% em $primeira h"
                     else -> descricao
                 }
                 // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol
