@@ -16,6 +16,7 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 | `Rede.kt` | Nome da rede (SSID), sinal, velocidade do enlace e latência; decide a cor do ícone de Wi-Fi |
 | `PopupPerfil.kt` | O menu da bolinha do perfil: trocar perfil, adicionar, Configurações, DNS, aparência, teste de velocidade, Wi-Fi |
 | `Tema.kt`, `Fundos.kt`, `Astronomia.kt` | Aparência: 4 temas (fonte, cor do foco e fundo desenhado em código). `Astronomia.kt` calcula a altura do sol e o nascer/pôr no aparelho, sem internet |
+| `Fundos.kt` (desempenho e contraste) | Cada fundo e uma **camada de hardware** (`criarFundo`): a GPU guarda o fundo pronto e so o cola a cada quadro; ele so e redesenhado 1x por minuto ou com clima novo. Medido na TV da Sala (12 teclas de navegacao, mediana por quadro): Ceu e Astrolabio 69 ms → 22 ms, Galeria 32 → 22 ms, Escuro 24 → 22 ms. Veu escuro no topo (`veuDoTopo`, ~70% no alto) e texto mais claro nos temas com fundo desenhado garantem o contraste da hora, clima, umidade e chuva |
 | `Velocidade.kt` | Teste de velocidade: baixa 25 MB de speed.cloudflare.com e mostra os Mbps |
 | `app/src/main/assets/fonts/` | Fontes dos temas (Instrument Serif, Cormorant, Fraunces, Figtree, IBM Plex Mono), baixadas de github.com/google/fonts (licença OFL) |
 | `Perfil.kt` | Contas Google da TV, perfil ativo do launcher e a imagem de cada perfil (foto ou inicial) |
@@ -154,7 +155,7 @@ O botão de microfone do controle dispara a intent `ASSIST`. Com o `launcherx` d
 
 **Usar uma pilha:**
 
-- ▲ ▼ no card da pilha trocam o app da frente e dao a volta (depois do ultimo vem o primeiro); **OK abre o app da frente**. A escolha fica salva. Um passo por toque (segurar a tecla nao gira). Por isso, numa pilha, ▲ ▼ nunca saem para o topo/rodape: para chegar la, va para um card solto.
+- ▲ ▼ no card da pilha trocam o app da frente e dao a volta (depois do ultimo vem o primeiro); **OK abre o app da frente**. A escolha fica salva. Um passo por toque (segurar a tecla nao gira). Um selo no canto da carta da frente (`IndicadorPilha.kt`: "^ v" e "2/3") mostra que ali ha varios apps e qual esta na frente. **Segurar ▲ por 1 s** (`Config.PILHA_SUBIR_MS`) sai da pilha para o topo (hora, clima, bolinha); soltar antes disso so troca o app. E um cronometro de verdade (nao conta repeticoes da tecla), entao nao depende de o controle repetir a tecla.
 - Em app solto, ▲ ▼ vao para os outros elementos da tela (a bolinha do perfil, no topo).
 - Segure OK na pilha: **Mover** · **Remover cards do grupo**. O segundo abre uma pasta com os apps; OK num app pede confirmacao ("Remover X do grupo?", foco em Cancelar). Uma pilha que fica com 1 app se desfaz.
 - **Ocultar** (▲ no modo mover) tira o app da fila e o poe no card "Ocultos (n)", sempre o ultimo. La dentro, segure OK → "Mostrar na tela inicial".

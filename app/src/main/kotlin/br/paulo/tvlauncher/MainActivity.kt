@@ -70,7 +70,8 @@ class MainActivity : Activity() {
 
     // Paleta: tons frios e quase neutros, para a tela não competir com os banners dos apps.
     private val textoClaro = 0xFFE8EEEA.toInt()
-    private val textoSuave = 0xFF93A19A.toInt()
+    // Nos temas com fundo desenhado (ceu, pintura, mostrador) o cinza escuro sumia: la o "suave" e quase tao claro quanto o claro.
+    private val textoSuave: Int get() = if (tema == Tema.ESCURO) 0xFF93A19A.toInt() else 0xFFCFD9D4.toInt()
     // O visual escolhido no menu do perfil (Tema.kt). Lido no onCreate; trocar de tema recria a tela.
     private var tema = Tema.CEU
     private val fonteLeve by lazy { Fontes.display(this, tema) }   // hora e temperatura
@@ -230,7 +231,7 @@ class MainActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, if (tema == Tema.ESCURO) 72f else 84f)
             setTextColor(Color.WHITE)
             typeface = fonteLeve
-            if (tema != Tema.ESCURO) setShadowLayer(dp(10).toFloat(), 0f, 0f, 0x73000000)
+            if (tema != Tema.ESCURO) setShadowLayer(dp(10).toFloat(), 0f, 0f, 0x99000000.toInt())
             letterSpacing = -0.02f
             includeFontPadding = false
             setPadding(f, f, f, f)
@@ -243,9 +244,9 @@ class MainActivity : Activity() {
             format12Hour = "EEEE, d 'de' MMMM"
             format24Hour = "EEEE, d 'de' MMMM"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            setTextColor(if (tema == Tema.ESCURO) textoSuave else 0xD9F3EFE6.toInt())
+            setTextColor(if (tema == Tema.ESCURO) textoSuave else 0xFAF7F3EA.toInt())
             typeface = fonteUi
-            if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x66000000)
+            if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
             letterSpacing = 0.03f
             setPadding(f, f + dp(4), f, f)
             isFocusable = true
@@ -277,7 +278,7 @@ class MainActivity : Activity() {
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
             // Ao lado da temperatura, pequenas: maxima em cima, minima embaixo.
             txtMax = texto(16f, textoClaro).apply { includeFontPadding = false }
-            txtMin = texto(16f, textoSuave).apply {
+            txtMin = texto(16f, textoClaro).apply {
                 includeFontPadding = false
                 setPadding(0, dp(8), 0, 0)
             }
@@ -313,7 +314,7 @@ class MainActivity : Activity() {
 
         // Tres linhas de informacao (lua, umidade, chuva), cada uma com 1/3 da altura dos blocos ao lado.
         txtInfo = List(3) {
-            texto(14f, textoSuave).apply {
+            texto(14f, textoClaro).apply {
                 gravity = Gravity.CENTER_VERTICAL or Gravity.START
                 letterSpacing = 0.02f
                 maxLines = 1
@@ -647,6 +648,12 @@ class MainActivity : Activity() {
                 topMargin = dp(12) - dp(6) * i
             })
         }
+        // Selo no canto de baixo da carta da frente: ▲ ▼ = "tem mais de um app aqui; use as setas", e qual dos N esta na frente.
+        caixa.addView(IndicadorPilha(this, frente + 1, itens.size, fonteUi),
+            FrameLayout.LayoutParams(dp(IndicadorPilha.LARGURA_DP), dp(IndicadorPilha.ALTURA_DP), Gravity.BOTTOM or Gravity.START).apply {
+                leftMargin = dp(Grade.CARD_LARGURA - 20 - IndicadorPilha.LARGURA_DP - 6)   // 6 dp de folga da borda direita da carta da frente
+                bottomMargin = dp(6)
+            })
         return caixa
     }
 
@@ -691,6 +698,7 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- ▲▼ numa pilha: trocar o app da frente
 
+    private var cimaAgendado: Runnable? = null   // o cronometro do "segurar ▲"; null = nenhum rodando
     private var cimaSaiu = false   // true: este "segurar ▲" ja tirou o foco da pilha; o soltar nao troca o app
 
     /**
@@ -712,15 +720,24 @@ class MainActivity : Activity() {
             return true
         }
         when (event.action) {
-            KeyEvent.ACTION_DOWN -> {
-                if (event.repeatCount == 0) cimaSaiu = false
-                // As repeticoes da tecla segurada chegam a cada ~50 ms; quando passam de 2 s desde o aperto, sai da pilha.
-                if (!cimaSaiu && event.eventTime - event.downTime >= 2000) {
-                    cimaSaiu = true
-                    atual.focusSearch(View.FOCUS_UP)?.requestFocus()
-                }
+            KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) {
+                cimaSaiu = false
+                cimaAgendado?.let { ui.removeCallbacks(it) }
+                // Um cronometro, em vez de contar as repeticoes da tecla segurada: a 1a repeticao so chega ~0,5 s depois do aperto
+                // e nem todo controle repete. Soltar antes do tempo cancela o cronometro e a tecla vira "trocar o app da frente".
+                cimaAgendado = Runnable {
+                    cimaAgendado = null
+                    if (currentFocus === atual) {
+                        cimaSaiu = true
+                        atual.focusSearch(View.FOCUS_UP)?.requestFocus()
+                    }
+                }.also { ui.postDelayed(it, Config.PILHA_SUBIR_MS) }
             }
-            KeyEvent.ACTION_UP -> if (!cimaSaiu) girarPilha(pilha, -1)
+            KeyEvent.ACTION_UP -> {
+                cimaAgendado?.let { ui.removeCallbacks(it) }
+                cimaAgendado = null
+                if (!cimaSaiu) girarPilha(pilha, -1)
+            }
         }
         return true
     }
@@ -1337,7 +1354,7 @@ class MainActivity : Activity() {
         setTextColor(cor)
         typeface = fonte ?: fonteUi
         // Sobre o céu ou a pintura, uma sombra suave mantém o texto legível em qualquer cor de fundo.
-        if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x66000000)
+        if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
     }
 
     /**
