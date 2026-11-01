@@ -83,14 +83,12 @@ class MainActivity : Activity() {
     private var ultimoCodigo = -1
     private var ultimoChovendo = false
 
-    private lateinit var txtIcone: TextView
+    private lateinit var txtIcone: TextView   // so para o texto de reserva
+    private lateinit var imgIcone: ImageView   // o icone do clima (imagem de assets/clima/)
     private lateinit var txtTemp: TextView
     private lateinit var txtChuva: TextView   // a linha da chuva, embaixo da temperatura
-    private var textoDescricao = ""   // "Céu limpo" etc.; vai no bloco de informacao da direita
     private lateinit var txtMax: TextView   // "↑ 32°" ao lado da temperatura
     private lateinit var txtMin: TextView   // "↓ 18°"
-    private lateinit var txtInfo: List<TextView>   // as 3 linhas de informacao do topo (colunas 9-11): descricao, umidade, lua
-    private var textoUmidade = ""   // "💧  Umidade 38%"
     private var textoChuva = ""   // "Chuva 91% nas próx. 3 h" ou "Chovendo agora"; vai na 3a linha do clima, junto da lua
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
@@ -102,7 +100,6 @@ class MainActivity : Activity() {
     private var instalados: List<Item> = emptyList()          // todos os apps de TV instalados (inclui os ocultos)
     private var lista: MutableList<Entrada> = mutableListOf()   // cards da linha principal, na ordem da tela
     private var modoMover = false
-    private var luaNoIcone = false   // true: o icone do clima ja e a lua, entao a linha da fase some
     private var iconeClima: String? = null        // icone que o CLIMA mandou na ultima busca (o eclipse so o substitui enquanto dura)
     private var ceuCoberto = false                // nuvens ou chuva (codigo > 2): o eclipse nao seria visto, entao fica o icone do clima
     private var eclipseAgora: Eclipse.Estado? = null   // null = nao ha eclipse neste minuto
@@ -118,12 +115,6 @@ class MainActivity : Activity() {
         override fun run() {
             buscarClima()
             ui.postDelayed(this, Config.CLIMA_A_CADA_MIN * 60_000L)
-        }
-    }
-    private val tarefaLua = object : Runnable {
-        override fun run() {
-            atualizarLua()
-            ui.postDelayed(this, Config.LUA_A_CADA_MIN * 60_000L)
         }
     }
     private val tarefaEclipse = object : Runnable {
@@ -155,7 +146,6 @@ class MainActivity : Activity() {
         super.onResume()
         preencherApps()
         ui.post(tarefaClima)
-        ui.post(tarefaLua)
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
@@ -168,7 +158,6 @@ class MainActivity : Activity() {
     override fun onPause() {
         super.onPause()
         ui.removeCallbacks(tarefaClima)
-        ui.removeCallbacks(tarefaLua)
         ui.removeCallbacks(tarefaEclipse)
         ui.removeCallbacks(tarefaRede)
         menuAberto?.dismiss()
@@ -267,9 +256,11 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             includeFontPadding = false
         }
+        imgIcone = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; visibility = View.GONE }
         iconeEclipse = IconeEclipse(this).apply { visibility = View.GONE }
         val caixaIcone = FrameLayout(this).apply {
             addView(txtIcone, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
+            addView(imgIcone, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
         txtMax = texto(16f, textoClaro).apply { includeFontPadding = false }
@@ -286,7 +277,7 @@ class MainActivity : Activity() {
         val linhaIcone = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(caixaIcone, LinearLayout.LayoutParams(dp(56), dp(56)).apply { marginEnd = dp(12) })
+            addView(caixaIcone, LinearLayout.LayoutParams(dp(80), dp(80)).apply { marginEnd = dp(6) })
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -321,26 +312,8 @@ class MainActivity : Activity() {
         val barra = View(this).apply { setBackgroundColor(0x66FFFFFF) }
         topo.addView(barra, FrameLayout.LayoutParams(dp(2), WRAP).apply { leftMargin = dp(Grade.x(5) - Grade.VAO / 2 - 1) })
 
-        // Tres linhas de informacao (descricao, umidade, lua), cada uma com 1/3 da altura dos blocos ao lado.
-        txtInfo = List(1) {
-            texto(14f, textoClaro).apply {
-                gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                letterSpacing = 0.02f
-                maxLines = 1
-                ellipsize = TextUtils.TruncateAt.END
-            }
-        }
-        val blocoInfo = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            txtInfo.forEach { addView(it, LinearLayout.LayoutParams(MATCH, 0, 1f)) }
-        }
-        topo.addView(blocoInfo, FrameLayout.LayoutParams(dp(Grade.largura(3)), WRAP).apply { leftMargin = dp(Grade.x(9)) })
-        // A altura do bloco de informacao copia a do bloco da hora (hora + data).
         blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             val altura = v.height   // altura do bloco hora + data (as folgas do realce se anulam com as margens negativas)
-            if (blocoInfo.layoutParams.height != altura) {
-                blocoInfo.layoutParams = blocoInfo.layoutParams.apply { height = altura }
-            }
             // As duas linhas do clima tem a altura das duas linhas da esquerda: icone/temperatura/max-min na da hora, chuva na da data.
             val hora = blocoHora.getChildAt(0).height - 2 * f
             val data = blocoHora.getChildAt(1).height - 2 * f
@@ -1183,14 +1156,13 @@ class MainActivity : Activity() {
                     else -> ""
                 }
                 val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
-                val (iconeDoTempo, descricao) = descricaoClima(codigo)
+                val (iconeDoTempo, descricao) = descricaoClima(codigo, eDia, chovendoAgora)
                 // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol
                 // (se estiver chovendo, vale a chuva, como de dia). Chuva, neblina etc. mantem o proprio icone.
-                val luaVirouIcone = !eDia && codigo in 0..2 && !chovendoAgora
+                val luaVirouIcone = !eDia && codigo == 0 && !chovendoAgora   // noite limpa: a lua na fase de hoje; com nuvens, o icone lua+nuvem
                 val icone = when {
-                    luaVirouIcone -> Lua.emoji(System.currentTimeMillis(), Config.LATITUDE)
-                    chovendoAgora && codigo < 51 -> "🌧️"   // o codigo diz "nublado", mas esta chovendo: vale a chuva
-                    else -> iconeDoTempo
+                    luaVirouIcone -> Lua.chaveIcone(System.currentTimeMillis(), Config.LATITUDE)
+                    else -> iconeDoTempo   // (se o codigo diz "nublado" mas esta chovendo, descricaoClima ja devolve a chuva)
                 }
                 ui.post {
                     pontoAtual = ponto
@@ -1200,39 +1172,17 @@ class MainActivity : Activity() {
                     iconeClima = icone
                     ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
-                    textoDescricao = descricao
                     ultimaTemp = temp
                     txtMax.text = "↑ $max°"
                     txtMin.text = "↓ $min°"
                     textoChuva = chuva
                     txtChuva.text = chuva.ifEmpty { "Sem previsão de chuva" }
-                    textoUmidade = umidade?.let { "💧  Umidade $it%" } ?: ""
-                    luaNoIcone = luaVirouIcone
-                    atualizarEclipse()   // escolhe o icone (clima ou eclipse) e chama atualizarLua()
+                    atualizarEclipse()   // escolhe o icone: o do clima ou, num eclipse real, o sol coberto
                 }
             } catch (e: Exception) {
                 // Sem internet ou API fora do ar: mantem o ultimo valor mostrado.
             }
         }
-    }
-
-    /** A lua e calculada no aparelho (ver Lua.kt): nao usa internet. */
-    private fun atualizarLua() {
-        val eclipse = eclipseAgora
-        val lua = when {
-            // Durante um eclipse real, no lugar da fase da lua vai a porcentagem do sol coberta.
-            eclipse != null -> {
-                val pct = Math.round(eclipse.coberto * 100).toInt()
-                val cobertura = if (eclipse.coberto < 0.01) "menos de 1%" else "$pct%"
-                "Eclipse solar parcial · $cobertura" + if (ceuCoberto) " (encoberto)" else ""
-            }
-            luaNoIcone -> ""   // de noite a lua ja e o icone do clima: nao repete
-            // so o emoji e o nome da fase ("🌗 Quarto minguante"); a % iluminada fica de fora para a linha caber
-            else -> Lua.resumoCurto(System.currentTimeMillis(), Config.LATITUDE).substringBeforeLast("  ·  ")
-        }
-        // As linhas de informacao (so a lua), de cima para baixo, so as que existirem (sem buraco no meio).
-        val linhas = listOf(lua).filter { it.isNotEmpty() }
-        txtInfo.forEachIndexed { i, t -> t.text = linhas.getOrElse(i) { "" } }
     }
 
     /**
@@ -1250,7 +1200,6 @@ class MainActivity : Activity() {
         } else {
             iconeClima?.let { mostrarIcone(it) }
         }
-        atualizarLua()
     }
 
     /** Mede a rede fora da thread da tela e entrega o resultado ao popup do perfil (que mostra o nome e o sinal). */
@@ -1269,7 +1218,14 @@ class MainActivity : Activity() {
         if (icone == ICONE_ECLIPSE) {
             iconeEclipse.visibility = View.VISIBLE
             txtIcone.visibility = View.GONE
+            imgIcone.visibility = View.GONE
+        } else if (IconesClima.ehIcone(icone) && IconesClima.bitmap(this, icone) != null) {
+            imgIcone.setImageBitmap(IconesClima.bitmap(this, icone))
+            imgIcone.visibility = View.VISIBLE
+            txtIcone.visibility = View.GONE
+            iconeEclipse.visibility = View.GONE
         } else {
+            imgIcone.visibility = View.GONE
             txtIcone.text = icone
             txtIcone.visibility = View.VISIBLE
             iconeEclipse.visibility = View.GONE
@@ -1277,19 +1233,35 @@ class MainActivity : Activity() {
     }
 
 
-    /** Códigos de clima da Open-Meteo (padrão WMO) -> ícone + texto. O ícone é um emoji; o desenho do eclipse (ICONE_ECLIPSE) só entra em atualizarEclipse(). */
-    private fun descricaoClima(codigo: Int): Pair<String, String> = when (codigo) {
-        0 -> "☀️" to "Céu limpo"
-        1 -> "🌤️" to "Poucas nuvens"
-        2 -> "⛅" to "Parcialmente nublado"
-        3 -> "☁️" to "Nublado"
-        45, 48 -> "🌫️" to "Neblina"
-        in 51..57 -> "🌧️" to "Garoa"
-        in 61..67 -> "🌧️" to "Chuva"
-        in 71..77, 85, 86 -> "❄️" to "Neve"
-        in 80..82 -> "🌧️" to "Pancadas de chuva"
-        95, 96, 99 -> "⛈️" to "Tempestade"
-        else -> "🌡️" to "—"
+    /** Códigos de clima da Open-Meteo (padrão WMO) -> chave do ícone (IconesClima.kt) + texto. O eclipse (ICONE_ECLIPSE) só entra em atualizarEclipse(). */
+    private fun descricaoClima(codigo: Int, dia: Boolean = true, chovendo: Boolean = false): Pair<String, String> {
+        val texto = when (codigo) {
+            0 -> "Céu limpo"
+            1 -> "Poucas nuvens"
+            2 -> "Parcialmente nublado"
+            3 -> "Nublado"
+            45, 48 -> "Neblina"
+            51 -> "Garoa fraca"
+            53 -> "Garoa"
+            55 -> "Garoa forte"
+            56, 57 -> "Garoa congelante"
+            61 -> "Chuva fraca"
+            63 -> "Chuva"
+            65 -> "Chuva forte"
+            66, 67 -> "Chuva congelante"
+            71 -> "Neve fraca"
+            73 -> "Neve"
+            75 -> "Neve forte"
+            77 -> "Grãos de neve"
+            80 -> "Pancadas fracas"
+            81 -> "Pancadas de chuva"
+            82 -> "Pancadas fortes"
+            85, 86 -> "Pancadas de neve"
+            95 -> "Tempestade"
+            96, 99 -> "Tempestade com granizo"
+            else -> "—"
+        }
+        return IconesClima.chave(codigo, dia, chovendo) to texto
     }
 
     /**

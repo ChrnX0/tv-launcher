@@ -52,7 +52,7 @@ object Config {
 
     // --- Pilhas de cards: segurar ▲ por este tempo (ms) tira o foco da pilha e sobe para o topo (hora, clima, bolinha).
     //     Um toque rápido em ▲ continua trocando o app da frente da pilha.
-    const val PILHA_SUBIR_MS = 1000L
+    const val PILHA_SUBIR_MS = 750L
 
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
     const val CLIMA_A_CADA_MIN = 5L   // as fontes mudam a cada 15 min (modelo) e ~60 min (aeroporto, ou antes se o tempo virar); 5 min pega a mudança cedo
