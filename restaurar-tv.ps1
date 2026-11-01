@@ -51,9 +51,11 @@ $AppsRemover = @(
 
 # Pacotes de sistema removidos so para o usuario 0 (reversivel: cmd package install-existing <pacote>).
 $SistemaRemover = @(
-    "com.google.android.play.games", "com.google.android.videos", "com.google.android.tvrecommendations",
+    # Ficam (01/11/2026): com.google.android.videos (app Google TV: alugar/comprar filmes) e
+    # com.google.android.syncadapters.calendar (sincroniza a agenda que o launcher mostra).
+    "com.google.android.play.games", "com.google.android.tvrecommendations",
     "com.android.printspooler", "com.android.htmlviewer", "com.google.android.feedback",
-    "com.android.tv.feedbackconsent", "com.google.android.syncadapters.calendar", "com.netflix.tokenmanager",
+    "com.android.tv.feedbackconsent", "com.netflix.tokenmanager",
     "com.google.android.ondevicepersonalization.services", "com.google.android.federatedcompute",
     "com.android.bluetoothmidiservice", "com.android.dynsystem",
     "com.google.android.healthconnect.controller", "com.google.android.health.connect.backuprestore"
