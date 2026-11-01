@@ -118,7 +118,10 @@ class PrevisaoSemana(
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(7), 0, dp(7))
             addView(texto(17f, textoClaro, fonteMedia).apply { text = dia }, LinearLayout.LayoutParams(dp(92), ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(texto(24f, Color.WHITE).apply { text = icone; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.WRAP_CONTENT))
+            if (IconesClima.ehIcone(icone) && IconesClima.bitmap(tela, icone) != null)
+                addView(IconesClima.imagem(tela, icone), LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(4) })
+            else
+                addView(texto(24f, Color.WHITE).apply { text = icone; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(texto(16f, textoSuave).apply { text = desc; maxLines = 1 }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
             addView(texto(17f, Color.WHITE, fonteMedia).apply { text = max; gravity = Gravity.END }, LinearLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(texto(17f, textoSuave).apply { text = min; gravity = Gravity.END }, LinearLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.WRAP_CONTENT))

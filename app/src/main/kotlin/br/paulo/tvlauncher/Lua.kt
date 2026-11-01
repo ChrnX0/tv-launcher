@@ -44,6 +44,15 @@ object Lua {
         return if (latitude < 0) EMOJIS[(8 - i) % 8] else EMOJIS[i]
     }
 
+    private val ARQUIVOS = arrayOf("moon-new", "moon-waxing-crescent", "moon-first-quarter", "moon-waxing-gibbous",
+        "moon-full", "moon-waning-gibbous", "moon-last-quarter", "moon-waning-crescent")
+
+    /** Chave do ícone-imagem da fase (ver IconesClima.kt); no hemisfério sul a fase é espelhada, como no emoji. */
+    fun chaveIcone(agoraMs: Long, latitude: Double): String {
+        val i = indiceDaFase(idade(agoraMs))
+        return IconesClima.PREFIXO + (if (latitude < 0) ARQUIVOS[(8 - i) % 8] else ARQUIVOS[i])
+    }
+
     /** Ex.: "🌔  Minguante gibosa  ·  75%  ·  nova em 10 d". */
     fun resumo(agoraMs: Long, latitude: Double): String {
         val idade = idade(agoraMs)
