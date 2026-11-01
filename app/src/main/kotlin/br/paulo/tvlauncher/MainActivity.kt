@@ -86,10 +86,10 @@ class MainActivity : Activity() {
     private lateinit var txtIcone: TextView   // so para o texto de reserva
     private lateinit var imgIcone: ImageView   // o icone do clima (imagem de assets/clima/)
     private lateinit var txtTemp: TextView
-    private lateinit var txtChuva: TextView   // a linha da chuva, embaixo da temperatura
+    private lateinit var txtChuva: TextView   // a linha informativa embaixo da temperatura: chuva prevista ou a condicao de agora
+    private lateinit var linhaChuva: LinearLayout
     private lateinit var txtMax: TextView   // "↑ 32°" ao lado da temperatura
     private lateinit var txtMin: TextView   // "↓ 18°"
-    private var textoChuva = ""   // "Chuva 91% nas próx. 3 h" ou "Chovendo agora"; vai na 3a linha do clima, junto da lua
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
     private lateinit var fotoPerfil: ImageView        // a bolinha do perfil, no canto superior direito
@@ -290,7 +290,12 @@ class MainActivity : Activity() {
             letterSpacing = 0.03f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
+        }
+        linhaChuva = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(4), 0, 0)
+            addView(txtChuva, LinearLayout.LayoutParams(WRAP, WRAP))
         }
         // O bloco do clima e um botao (OK abre a previsao de 7 dias). Folga de 12 dp em volta para o realce de foco:
         // o padding empurra o conteudo 12 dp e a margem negativa puxa de volta, entao o texto fica na grade.
@@ -302,7 +307,7 @@ class MainActivity : Activity() {
             setOnClickListener { abrirPrevisao() }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
             addView(linhaIcone, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(txtChuva, LinearLayout.LayoutParams(MATCH, WRAP))
+            addView(linhaChuva, LinearLayout.LayoutParams(MATCH, WRAP))
         }
         topo.addView(blocoClima, FrameLayout.LayoutParams(dp(Grade.largura(4) + 2 * folgaFoco), WRAP).apply {
             leftMargin = dp(Grade.x(5) - folgaFoco)
@@ -317,9 +322,9 @@ class MainActivity : Activity() {
             // As duas linhas do clima tem a altura das duas linhas da esquerda: icone/temperatura/max-min na da hora, chuva na da data.
             val hora = blocoHora.getChildAt(0).height - 2 * f
             val data = blocoHora.getChildAt(1).height - 2 * f
-            if (linhaIcone.layoutParams.height != hora || txtChuva.layoutParams.height != data) {
+            if (linhaIcone.layoutParams.height != hora || linhaChuva.layoutParams.height != data) {
                 linhaIcone.layoutParams = linhaIcone.layoutParams.apply { height = hora }
-                txtChuva.layoutParams = txtChuva.layoutParams.apply { height = data }
+                linhaChuva.layoutParams = linhaChuva.layoutParams.apply { height = data }
             }
             if (barra.layoutParams.height != altura) {
                 barra.layoutParams = barra.layoutParams.apply { height = altura }
@@ -1122,7 +1127,7 @@ class MainActivity : Activity() {
                 val url = "https://api.open-meteo.com/v1/forecast" +
                     "?latitude=${ponto.lat}&longitude=${ponto.lon}" +
                     "&current=temperature_2m,relative_humidity_2m,weather_code,precipitation,is_day" +
-                    "&hourly=precipitation_probability&forecast_hours=4" +
+                    "&hourly=precipitation_probability&forecast_hours=24" +
                     "&daily=temperature_2m_max,temperature_2m_min" +
                     "&timezone=auto&forecast_days=1$unidade"
                 val json = JSONObject(httpGet(url) ?: return@execute)
@@ -1147,16 +1152,26 @@ class MainActivity : Activity() {
                     else if (codigo >= 45) codigo = medida.nuvens     // o modelo inventou chuva/neblina: fica so a nebulosidade
                     chovendoAgora = visto != null && visto >= 51
                 }
-                val horas = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
-                var chance = -1   // maior probabilidade entre a hora atual e as proximas 2
-                for (i in 0 until minOf(3, horas.length())) chance = maxOf(chance, horas.optInt(i, -1))
-                val chuva = when {
-                    chovendoAgora -> "☔  Chovendo agora"
-                    chance >= 0 -> "☔  Chuva $chance% em 3 h"
-                    else -> ""
-                }
                 val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
                 val (iconeDoTempo, descricao) = descricaoClima(codigo, eDia, chovendoAgora)
+                // A linha informativa do clima: se chove agora ou ha previsao de chuva HOJE (primeira hora com chance >= 40%),
+                // diz quando; senao, diz a condicao do tempo de agora (ex.: "Poucas nuvens").
+                val horasChuva = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
+                val horasData = json.getJSONObject("hourly").getJSONArray("time")
+                val hoje = atual.optString("time", "").take(10)   // "2026-11-01"
+                var primeira = -1   // quantas horas faltam para a primeira hora de hoje com chance de chuva >= 40%
+                var picoChuva = 0
+                for (i in 0 until horasChuva.length()) {
+                    if (!horasData.getString(i).startsWith(hoje)) break   // so ate o fim do dia
+                    val p = horasChuva.optInt(i, -1)
+                    if (p >= 40) { primeira = i; picoChuva = p; break }
+                }
+                val textoLinha = when {
+                    chovendoAgora -> "Chovendo agora"
+                    primeira == 0 -> "Chuva $picoChuva% nesta hora"
+                    primeira > 0 -> "Chuva $picoChuva% em $primeira h"
+                    else -> descricao
+                }
                 // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol
                 // (se estiver chovendo, vale a chuva, como de dia). Chuva, neblina etc. mantem o proprio icone.
                 val luaVirouIcone = !eDia && codigo == 0 && !chovendoAgora   // noite limpa: a lua na fase de hoje; com nuvens, o icone lua+nuvem
@@ -1175,8 +1190,7 @@ class MainActivity : Activity() {
                     ultimaTemp = temp
                     txtMax.text = "↑ $max°"
                     txtMin.text = "↓ $min°"
-                    textoChuva = chuva
-                    txtChuva.text = chuva.ifEmpty { "Sem previsão de chuva" }
+                    txtChuva.text = textoLinha
                     atualizarEclipse()   // escolhe o icone: o do clima ou, num eclipse real, o sol coberto
                 }
             } catch (e: Exception) {
