@@ -71,8 +71,16 @@ class MainActivity : Activity() {
     // Paleta: tons frios e quase neutros, para a tela não competir com os banners dos apps.
     private val textoClaro = 0xFFE8EEEA.toInt()
     private val textoSuave = 0xFF93A19A.toInt()
-    private val fonteLeve = Typeface.create("sans-serif-light", Typeface.NORMAL)
-    private val fonteMedia = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    // O visual escolhido no menu do perfil (Tema.kt). Lido no onCreate; trocar de tema recria a tela.
+    private var tema = Tema.CEU
+    private val fonteLeve by lazy { Fontes.display(this, tema) }   // hora e temperatura
+    private val fonteMedia by lazy { Fontes.uiMedia(this, tema) }
+    private val fonteUi by lazy { Fontes.ui(this, tema) }
+    private val corFoco by lazy { if (tema == Tema.ASTROLABIO) 0xFFE8B55A.toInt() else Color.WHITE }
+    private var fundo: View? = null                 // o fundo vivo do tema (céu, pintura, mostrador)
+    @Volatile private var pontoAtual: Localizacao.Ponto? = null
+    private var ultimoCodigo = -1
+    private var ultimoChovendo = false
 
     private lateinit var txtIcone: TextView
     private lateinit var txtTemp: TextView
@@ -119,6 +127,7 @@ class MainActivity : Activity() {
     private val tarefaEclipse = object : Runnable {
         override fun run() {
             atualizarEclipse()
+            atualizarFundo()   // o céu e o mostrador andam com o relógio
             ui.postDelayed(this, Config.ECLIPSE_A_CADA_SEG * 1000L)
         }
     }
@@ -133,6 +142,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        tema = Tema.atual(this)
         setContentView(montarTela())
         Privilegio.religarAcessibilidade(this)   // antes de falar com o Shizuku, para o serviço já estar de pé
         Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
@@ -217,9 +227,10 @@ class MainActivity : Activity() {
         blocoHora.addView(TextClock(this).apply {
             format12Hour = "HH:mm"
             format24Hour = "HH:mm"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 72f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (tema == Tema.ESCURO) 72f else 84f)
             setTextColor(Color.WHITE)
             typeface = fonteLeve
+            if (tema != Tema.ESCURO) setShadowLayer(dp(10).toFloat(), 0f, 0f, 0x73000000)
             letterSpacing = -0.02f
             includeFontPadding = false
             setPadding(f, f, f, f)
@@ -232,7 +243,9 @@ class MainActivity : Activity() {
             format12Hour = "EEEE, d 'de' MMMM"
             format24Hour = "EEEE, d 'de' MMMM"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            setTextColor(textoSuave)
+            setTextColor(if (tema == Tema.ESCURO) textoSuave else 0xD9F3EFE6.toInt())
+            typeface = fonteUi
+            if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x66000000)
             letterSpacing = 0.03f
             setPadding(f, f + dp(4), f, f)
             isFocusable = true
@@ -252,7 +265,7 @@ class MainActivity : Activity() {
             addView(txtIcone, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
             addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
-        txtTemp = texto(72f, Color.WHITE, fonteLeve).apply {   // mesmo tamanho e fonte da hora
+        txtTemp = texto(if (tema == Tema.ESCURO) 72f else 84f, Color.WHITE, fonteLeve).apply {   // mesmo tamanho e fonte da hora
             letterSpacing = -0.02f
             includeFontPadding = false
             text = "…"
@@ -358,8 +371,11 @@ class MainActivity : Activity() {
             }
         }
 
+        val vivo = criarFundo(this, tema) { bloco -> rede.execute { bloco() } }
+        fundo = vivo
         return FrameLayout(this).apply {
-            background = montarFundo()
+            setBackgroundColor(Color.BLACK)
+            addView(vivo, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(raiz, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(txtDica, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 bottomMargin = dp(32)
@@ -367,14 +383,12 @@ class MainActivity : Activity() {
         }
     }
 
-    /**
-     * Fundo: degrade escuro e liso (do canto superior esquerdo, levemente mais claro, para o inferior direito).
-     * Substitui a textura pontilhada (res/drawable-nodpi/fundo.jpg, que ficou sem uso). Tambem gasta menos RAM que a imagem.
-     */
-    private fun montarFundo(): Drawable = GradientDrawable(
-        GradientDrawable.Orientation.TL_BR,
-        intArrayOf(0xFF1B2326.toInt(), 0xFF0F1416.toInt(), 0xFF0A0D0E.toInt())
-    )
+    /** Passa ao fundo vivo a hora, o lugar e o clima de agora (ver Fundos.kt). */
+    private fun atualizarFundo() {
+        val p = pontoAtual
+        (fundo as? FundoVivo)?.atualizar(EstadoCeu(System.currentTimeMillis(), p?.lat ?: Config.LATITUDE,
+            p?.lon ?: Config.LONGITUDE, ultimoCodigo, ultimoChovendo))
+    }
 
     /** A bolinha do perfil, no canto superior direito: mostra a foto/inicial da conta ativa e abre o popup (OK). */
     private fun botaoPerfil(): View {
@@ -578,7 +592,17 @@ class MainActivity : Activity() {
             }
         }
         // filho 0: o banner (a "moldura" desenha o contorno de foco POR CIMA, no foreground). filho 1: o nome.
-        val moldura = FrameLayout(this).apply { addView(miniatura, FrameLayout.LayoutParams(MATCH, MATCH)) }
+        val moldura = FrameLayout(this).apply {
+            addView(miniatura, FrameLayout.LayoutParams(MATCH, MATCH))
+            if (tema != Tema.ESCURO) {   // sombra: o card "flutua" sobre o céu / a pintura
+                elevation = dp(8).toFloat()
+                outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: Outline) {
+                        outline.setRoundRect(0, 0, view.width, view.height, dp(12).toFloat())
+                    }
+                }
+            }
+        }
         cartao.addView(moldura, LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), dp(Grade.CARD_ALTURA)))
         cartao.addView(
             texto(14f, textoSuave).apply {
@@ -898,7 +922,7 @@ class MainActivity : Activity() {
         val grupo = card as? ViewGroup
         (grupo?.getChildAt(0))?.foreground = when {
             movendo -> contorno(corMover, 0x2E7FD6C2)
-            focado -> contorno(Color.WHITE, Color.TRANSPARENT)
+            focado -> contorno(corFoco, Color.TRANSPARENT)
             else -> null
         }
         (grupo?.getChildAt(1) as? TextView)?.setTextColor(if (focado || movendo) Color.WHITE else textoSuave)
@@ -1131,6 +1155,10 @@ class MainActivity : Activity() {
                     else -> iconeDoTempo
                 }
                 ui.post {
+                    pontoAtual = ponto
+                    ultimoCodigo = codigo
+                    ultimoChovendo = chovendoAgora
+                    atualizarFundo()
                     iconeClima = icone
                     ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
@@ -1307,7 +1335,9 @@ class MainActivity : Activity() {
     private fun texto(sp: Float, cor: Int, fonte: Typeface? = null): TextView = TextView(this).apply {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
         setTextColor(cor)
-        if (fonte != null) typeface = fonte
+        typeface = fonte ?: fonteUi
+        // Sobre o céu ou a pintura, uma sombra suave mantém o texto legível em qualquer cor de fundo.
+        if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x66000000)
     }
 
     /**
