@@ -98,6 +98,12 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/autoriza_acessibilidade" />
         </service>
+        <!-- Lista para escolher o app de um botão do controle (segurar Netflix/YouTube 3 s; ver BotoesControle) -->
+        <activity
+            android:name=".EscolherAppActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Material.NoActionBar.TranslucentDecor" />
         <!-- Tela de DNS privado (aberta pelo chip do rodapé) -->
         <activity
             android:name=".DnsActivity"
