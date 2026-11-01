@@ -96,7 +96,7 @@ class PopupPerfil(
             isFillViewport = true
             clipChildren = false
             clipToPadding = false
-            setPadding(0, dp(6), 0, dp(6))
+            setPadding(0, dp(2), 0, dp(2))
             addView(bolinhas, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 
@@ -105,6 +105,22 @@ class PopupPerfil(
         val linhaDns = linha(Dns.rotulo(tela)) {
             fechar()
             tela.startActivity(Intent(tela, DnsActivity::class.java))
+        }
+
+        // ---- Aparência: OK passa para o próximo visual (Céu ao vivo, Galeria, Astrolábio, Escuro) e redesenha a tela.
+        val linhaTema = linha("Aparência: ${Tema.atual(tela).nome}") {
+            Tema.proximo(tela)
+            fechar()
+            tela.recreate()
+        }
+        // ---- Velocidade da internet: baixa 25 MB de um servidor de teste (Cloudflare) e mede.
+        lateinit var linhaVelocidade: TextView
+        linhaVelocidade = linha("Testar velocidade da internet") {
+            linhaVelocidade.text = "Testando…"
+            kotlin.concurrent.thread {
+                val r = Velocidade.medir()
+                tela.runOnUiThread { linhaVelocidade.text = r }
+            }
         }
 
         // ---- Wi-Fi: um botão. Conectado: sinal colorido + nome + velocidade do enlace. Sem rede: atalho para conectar.
@@ -146,7 +162,7 @@ class PopupPerfil(
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(24), dp(22), dp(24), dp(20))
+            setPadding(dp(22), dp(16), dp(22), dp(14))
             background = GradientDrawable().apply {
                 cornerRadius = dp(22).toFloat()
                 setColor(0xFF161E1B.toInt())   // opaco: nada do fundo aparece por tras do texto
@@ -155,12 +171,14 @@ class PopupPerfil(
             addView(rolagem, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(legenda, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = dp(4)
-                bottomMargin = dp(14)
+                bottomMargin = dp(10)
             })
-            addView(linhaConfig, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
-            addView(linhaDns, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14) })
+            addView(linhaConfig, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(6) })
+            addView(linhaDns, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(6) })
+            addView(linhaTema, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(6) })
+            addView(linhaVelocidade, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(10) })
             addView(View(tela).apply { setBackgroundColor(0x22FFFFFF) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply { bottomMargin = dp(12) })
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply { bottomMargin = dp(8) })
             addView(blocoWifi, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 
@@ -169,7 +187,7 @@ class PopupPerfil(
             clipChildren = false
             setOnClickListener { fechar() }   // toque fora do painel fecha
             addView(painel, FrameLayout.LayoutParams(dp(350), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-                topMargin = dp(112)   // logo abaixo da bolinha (Grade.TOPO + linha da hora)
+                topMargin = dp(116)   // logo abaixo da bolinha (Grade.TOPO + linha da hora)
                 marginEnd = dp(Grade.MARGEM)   // borda direita = borda direita da bolinha e do ultimo card
             })
         }
@@ -299,7 +317,7 @@ class PopupPerfil(
         typeface = fonteMedia
         maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.END
-        setPadding(dp(18), dp(14), dp(18), dp(14))
+        setPadding(dp(18), dp(10), dp(18), dp(10))
         isFocusable = true
         isClickable = true
         background = vidro(false)

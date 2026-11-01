@@ -16,7 +16,7 @@ object Grade {
     const val COLUNA = 50
     const val VAO = 24             // espaço entre colunas (e entre cards)
     const val TOPO = 36            // onde começa a linha da hora
-    const val LINHA_APPS = 240     // onde começa a linha de cards (topo do banner)
+    const val LINHA_APPS = 360     // onde começa a linha de cards (topo do banner): embaixo, deixando o fundo (céu, pintura, mostrador) aparecer
 
     /** Onde começa a coluna [col] (1 a 12), a partir da borda esquerda da tela. */
     fun x(col: Int): Int = MARGEM + (col - 1) * (COLUNA + VAO)
