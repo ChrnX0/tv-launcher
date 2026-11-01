@@ -1,0 +1,81 @@
+package br.paulo.tvlauncher
+
+import android.content.Context
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.view.KeyEvent
+
+/**
+ * Os dois botões de app do controle (Netflix e YouTube) passam a abrir o app que você escolher.
+ *  - toque: abre o app salvo para aquele botão;
+ *  - segurar 3 s: abre a lista de apps (EscolherAppActivity) para trocar; a escolha fica salva.
+ *
+ * Como chega aqui: o serviço de acessibilidade (AutorizaShizukuService.onKeyEvent) vê a tecla ANTES do sistema.
+ * Devolvendo true, o sistema nunca a recebe: o Netflix não abre sozinho e o YouTube (que o Home do Google tratava) passa a funcionar.
+ * Códigos medidos no controle da Sala em 01/11/2026 (log TvLauncher.Tecla): Netflix = BUTTON_4, YouTube = BUTTON_3.
+ */
+object BotoesControle {
+    private const val TAG = "TvLauncher.Botao"
+    private const val SEGURAR_MS = 3000L
+
+    /** Cada botão: código da tecla, nome mostrado na lista e o app padrão (antes de você escolher). */
+    class Botao(val tecla: Int, val nome: String, val padrao: String)
+
+    val BOTOES = listOf(
+        Botao(KeyEvent.KEYCODE_BUTTON_4, "Netflix", "com.onestream.player"),
+        Botao(KeyEvent.KEYCODE_BUTTON_3, "YouTube", "com.google.android.youtube.tv"),
+    )
+
+    private val principal = Handler(Looper.getMainLooper())
+    private var abrirLista: Runnable? = null   // o "segurou 3 s" agendado; null = nenhum botão apertado
+    private var listaAberta = false             // true = a lista já abriu neste aperto: soltar não abre app
+
+    fun botao(tecla: Int) = BOTOES.firstOrNull { it.tecla == tecla }
+
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+
+    fun appDo(ctx: Context, b: Botao): String = prefs(ctx).getString("botao_${b.tecla}", b.padrao) ?: b.padrao
+
+    fun salvar(ctx: Context, b: Botao, pacote: String) {
+        prefs(ctx).edit().putString("botao_${b.tecla}", pacote).apply()
+        Log.i(TAG, "${b.nome} agora abre $pacote")
+    }
+
+    /** Chamado para cada tecla. true = a tecla é nossa (o sistema não a vê). */
+    fun tratar(ctx: Context, e: KeyEvent): Boolean {
+        val b = botao(e.keyCode) ?: return false
+        when (e.action) {
+            KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
+                // Aperto novo: agenda a lista para daqui a 3 s. Se soltar antes, o agendamento é cancelado.
+                listaAberta = false
+                abrirLista?.let { principal.removeCallbacks(it) }
+                abrirLista = Runnable {
+                    listaAberta = true
+                    abrirLista = null
+                    ctx.startActivity(Intent(ctx, EscolherAppActivity::class.java)
+                        .putExtra(EscolherAppActivity.EXTRA_TECLA, b.tecla)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                }.also { principal.postDelayed(it, SEGURAR_MS) }
+            }
+            KeyEvent.ACTION_UP -> {
+                abrirLista?.let { principal.removeCallbacks(it) }
+                abrirLista = null
+                if (!listaAberta) abrirApp(ctx, appDo(ctx, b))
+            }
+        }
+        return true
+    }
+
+    /** Abre um app pelo pacote. Na TV o certo é o atalho "leanback"; se o app não tiver, tenta o comum. */
+    fun abrirApp(ctx: Context, pacote: String) {
+        val pm = ctx.packageManager
+        val abrir = pm.getLeanbackLaunchIntentForPackage(pacote) ?: pm.getLaunchIntentForPackage(pacote)
+        if (abrir == null) {
+            Log.w(TAG, "app $pacote não encontrado")
+            return
+        }
+        ctx.startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}

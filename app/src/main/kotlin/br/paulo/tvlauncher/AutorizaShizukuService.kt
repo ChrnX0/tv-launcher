@@ -2,6 +2,7 @@ package br.paulo.tvlauncher
 
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -59,6 +60,18 @@ class AutorizaShizukuService : AccessibilityService() {
         // Registro para auditoria (adb logcat -s TvLauncher.Autoriza): o título diz qual app pediu.
         Log.i(TAG, "autorizando pedido: $titulo")
         permitir[0].performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+    /**
+     * Teclas do controle: o serviço de acessibilidade vê cada tecla ANTES do app da frente e antes dos botões
+     * "globais" (Netflix, YouTube), que o sistema manda direto para outro app sem passar pelo launcher.
+     * Os botões Netflix e YouTube vão para BotoesControle (true = o sistema não os vê); o resto segue normal (false).
+     * Para descobrir o código de um botão novo: adb logcat -s TvLauncher.Tecla (registra só em modo depuração do log, nível D).
+     */
+    override fun onKeyEvent(e: KeyEvent): Boolean {
+        Log.d("TvLauncher.Tecla", "tecla=${KeyEvent.keyCodeToString(e.keyCode)} (${e.keyCode}) scan=${e.scanCode} " +
+            "acao=${if (e.action == KeyEvent.ACTION_DOWN) "desce" else "sobe"} repete=${e.repeatCount}")
+        return BotoesControle.tratar(this, e)
     }
 
     override fun onInterrupt() {}
