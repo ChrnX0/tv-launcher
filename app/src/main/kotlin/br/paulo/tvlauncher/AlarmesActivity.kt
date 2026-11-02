@@ -128,6 +128,10 @@ class AlarmesActivity : Activity() {
         var minuto = a?.minuto ?: 0
         var dias = a?.dias ?: 0b0111110
         var ativo = a?.ativo ?: true
+        var som = a?.som ?: 0
+        var rampa = a?.rampa ?: 0
+        var previa: android.media.MediaPlayer? = null
+        fun pararPrevia() { previa?.release(); previa = null }
 
         val coluna = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -205,10 +209,28 @@ class AlarmesActivity : Activity() {
         }
         coluna.addView(nome, LinearLayout.LayoutParams(dp(Grade.largura(5)), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16) })
 
+        // Som e rampa: botões que giram entre as opções com OK. "Ouvir" toca o som escolhido por 4 s.
+        val linhaSom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(16), 0, 0) }
+        lateinit var btSom: TextView
+        lateinit var btRampa: TextView
+        btSom = botao("Som: " + SomAlarme.NOMES[som]) { som = (som + 1) % SomAlarme.NOMES.size; btSom.text = "Som: " + SomAlarme.NOMES[som] }
+        btRampa = botao(SomAlarme.rampaTexto(rampa)) {
+            rampa = SomAlarme.RAMPAS[(SomAlarme.RAMPAS.indexOf(rampa) + 1) % SomAlarme.RAMPAS.size]
+            btRampa.text = SomAlarme.rampaTexto(rampa)
+        }
+        val btOuvir = botao("Ouvir") {
+            pararPrevia()
+            previa = SomAlarme.criar(this, som)?.also { it.start() }
+            btSom.postDelayed({ pararPrevia() }, 4000)
+        }
+        linhaSom.addView(btSom, botaoLp()); linhaSom.addView(btRampa, botaoLp()); linhaSom.addView(btOuvir, botaoLp())
+        coluna.addView(linhaSom)
+
         // Botões: Salvar · Ligado/Desligado · Apagar (só se já existe) · Cancelar
         val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(24), 0, 0) }
         val salvar = botao("Salvar") {
-            Despertador.salvar(this, Despertador.Alarme(a?.id ?: 0, hora, minuto, dias, nome.text.toString().trim(), ativo))
+            Despertador.salvar(this, Despertador.Alarme(a?.id ?: 0, hora, minuto, dias, nome.text.toString().trim(), ativo, som, rampa))
+            pararPrevia()
             mostrarLista()
         }
         botoes.addView(salvar, botaoLp())
@@ -218,7 +240,7 @@ class AlarmesActivity : Activity() {
             botoes.addView(liga, botaoLp())
             botoes.addView(botao("Apagar") { Despertador.apagar(this, a.id); mostrarLista() }, botaoLp())
         }
-        botoes.addView(botao("Cancelar") { mostrarLista() }, botaoLp())
+        botoes.addView(botao("Cancelar") { pararPrevia(); mostrarLista() }, botaoLp())
         coluna.addView(botoes)
 
         conteudo.addView(ScrollView(this).apply { addView(coluna) })

@@ -5,6 +5,8 @@ import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Typeface
@@ -47,8 +49,8 @@ private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: sol cobert
  */
 class MainActivity : Activity() {
 
-    /** Um app na grade: pacote (identificador), nome, imagem e se a imagem é um banner (16:9) ou só um ícone. */
-    private class Item(val pacote: String, val nome: String, val imagem: Drawable, val ehBanner: Boolean)
+    /** Um app na grade: pacote (identificador), nome, imagem (banner ou ícone), se é banner (16:9) e o ícone redondo da linha principal. */
+    private class Item(val pacote: String, val nome: String, val imagem: Drawable, val ehBanner: Boolean, val icone: Drawable)
 
     /**
      * Um card da linha principal: um app, uma pilha de apps, ou o card "Ocultos" (sempre o ultimo).
@@ -162,7 +164,6 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaRede)
         menuAberto?.dismiss()
         popup?.fechar()
-        previsao?.fechar()
         fecharPasta()
         if (modoMover) cancelarMover()
     }
@@ -234,6 +235,8 @@ class MainActivity : Activity() {
             format12Hour = "EEEE, d 'de' MMMM"
             format24Hour = "EEEE, d 'de' MMMM"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            maxLines = 1   // "segunda-feira, 2 de novembro" quebrava em 2 linhas: encolhe a letra até caber (mín. 12 sp)
+            setAutoSizeTextTypeUniformWithConfiguration(12, 16, 1, TypedValue.COMPLEX_UNIT_SP)
             setTextColor(if (tema == Tema.ESCURO) textoSuave else 0xFAF7F3EA.toInt())
             typeface = fonteUi
             if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
@@ -243,7 +246,7 @@ class MainActivity : Activity() {
             isClickable = true
             setOnClickListener { startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
-        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(-f, -f, -f, -f) })
         topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
 
         // Clima (como na foto de referencia), em tres linhas, alinhadas a esquerda como a hora:
@@ -353,7 +356,7 @@ class MainActivity : Activity() {
             clipChildren = false    // senão a rolagem corta o card focado quando ele cresce
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
-            setPadding(dp(Grade.MARGEM), dp(folga), dp(Grade.MARGEM), dp(folga))
+            setPadding(dp(Grade.MARGEM - Grade.VAO_DISCO / 2), dp(folga) - dp(ANEL), dp(Grade.MARGEM - Grade.VAO_DISCO / 2), dp(folga))
         }
         linhaApps = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -428,7 +431,6 @@ class MainActivity : Activity() {
         fotoPerfil.setImageBitmap(Perfil.avatar(this, dp(44)))
     }
 
-    private var previsao: PrevisaoSemana? = null
 
     /** Contorno branco dos blocos do topo (hora, clima) quando estao com foco. */
     private fun realceFoco() = GradientDrawable().apply {
@@ -440,16 +442,11 @@ class MainActivity : Activity() {
     private var ultimaMedidaMs = 0L
     private var ultimaTemp: Int? = null   // a temperatura mostrada no topo (para a linha "Hoje" da previsao bater com ela)
 
-    /** Abre o painel da previsao de 7 dias (ver PrevisaoSemana.kt). */
+    /** Abre a tela da previsao (ver PrevisaoActivity.kt); leva a temperatura do topo para as duas telas baterem. */
     private fun abrirPrevisao() {
-        val painel = previsao ?: PrevisaoSemana(
-            tela = this,
-            emSegundoPlano = { bloco -> rede.execute { bloco() } },
-            buscar = { httpGet(it) },
-            descricao = { descricaoClima(it) },
-            tempAgora = { ultimaTemp },
-        ).also { previsao = it }
-        painel.abrir()
+        startActivity(Intent(this, PrevisaoActivity::class.java)
+            .putExtra(PrevisaoActivity.EXTRA_TEMP, ultimaTemp ?: Int.MIN_VALUE)
+            .putExtra(PrevisaoActivity.EXTRA_CHOVENDO, ultimoChovendo))
     }
 
     /** Abre o menu do perfil (trocar perfil, Configurações, DNS, Wi-Fi). Ver PopupPerfil.kt. */
@@ -485,7 +482,7 @@ class MainActivity : Activity() {
             val instaladoPorVoce = (ri.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
             if (!instaladoPorVoce && pkg !in Config.SEMPRE_MOSTRAR) continue
             val banner = ri.activityInfo.loadBanner(pm)
-            itens[pkg] = Item(pkg, ri.loadLabel(pm).toString(), banner ?: ri.loadIcon(pm), banner != null)
+            itens[pkg] = Item(pkg, ri.loadLabel(pm).toString(), banner ?: ri.loadIcon(pm), banner != null, iconeRedondo(ri.loadIcon(pm)))
         }
         return itens.values.toList()
     }
@@ -582,13 +579,16 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Um card: o banner (3 colunas da grade, 16:9) e o nome embaixo, alinhado a esquerda. Sem moldura: o foco aparece
-     * como um contorno branco no banner, o card cresce um pouco e o nome fica branco. Serve para a linha principal e
+     * Um card: um disco de [Grade.DISCO] dp (o ícone do app, recortado em círculo) e o nome embaixo, centralizado.
+     * O foco aparece como um anel branco no disco (e o disco cresce 12%); o nome fica branco. Serve para a linha principal e
      * para dentro das pastas. [token] identifica o card (modo de mover e menu), [aoAbrir] roda ao apertar OK.
+     * O card ocupa DISCO + VAO_DISCO de largura: o disco fica no meio e o nome tem espaço para respirar.
      */
     private fun montarCartao(token: String, nome: String, miniatura: View, aoAbrir: () -> Unit, aoFocar: (View) -> Unit): View {
         val cartao = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            clipChildren = false
             isFocusable = true
             isClickable = true
             tag = token
@@ -598,77 +598,103 @@ class MainActivity : Activity() {
                 if (temFoco) aoFocar(v)
             }
         }
-        // filho 0: o banner (a "moldura" desenha o contorno de foco POR CIMA, no foreground). filho 1: o nome.
+        // filho 0: o disco (o anel de foco é desenhado POR CIMA, no foreground). filho 1: o nome.
         val moldura = FrameLayout(this).apply {
-            addView(miniatura, FrameLayout.LayoutParams(MATCH, MATCH))
-            if (tema != Tema.ESCURO) {   // sombra: o card "flutua" sobre o céu / a pintura
-                elevation = dp(8).toFloat()
-                outlineProvider = object : ViewOutlineProvider() {
-                    override fun getOutline(view: View, outline: Outline) {
-                        outline.setRoundRect(0, 0, view.width, view.height, dp(12).toFloat())
-                    }
-                }
-            }
+            clipChildren = false
+            // o disco fica 6 dp para dentro: o anel de foco é desenhado na borda da moldura, com uma folga, como no Google TV
+            addView(miniatura, FrameLayout.LayoutParams(MATCH, MATCH).apply { setMargins(dp(ANEL), dp(ANEL), dp(ANEL), dp(ANEL)) })
+            foreground = fioFino()
         }
-        cartao.addView(moldura, LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), dp(Grade.CARD_ALTURA)))
+        cartao.addView(moldura, LinearLayout.LayoutParams(dp(Grade.DISCO + 2 * ANEL), dp(Grade.DISCO + 2 * ANEL)))
         cartao.addView(
-            texto(14f, textoSuave).apply {
+            texto(15f, textoSuave).apply {
                 text = nome
                 maxLines = 1
+                gravity = Gravity.CENTER
                 ellipsize = TextUtils.TruncateAt.END
-                letterSpacing = 0.01f
-                setPadding(dp(2), 0, 0, 0)
             },
-            LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), WRAP).apply { topMargin = dp(10) }
+            LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP).apply { topMargin = dp(8) }
         )
-        cartao.layoutParams = LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(Grade.VAO) }
+        cartao.layoutParams = LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP)
         return cartao
     }
 
-    /** Imagem de um app com cantos arredondados. */
-    private fun miniaturaApp(app: Item): View = ImageView(this).apply {
-        setImageDrawable(copia(app.imagem))
-        scaleType = if (app.ehBanner) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
-        arredondar(this, 12)
+    /** O ícone do app num disco (já pronto em [iconeRedondo]). */
+    private fun miniaturaApp(app: Item): View = discoDoApp(app)
+
+    private fun discoDoApp(app: Item): ImageView = ImageView(this).apply {
+        setImageDrawable(copia(app.icone))
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        circular(this)
     }
 
     /**
-     * Pilha: o app da [frente] na frente e até 2 atrás, deslocados para cima e para a direita, como uma pilha de cartas.
-     * (▲▼ trocam qual fica na frente; o nome embaixo do card é o do app da frente.)
+     * Prepara o ícone para o disco, UMA vez por app (na carga da lista, não a cada quadro):
+     * - adaptativo (a maioria): desenha as camadas de fundo e frente sem máscara; o disco recorta em círculo.
+     * - comum (ícone quadrado, ex.: YouTube, 1-Stream): pinta o fundo com a cor da borda do próprio ícone e aumenta o
+     *   ícone 18%, para os cantos arredondados dele saírem do círculo e não aparecer "um quadrado dentro da bola".
+     * Vira um bitmap de 192 px: desenhar bitmap é mais barato que redesenhar o ícone vetorial em cada animação de foco.
+     */
+    private fun iconeRedondo(d: Drawable): Drawable {
+        val t = 192
+        val bmp = Bitmap.createBitmap(t, t, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        if (d is android.graphics.drawable.AdaptiveIconDrawable) {
+            // As camadas têm 108 unidades; a parte visível são as 72 do meio: desenha 1,5x maior e centralizado.
+            val extra = t / 4
+            d.background?.let { it.setBounds(-extra, -extra, t + extra, t + extra); it.draw(c) }
+            d.foreground?.let { it.setBounds(-extra, -extra, t + extra, t + extra); it.draw(c) }
+        } else {
+            val amostra = Bitmap.createBitmap(t, t, Bitmap.Config.ARGB_8888)
+            d.setBounds(0, 0, t, t); d.draw(Canvas(amostra))
+            val px = amostra.getPixel(t / 2, t / 12)   // perto da borda de cima, no meio: a cor do fundo do ícone
+            c.drawColor(if ((px ushr 24) > 200) px else 0xFFF2F2F2.toInt())
+            val m = (t * 0.09f).toInt()
+            d.setBounds(-m, -m, t + m, t + m); d.draw(c)
+            amostra.recycle()
+        }
+        return android.graphics.drawable.BitmapDrawable(resources, bmp)
+    }
+
+    /** Recorta a view em círculo. */
+    private fun circular(v: View) {
+        v.clipToOutline = true
+        v.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setOval(0, 0, view.width, view.height)
+            }
+        }
+    }
+
+    /**
+     * Pilha: o disco do app da [frente] na frente e até 2 atrás, deslocados para cima e para a direita (como cartas).
+     * Embaixo, o selo "▲▼ 1/3": a pilha tem vários apps e as setas trocam qual fica na frente. O nome é o do app da frente.
      */
     private fun miniaturaPilha(itens: List<Item>, frente: Int): View {
         val camadas = (listOf(itens[frente]) + itens.filterIndexed { i, _ -> i != frente }).take(3)
-        val caixa = FrameLayout(this)
+        val caixa = FrameLayout(this).apply { clipChildren = false }
         for (i in camadas.indices.reversed()) {   // de trás para a frente: o último adicionado fica por cima
-            val app = camadas[i]
-            val vista = ImageView(this).apply {
-                setImageDrawable(copia(app.imagem))
-                scaleType = if (app.ehBanner) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
-                setBackgroundColor(0xFF1C2421.toInt())   // opaco: a camada de trás não pode aparecer através da da frente
-                alpha = if (i == 0) 1f else 0.8f - 0.25f * (i - 1)
-                arredondar(this, 10)
+            val disco = discoDoApp(camadas[i]).apply {
+                alpha = if (i == 0) 1f else 0.85f - 0.25f * (i - 1)
+                if (i > 0) setColorFilter(0xFF888888.toInt(), android.graphics.PorterDuff.Mode.MULTIPLY)   // escurece as de trás
             }
-            // frente: (card - 20) x (card - 12) colada embaixo; cada camada de tras sobe 6 dp e vai 10 dp para a direita
-            caixa.addView(vista, FrameLayout.LayoutParams(dp(Grade.CARD_LARGURA - 20), dp(Grade.CARD_ALTURA - 12)).apply {
-                leftMargin = dp(10) * i
-                topMargin = dp(12) - dp(6) * i
+            caixa.addView(disco, FrameLayout.LayoutParams(MATCH, MATCH).apply {
+                leftMargin = dp(8) * i
+                topMargin = -dp(5) * i
+                rightMargin = -dp(8) * i
+                bottomMargin = dp(5) * i
             })
         }
-        // Selo no canto de baixo da carta da frente: ▲ ▼ = "tem mais de um app aqui; use as setas", e qual dos N esta na frente.
         caixa.addView(IndicadorPilha(this, frente + 1, itens.size, fonteUi),
-            FrameLayout.LayoutParams(dp(IndicadorPilha.LARGURA_DP), dp(IndicadorPilha.ALTURA_DP), Gravity.BOTTOM or Gravity.START).apply {
-                leftMargin = dp(Grade.CARD_LARGURA - 20 - IndicadorPilha.LARGURA_DP - 6)   // 6 dp de folga da borda direita da carta da frente
-                bottomMargin = dp(6)
+            FrameLayout.LayoutParams(dp(IndicadorPilha.LARGURA_DP), dp(IndicadorPilha.ALTURA_DP), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                bottomMargin = -dp(8)
             })
         return caixa
     }
 
     private fun miniaturaOcultos(): View = FrameLayout(this).apply {
-        background = GradientDrawable().apply {
-            cornerRadius = dp(12).toFloat()
-            setColor(0x26FFFFFF)
-        }
-        addView(texto(40f, Color.WHITE).apply {
+        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x26FFFFFF) }
+        addView(texto(32f, Color.WHITE).apply {
             text = "🙈"
             gravity = Gravity.CENTER
         }, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -944,20 +970,26 @@ class MainActivity : Activity() {
         val movendo = modoMover && token == tokenMovendo
         val grupo = card as? ViewGroup
         (grupo?.getChildAt(0))?.foreground = when {
-            movendo -> contorno(corMover, 0x2E7FD6C2)
-            focado -> contorno(corFoco, Color.TRANSPARENT)
-            else -> null
+            movendo -> contorno(corMover, 0x2E7FD6C2, 3)
+            focado -> contorno(corFoco, Color.TRANSPARENT, 3)
+            else -> fioFino()
         }
         (grupo?.getChildAt(1) as? TextView)?.setTextColor(if (focado || movendo) Color.WHITE else textoSuave)
-        val escala = if (movendo) 1.10f else if (focado) 1.06f else 1f
-        card.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
+        // Só o disco cresce (o nome não: crescendo junto, ele encostava no nome do vizinho).
+        val escala = if (movendo) 1.16f else if (focado) 1.12f else 1f
+        (grupo?.getChildAt(0) ?: card).animate().scaleX(escala).scaleY(escala).setDuration(120).start()
     }
 
-    /** Contorno de 3 dp com o mesmo arredondamento do banner, desenhado por cima dele. */
-    private fun contorno(cor: Int, preenchimento: Int): GradientDrawable = GradientDrawable().apply {
-        cornerRadius = dp(12).toFloat()
+    private val ANEL = 6   // folga (dp) entre o disco e o anel de foco
+
+    /** Fio de 1 dp em volta do disco (não da moldura): ícones escuros (Netflix) não somem no fundo. */
+    private fun fioFino() = android.graphics.drawable.InsetDrawable(contorno(0x33FFFFFF, Color.TRANSPARENT, 1), dp(ANEL))
+
+    /** Anel circular de [espessura] dp (com [preenchimento] por dentro), desenhado por cima do disco. */
+    private fun contorno(cor: Int, preenchimento: Int, espessura: Int): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
         setColor(preenchimento)
-        setStroke(dp(3), cor)
+        setStroke(dp(espessura), cor)
     }
 
     /**
@@ -1200,6 +1232,9 @@ class MainActivity : Activity() {
                     ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
                     ultimaTemp = temp
+                    // Guarda o que o topo mostra: a previsão aberta por voz ("Boletim do Tempo") não passa por aqui e lê isto.
+                    getSharedPreferences("clima", MODE_PRIVATE).edit()
+                        .putInt("temp", temp).putBoolean("chovendo", chovendoAgora).putLong("em", System.currentTimeMillis()).apply()
                     txtMax.text = "↑ $max°"
                     txtMin.text = "↓ $min°"
                     txtChuva.text = textoLinha
@@ -1261,32 +1296,7 @@ class MainActivity : Activity() {
 
     /** Códigos de clima da Open-Meteo (padrão WMO) -> chave do ícone (IconesClima.kt) + texto. O eclipse (ICONE_ECLIPSE) só entra em atualizarEclipse(). */
     private fun descricaoClima(codigo: Int, dia: Boolean = true, chovendo: Boolean = false): Pair<String, String> {
-        val texto = when (codigo) {
-            0 -> "Céu limpo"
-            1 -> "Poucas nuvens"
-            2 -> "Parcialmente nublado"
-            3 -> "Nublado"
-            45, 48 -> "Neblina"
-            51 -> "Garoa fraca"
-            53 -> "Garoa"
-            55 -> "Garoa forte"
-            56, 57 -> "Garoa congelante"
-            61 -> "Chuva fraca"
-            63 -> "Chuva"
-            65 -> "Chuva forte"
-            66, 67 -> "Chuva congelante"
-            71 -> "Neve fraca"
-            73 -> "Neve"
-            75 -> "Neve forte"
-            77 -> "Grãos de neve"
-            80 -> "Pancadas fracas"
-            81 -> "Pancadas de chuva"
-            82 -> "Pancadas fortes"
-            85, 86 -> "Pancadas de neve"
-            95 -> "Tempestade"
-            96, 99 -> "Tempestade com granizo"
-            else -> "—"
-        }
+        val texto = IconesClima.texto(codigo)
         return IconesClima.chave(codigo, dia, chovendo) to texto
     }
 

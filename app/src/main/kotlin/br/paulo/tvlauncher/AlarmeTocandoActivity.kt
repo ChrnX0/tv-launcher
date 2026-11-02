@@ -4,10 +4,8 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.media.AudioAttributes
 import android.media.AudioManager
-import android.media.Ringtone
-import android.media.RingtoneManager
+import android.media.MediaPlayer
 import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Handler
@@ -31,10 +29,10 @@ import android.widget.TextView
 class AlarmeTocandoActivity : Activity() {
     private val ui = Handler(Looper.getMainLooper())
     private var id = 0
-    private var toque: Ringtone? = null
+    private var player: MediaPlayer? = null
     private var bip: ToneGenerator? = null
 
-    // Plano B do som: se a TV não tiver toque de alarme, um bipe a cada 1,2 s.
+    // Plano B do som: se o arquivo não abrir, um bipe a cada 1,2 s.
     private val bipar = object : Runnable {
         override fun run() {
             bip?.startTone(ToneGenerator.TONE_PROP_BEEP2, 700)
@@ -94,28 +92,37 @@ class AlarmeTocandoActivity : Activity() {
     }
 
     private fun tocarSom() {
-        val atributos = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
-        val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        toque = uri?.let { RingtoneManager.getRingtone(this, it) }?.apply {
-            audioAttributes = atributos
-            isLooping = true
-            play()
-        }
-        // Meio segundo depois: se o toque não está tocando (a TV pode não ter som de alarme), usa o bipe.
-        ui.postDelayed({
-            if (toque?.isPlaying != true) {
-                Log.i("TvLauncher.Alarme", "sem toque de alarme na TV: usando bipe")
-                bip = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-                ui.post(bipar)
+        val alarme = Despertador.listar(this).firstOrNull { it.id == id }
+        val rampa = alarme?.rampa ?: 0
+        player = SomAlarme.criar(this, alarme?.som ?: 0)
+        if (player != null) {
+            // Rampa: o volume do player vai de 5% a 100% em [rampa] segundos, em passos de 1 s (curva ao quadrado:
+            // o ouvido percebe o volume em escala logarítmica, então linear soaria "pulando" no começo).
+            val inicio = System.currentTimeMillis()
+            fun volume(): Float = if (rampa <= 0) 1f else {
+                val x = ((System.currentTimeMillis() - inicio) / (rampa * 1000f)).coerceIn(0f, 1f)
+                0.05f + 0.95f * x * x
             }
-        }, 500)
+            player?.setVolume(volume(), volume())
+            player?.start()
+            if (rampa > 0) ui.post(object : Runnable {
+                override fun run() {
+                    val v = volume()
+                    player?.setVolume(v, v)
+                    if (v < 1f) ui.postDelayed(this, 1000)
+                }
+            })
+            return
+        }
+        // Último recurso (arquivo não abriu): bipe pelo stream de música, que sai pelo HDMI.
+        Log.i("TvLauncher.Alarme", "som do app falhou: usando bipe")
+        bip = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+        ui.post(bipar)
     }
 
     private fun pararSom() {
-        toque?.stop()
+        player?.release()
+        player = null
         ui.removeCallbacks(bipar)
         bip?.release()
         bip = null

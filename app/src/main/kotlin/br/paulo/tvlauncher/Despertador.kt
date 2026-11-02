@@ -25,9 +25,11 @@ object Despertador {
 
     /**
      * [dias]: um bit por dia da semana (bit 0 = domingo ... bit 6 = sábado). 0 = toca uma vez só e se desliga.
+     * [som]: índice em SomAlarme.NOMES. [rampa]: segundos para o volume subir do mínimo ao máximo (0 = sem rampa).
      * [id] identifica o alarme (a soneca e a tela que toca usam).
      */
-    data class Alarme(val id: Int, val hora: Int, val minuto: Int, val dias: Int, val nome: String, val ativo: Boolean)
+    data class Alarme(val id: Int, val hora: Int, val minuto: Int, val dias: Int, val nome: String, val ativo: Boolean,
+                      val som: Int = 0, val rampa: Int = 0)
 
     val NOMES_DIAS = listOf("D", "S", "T", "Q", "Q", "S", "S")   // domingo a sábado
 
@@ -35,7 +37,7 @@ object Despertador {
         val texto = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alarmes", "[]") ?: "[]"
         val arr = try { JSONArray(texto) } catch (e: Exception) { JSONArray() }
         return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.map {
-            Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true))
+            Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true), it.optInt("som", 0), it.optInt("rampa", 0))
         }.sortedWith(compareBy({ it.hora }, { it.minuto }))
     }
 
@@ -43,7 +45,7 @@ object Despertador {
         val arr = JSONArray()
         lista.forEach {
             arr.put(JSONObject().put("id", it.id).put("hora", it.hora).put("minuto", it.minuto)
-                .put("dias", it.dias).put("nome", it.nome).put("ativo", it.ativo))
+                .put("dias", it.dias).put("nome", it.nome).put("ativo", it.ativo).put("som", it.som).put("rampa", it.rampa))
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("alarmes", arr.toString()).apply()
         agendar(ctx)
