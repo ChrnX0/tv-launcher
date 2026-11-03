@@ -160,9 +160,11 @@ class FundoCeu(ctx: Context) : View(ctx), FundoVivo {
 
     /** Três cores (topo, meio, horizonte) conforme a altura do sol, misturando noite → crepúsculo → dia. */
     private fun coresDoCeu(alt: Double): IntArray {
-        val noite = intArrayOf(0xFF060A18.toInt(), 0xFF0E162C.toInt(), 0xFF161E34.toInt())
-        val crep = intArrayOf(0xFF181E46.toInt(), 0xFF784670.toInt(), 0xFFF08C5A.toInt())
-        val dia = intArrayOf(0xFF346EBE.toInt(), 0xFF6EA5DC.toInt(), 0xFFBED7EB.toInt())
+        // Grafite neutro (mesma familia do fundo do tema Escuro), em vez do azul-marinho de antes: o Paulo achou
+        // que o fundo do Escuro ficava melhor aqui. Mesma estrutura (3 cores, horizonte mais claro), hue mais neutro.
+        val noite = intArrayOf(0xFF05070A.toInt(), 0xFF070A0D.toInt(), 0xFF0A0F14.toInt())
+        val crep = intArrayOf(0xFF0A0D10.toInt(), 0xFF16121A.toInt(), 0xFF2A1E1E.toInt())
+        val dia = intArrayOf(0xFF0C0F12.toInt(), 0xFF11161A.toInt(), 0xFF171D22.toInt())
         fun mix(a: Int, b: Int, t: Float): Int {
             val u = t.coerceIn(0f, 1f)
             return Color.rgb(
