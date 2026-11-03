@@ -112,6 +112,11 @@
             android:name=".DnsActivity"
             android:exported="false"
             android:label="DNS privado" />
+        <!-- "Configurações do launcher": aparência, DNS, teste de velocidade, permissões, diagnóstico (aberta pelo card "Launcher" do popup do perfil) -->
+        <activity
+            android:name=".ConfigLauncherActivity"
+            android:exported="false"
+            android:label="Configurações do launcher" />
         <!-- Despertador: a lista/editor (abre no OK do relógio) e o "app de despertador" do Android (Gemini: "me acorda às 7"). -->
         <activity
             android:name=".AlarmesActivity"

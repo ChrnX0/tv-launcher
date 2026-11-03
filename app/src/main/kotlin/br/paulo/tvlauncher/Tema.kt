@@ -5,20 +5,21 @@ import android.graphics.Typeface
 
 /**
  * Os visuais da tela inicial. Escolhe-se no menu da bolinha do perfil ("Aparência"); fica salvo.
- *  - CEU: o céu de agora, desenhado a partir da posição real do sol, do clima e da fase da lua.
+ *  - ESCURO: grafite azulado com brilhos bem suaves (código) + o céu de agora por cima — sol, lua e nuvens
+ *    caminhando na tela, a partir da posição real do sol e do clima (era o antigo tema "Céu ao vivo"; hoje é
+ *    parte fixa do Escuro, não existe mais como opção separada).
  *  - GALERIA: uma pintura de domínio público por dia (acervo aberto do The Met), com etiqueta de museu.
- *  - ESCURO: grafite azulado com brilhos bem suaves, desenhado em código.
  * As fontes (em assets/fonts, licença SIL Open Font) dão a personalidade de cada um.
  */
 enum class Tema(val nome: String) {
-    CEU("Céu ao vivo"), GALERIA("Galeria"), ESCURO("Escuro");
+    ESCURO("Escuro"), GALERIA("Galeria");
 
     companion object {
         private const val CHAVE = "tema"
 
         fun atual(ctx: Context): Tema = try {
-            valueOf(ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE).getString(CHAVE, CEU.name) ?: CEU.name)
-        } catch (e: IllegalArgumentException) { CEU }
+            valueOf(ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE).getString(CHAVE, ESCURO.name) ?: ESCURO.name)
+        } catch (e: IllegalArgumentException) { ESCURO }
 
         /** Passa para o próximo tema da lista (dá a volta). */
         fun proximo(ctx: Context): Tema {
@@ -43,7 +44,6 @@ object Fontes {
         }
 
     fun display(ctx: Context, tema: Tema): Typeface = when (tema) {
-        Tema.CEU -> carregar(ctx, "instrument_serif.ttf")
         Tema.GALERIA -> carregar(ctx, "cormorant.ttf", "'wght' 500")
         Tema.ESCURO -> Typeface.create("sans-serif-light", Typeface.NORMAL)
     }

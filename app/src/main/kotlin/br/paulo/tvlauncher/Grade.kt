@@ -25,7 +25,7 @@ object Grade {
     fun largura(n: Int): Int = n * COLUNA + (n - 1) * VAO
 
     const val DISCO = 80           // diâmetro do ícone redondo de um app na linha principal
-    const val VAO_DISCO = 32       // espaço entre discos: 8 x 80 + 7 x 32 = 864 (a largura útil)
+    const val VAO_DISCO = 48       // espaço entre discos (mais respiro para o nome não cortar; a fila rola, não precisa caber)
 
     val CARD_LARGURA = largura(3)                  // 198
     val CARD_ALTURA = CARD_LARGURA * 9 / 16        // 111: banner de TV é 16:9
