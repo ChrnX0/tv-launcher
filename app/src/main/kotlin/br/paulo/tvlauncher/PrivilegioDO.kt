@@ -29,8 +29,11 @@ object PrivilegioDO {
     fun aplicar(ctx: Context) {
         thread(name = "PrivilegioDO") {
             if (Config.FIXAR_PROTETOR) fixarProtetor(ctx)
-            if (Config.OTIMIZAR_MEMORIA && somosDonos(ctx)) {
-                Config.APPS_OCULTAR.forEach { ocultar(ctx, it, true) }
+            if (somosDonos(ctx)) {
+                // Autoconcede as nossas proprias permissoes perigosas, de forma FIXA: o usuario (ou um reset de permissoes)
+                // nao consegue revogar. E o "nunca perder privilegios", pelo caminho permanente — nao depende de adb nem Shizuku.
+                Config.PERMISSOES_FIXAS.forEach { conceder(ctx, ctx.packageName, it) }
+                if (Config.OTIMIZAR_MEMORIA) Config.APPS_OCULTAR.forEach { ocultar(ctx, it, true) }
             }
         }
     }
@@ -70,4 +73,48 @@ object PrivilegioDO {
     fun estaOculto(ctx: Context, pacote: String): Boolean = try {
         somosDonos(ctx) && dpm(ctx).isApplicationHidden(admin(ctx), pacote)
     } catch (e: Exception) { false }
+
+    /**
+     * Concede uma permissao perigosa a [pacote] de forma FIXA (PERMISSION_GRANT_STATE_GRANTED): fica concedida e o usuario
+     * nao pode revogar pela interface. So funciona para permissoes que o app declara no manifesto. Para o nosso proprio
+     * pacote, e assim que garantimos READ_CALENDAR, localizacao etc. sem o `pm grant` manual por adb.
+     */
+    fun conceder(ctx: Context, pacote: String, permissao: String): Boolean = try {
+        if (!somosDonos(ctx)) false
+        else dpm(ctx).setPermissionGrantState(admin(ctx), pacote, permissao,
+            DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED).also {
+            Log.i(TAG, "conceder($pacote, $permissao) => ok=$it")
+        }
+    } catch (e: Exception) { Log.w(TAG, "conceder $permissao falhou: $e"); false }
+
+    /** Suspende (ou retoma) apps: o icone fica esmaecido e o app nao abre nem roda, sem desinstalar. Reversivel. */
+    fun suspender(ctx: Context, pacotes: List<String>, suspenso: Boolean): Array<String> = try {
+        if (!somosDonos(ctx)) emptyArray()
+        else dpm(ctx).setPackagesSuspended(admin(ctx), pacotes.toTypedArray(), suspenso).also {
+            Log.i(TAG, "suspender(${pacotes.joinToString()}, $suspenso) => falharam=${it.joinToString()}")
+        }
+    } catch (e: Exception) { Log.w(TAG, "suspender falhou: $e"); pacotes.toTypedArray() }
+
+    /** Desinstala um app em silencio (sem a tela do sistema), pelo Device Owner. Use com cuidado: e de verdade. */
+    fun desinstalar(ctx: Context, pacote: String): Boolean = try {
+        if (!somosDonos(ctx)) false
+        else {
+            val pi = ctx.packageManager.packageInstaller
+            val intent = android.content.Intent("br.paulo.tvlauncher.DESINSTALADO")
+            val ps = android.app.PendingIntent.getBroadcast(ctx, 0, intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE)
+            pi.uninstall(pacote, ps.intentSender)
+            Log.i(TAG, "desinstalar($pacote) solicitado")
+            true
+        }
+    } catch (e: Exception) { Log.w(TAG, "desinstalar $pacote falhou: $e"); false }
+
+    /** Liga/desliga uma restricao de usuario (ex.: UserManager.DISALLOW_SAFE_BOOT). Permanente ate reverter. */
+    fun restricao(ctx: Context, chave: String, ligada: Boolean) {
+        try {
+            if (!somosDonos(ctx)) return
+            if (ligada) dpm(ctx).addUserRestriction(admin(ctx), chave) else dpm(ctx).clearUserRestriction(admin(ctx), chave)
+            Log.i(TAG, "restricao($chave, $ligada)")
+        } catch (e: Exception) { Log.w(TAG, "restricao $chave falhou: $e") }
+    }
 }

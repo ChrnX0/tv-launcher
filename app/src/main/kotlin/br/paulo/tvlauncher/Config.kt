@@ -52,6 +52,9 @@ object Config {
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).
     val APPS_OCULTAR = listOf("com.google.android.apps.tv.dreamx")
+    // Permissoes que o launcher se autoconcede pelo Device Owner (ver PrivilegioDO.conceder): permanentes, o usuario nao revoga.
+    // So valem as declaradas no manifesto. Evita depender de `pm grant` por adb.
+    val PERMISSOES_FIXAS = listOf("android.permission.READ_CALENDAR", "android.permission.ACCESS_FINE_LOCATION")
 
     // --- Depuração sem fio (adb pela rede, usado pelo computador para instalar e testar): true = o launcher a LIGA de novo
     //     sozinho quando a TV reinicia e sempre que abre, se o Android a tiver desligado. Custo: com ela ligada, a TV deixa uma porta de adb
