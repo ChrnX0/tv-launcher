@@ -139,9 +139,11 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         tema = Tema.atual(this)
         setContentView(montarTela())
+        window.setBackgroundDrawable(null)   // a janela não pinta o fundo padrão do tema por baixo de tudo (ver montarTela)
         Privilegio.religarAcessibilidade(this)   // antes de falar com o Shizuku, para o serviço já estar de pé
         Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
+        PrivilegioDO.aplicar(this)   // Device Owner: fixa o nosso protetor e oculta apps substituidos (ver PrivilegioDO.kt)
     }
 
     override fun onResume() {
@@ -381,8 +383,9 @@ class MainActivity : Activity() {
 
         val vivo = criarFundo(this, tema) { bloco -> rede.execute { bloco() } }
         fundo = vivo
+        // Sem fundo preto aqui (nem na janela, ver onCreate): o fundo vivo já cobre a tela inteira e é opaco. Cada camada
+        // de tela cheia a mais é a GPU pintando 1920x1080 de novo A CADA QUADRO (medido: 3 camadas, 22 ms por quadro).
         return FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
             addView(vivo, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(raiz, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(txtDica, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
@@ -1200,14 +1203,24 @@ class MainActivity : Activity() {
                 val (iconeDoTempo, descricao) = descricaoClima(codigo, eDia, chovendoAgora)
                 // A linha informativa do clima: se chove agora ou ha previsao de chuva HOJE (primeira hora com chance >= 40%),
                 // diz quando; senao, diz a condicao do tempo de agora (ex.: "Poucas nuvens").
-                val horasChuva = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
-                val horasData = json.getJSONObject("hourly").getJSONArray("time")
+                // Chance de chuva: a MEDIANA de ECMWF+ICON+GFS, nao o best_match (≈ECMWF) sozinho. Medido no CSV de comparacao:
+                // em horas que o aeroporto marcou SEM chuva, o ECMWF deu 49-75% enquanto ICON/GFS davam 10-18%. A mediana
+                // dos tres descarta esse exagero. Se a chamada multi-modelo falhar, cai no best_match da chamada principal.
+                val medModelo = chuvaMediana(ponto)
+                val horasData: List<String>; val horasChuva: List<Int>
+                if (medModelo != null) { horasData = medModelo.first; horasChuva = medModelo.second }
+                else {
+                    val hc = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
+                    val ht = json.getJSONObject("hourly").getJSONArray("time")
+                    horasChuva = (0 until hc.length()).map { hc.optInt(it, 0) }
+                    horasData = (0 until ht.length()).map { ht.getString(it) }
+                }
                 val hoje = atual.optString("time", "").take(10)   // "2026-11-01"
                 var primeira = -1   // quantas horas faltam para a primeira hora de hoje com chance de chuva >= 40%
                 var picoChuva = 0
-                for (i in 0 until horasChuva.length()) {
-                    if (!horasData.getString(i).startsWith(hoje)) break   // so ate o fim do dia
-                    val p = horasChuva.optInt(i, -1)
+                for (i in horasChuva.indices) {
+                    if (i >= horasData.size || !horasData[i].startsWith(hoje)) break   // so ate o fim do dia
+                    val p = horasChuva[i]
                     if (p >= 40) { primeira = i; picoChuva = p; break }
                 }
                 val textoLinha = when {
@@ -1308,8 +1321,41 @@ class MainActivity : Activity() {
      * modelos da Open-Meteo (ECMWF, ICON, GFS) PREVIAM para esta hora (temperatura e chance de chuva). Depois de alguns dias da para ver
      * qual modelo chega mais perto da medida. Chamar fora da thread da tela.
      */
+    /**
+     * Chance de chuva por hora (24 h) como MEDIANA de tres modelos (ECMWF, ICON, GFS). Uma chamada so a Open-Meteo,
+     * com ?models=... : cada variavel volta com sufixo por modelo (precipitation_probability_ecmwf_ifs025, ...),
+     * e o eixo "time" e compartilhado. null se a chamada falhar (quem chama cai no best_match). Nao verifiquei todos
+     * os casos de borda da API; por isso o try e o fallback.
+     */
+    private fun chuvaMediana(ponto: Localizacao.Ponto): Pair<List<String>, List<Int>>? = try {
+        val modelos = listOf("ecmwf_ifs025", "icon_global", "gfs_seamless")
+        val url = "https://api.open-meteo.com/v1/forecast?latitude=${ponto.lat}&longitude=${ponto.lon}" +
+            "&hourly=precipitation_probability&forecast_hours=24&timezone=auto&models=${modelos.joinToString(",")}"
+        val h = JSONObject(httpGet(url) ?: throw IllegalStateException("sem resposta")).getJSONObject("hourly")
+        val tempo = h.getJSONArray("time")
+        val arrays = modelos.mapNotNull { h.optJSONArray("precipitation_probability_$it") }
+        if (arrays.isEmpty()) throw IllegalStateException("sem modelos")
+        val datas = (0 until tempo.length()).map { tempo.getString(it) }
+        val mediana = (0 until tempo.length()).map { i ->
+            val vals = arrays.mapNotNull { a -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null }.sorted()
+            when {
+                vals.isEmpty() -> 0
+                vals.size % 2 == 1 -> vals[vals.size / 2]
+                else -> (vals[vals.size / 2 - 1] + vals[vals.size / 2]) / 2
+            }
+        }
+        datas to mediana
+    } catch (e: Exception) {
+        Log.w("TvLauncher.Local", "chuva multi-modelo falhou: $e")
+        null
+    }
+
     private fun registrarComparacao(ponto: Localizacao.Ponto, medida: Medida?) {
         val agora = System.currentTimeMillis()
+        // ultimaComparacaoMs zerava a cada abertura do app -> gravava linha repetida a cada boot. Agora o carimbo
+        // persiste em SharedPreferences, entao vale o intervalo de 30 min mesmo apos reiniciar o launcher.
+        val prefs = getSharedPreferences("clima", MODE_PRIVATE)
+        if (ultimaComparacaoMs == 0L) ultimaComparacaoMs = prefs.getLong("ultima_comparacao", 0)
         if (agora - ultimaComparacaoMs < 30 * 60_000L) return
         try {
             val modelos = listOf("ecmwf_ifs025", "icon_global", "gfs_seamless")
@@ -1325,6 +1371,7 @@ class MainActivity : Activity() {
             if (!arq.exists()) arq.writeText("hora,metar_temp,metar_fenomeno,ecmwf_temp,ecmwf_chuva,icon_temp,icon_chuva,gfs_temp,gfs_chuva\n")
             arq.appendText(linha + "\n")
             ultimaComparacaoMs = agora
+            prefs.edit().putLong("ultima_comparacao", agora).apply()
         } catch (e: Exception) {
             Log.w("TvLauncher.Local", "comparacao falhou: $e")
         }
