@@ -77,6 +77,14 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <!-- Teste do shell proprio (MARCO 2): recebe o codigo de pareamento por adb broadcast (ver PareamentoReceiver) -->
+        <receiver
+            android:name=".PareamentoReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="br.paulo.tvlauncher.PAREAR" />
+            </intent-filter>
+        </receiver>
         <!-- Shizuku: o provider é por onde o Shizuku nos entrega o canal de comunicação (binder) -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
