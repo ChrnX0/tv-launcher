@@ -62,6 +62,7 @@ class PrevisaoActivity : Activity() {
     private lateinit var raiz: FrameLayout
     private lateinit var rolagem: ScrollView
     private lateinit var coluna: LinearLayout
+    private lateinit var fundoVivo: View   // o mesmo fundo do launcher (FundoEscuro/FundoGaleria, ver Fundos.kt), para as duas telas ficarem coerentes
 
     /** ScrollView que NÃO rola sozinho para o filho focado: quem rola é [focarCartao], de forma previsível. */
     private class Rolagem(ctx: Context) : ScrollView(ctx) {
@@ -81,8 +82,11 @@ class PrevisaoActivity : Activity() {
             clipToPadding = false
             addView(coluna, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
+        // Mesmo fundo do launcher (criarFundo(), ver Fundos.kt): acompanha o tema configurado (Escuro/Galeria) em
+        // vez de uma cor fixa só desta tela — pedido do Paulo para as duas ficarem coerentes.
+        fundoVivo = criarFundo(this, Tema.atual(this), decoracao = false) { bloco -> Thread(bloco).start() }
         raiz = FrameLayout(this).apply {
-            background = fundo(0xFF111B33.toInt(), 0xFF05080F.toInt())
+            addView(fundoVivo, FrameLayout.LayoutParams(-1, -1))
             addView(rolagem, FrameLayout.LayoutParams(-1, -1))
         }
         setContentView(raiz)
@@ -207,7 +211,7 @@ class PrevisaoActivity : Activity() {
         val i0 = max(0, d.hTempo.indexOfFirst { it >= d.agoraTexto.substring(0, 13) + ":00" })
         fun eDiaNaHora(i: Int): Boolean { val di = min(i / 24, d.dNascer.size - 1); return d.hTempo[i] >= d.dNascer[di] && d.hTempo[i] < d.dPoente[di] }
 
-        raiz.background = fundoDaCondicao(d.codigo, d.eDia, chovendo)
+        (fundoVivo as? FundoVivo)?.atualizar(EstadoCeu(System.currentTimeMillis(), d.ponto.lat, d.ponto.lon, d.codigo, chovendo))
 
         // ---- cabeçalho
         val maxHoje = max(Math.round(d.dMax[0]).toInt(), tempAgora)
@@ -426,18 +430,6 @@ class PrevisaoActivity : Activity() {
         setColor(if (foco) 0x40FFFFFF else Color.TRANSPARENT)
         setStroke(dp(2), if (foco) 0xE6FFFFFF.toInt() else Color.TRANSPARENT)
     }
-
-    /** Fundo por condição: céu azul de dia, azul-marinho à noite, cinza com chuva, roxo-escuro com tempestade. */
-    private fun fundoDaCondicao(codigo: Int, dia: Boolean, chovendo: Boolean): GradientDrawable = when {
-        codigo >= 95 -> fundo(0xFF2A2F4A.toInt(), 0xFF0B0E1A.toInt())
-        chovendo || codigo in 51..67 || codigo in 80..82 -> fundo(0xFF3A4D66.toInt(), 0xFF111A27.toInt())
-        codigo in 71..86 -> fundo(0xFF5B7691.toInt(), 0xFF223142.toInt())
-        codigo == 3 || codigo == 45 || codigo == 48 -> if (dia) fundo(0xFF5A6D80.toInt(), 0xFF222C38.toInt()) else fundo(0xFF2A3342.toInt(), 0xFF090C12.toInt())
-        dia -> fundo(0xFF2F82CC.toInt(), 0xFF0F3558.toInt())
-        else -> fundo(0xFF111B33.toInt(), 0xFF05080F.toInt())
-    }
-
-    private fun fundo(topo: Int, base: Int) = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(topo, base))
 
     private fun texto(sp: Float, cor: Int, fonte: Typeface? = null) = TextView(this).apply {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)

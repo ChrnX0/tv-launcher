@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.LinearGradient
 import android.graphics.Paint
@@ -42,19 +41,6 @@ interface FundoVivo {
 
 private fun Context.dpf(v: Float) = v * resources.displayMetrics.density
 
-/**
- * Veu escuro no topo, atras da hora, do clima e das 3 linhas de informacao (que ocupam ate ~30% da altura).
- * Forte onde fica o texto (~70% de escuro no alto, ~55% no meio do bloco) e some em 48% da altura.
- * [rgb] = a cor do veu sem transparencia. E o que garante o contraste do texto em qualquer cor de fundo.
- */
-private fun veuDoTopo(c: Canvas, w: Float, h: Float, rgb: Int) {
-    val p = Paint()
-    p.shader = LinearGradient(0f, 0f, 0f, h * 0.48f,
-        intArrayOf((0xB3 shl 24) or rgb, (0x8C shl 24) or rgb, rgb),
-        floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
-    c.drawRect(0f, 0f, w, h * 0.48f, p)
-}
-
 /** Desenha a lua com a fase de [agoraMs]: fração iluminada e lado (no hemisfério sul a lua crescente acende à esquerda). */
 internal fun desenharLua(c: Canvas, x: Float, y: Float, r: Float, agoraMs: Long, lat: Double, brilho: Paint) {
     val idade = Lua.idade(agoraMs)
@@ -63,9 +49,7 @@ internal fun desenharLua(c: Canvas, x: Float, y: Float, r: Float, agoraMs: Long,
     val crescente = fracao < 0.5
     // Lado aceso: no norte, crescente acende à direita; no sul, espelha.
     val direita = if (lat >= 0) crescente else !crescente
-    brilho.shader = RadialGradient(x, y, r * 3.4f, 0x33DCE6FF, 0x00DCE6FF, Shader.TileMode.CLAMP)
-    c.drawCircle(x, y, r * 3.4f, brilho)
-    brilho.shader = null
+    // Sem halo (o Paulo achou que parecia neblina atrás da lua): so o disco solido, como no sol.
     brilho.color = 0xE6283046.toInt()
     c.drawCircle(x, y, r, brilho)
     // Metade acesa + elipse: com menos da metade iluminada a elipse "come" a metade; com mais, soma.
@@ -83,19 +67,20 @@ internal fun horaDecimal(ms: Long): Double {
     return c.get(Calendar.HOUR_OF_DAY) + c.get(Calendar.MINUTE) / 60.0
 }
 
-// ======================================================================== Céu ao vivo
+// ======================================================================== Escuro
 
 /**
- * O céu de agora: a cor vem da altura real do sol (noite, crepúsculo, dourado, dia), as nuvens e a chuva do clima,
- * as estrelas aparecem quando o sol passa de 6° abaixo do horizonte. Um arco pontilhado mostra o caminho do sol
- * de hoje, do nascer ao pôr, com o sol no ponto certo; fora dele, a lua na fase real (posição aproximada:
- * ela atrasa em relação ao sol ~50 min por dia de idade).
+ * O fundo do (único) tema escuro: o grafite fixo de sempre (ver [desenharFundoEscuro]), sem mudar de cor — só por
+ * cima dele, uma linha com o caminho do sol e da lua de hoje (posição real do sol, fase real da lua, nascer e pôr).
+ * (Era o antigo tema "Céu ao vivo" — nuvens, chuva e estrelas incluídas; o Paulo pediu para tirar tudo isso e manter
+ * só esta linha, fundida aqui no Escuro, que não existe mais como opção separada.) A lua "atrasa" em relação ao sol
+ * ~50 min por dia de idade.
  */
-class FundoCeu(ctx: Context) : View(ctx), FundoVivo {
+class FundoEscuro(ctx: Context, private val comArco: Boolean = true) : View(ctx), FundoVivo {
     private var e: EstadoCeu? = null
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val texto = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Fontes.ui(ctx, Tema.CEU); color = 0x8CF3EFE6.toInt(); textSize = ctx.dpf(10f); letterSpacing = 0.04f
+        typeface = Fontes.ui(ctx, Tema.ESCURO); color = 0x8CF3EFE6.toInt(); textSize = ctx.dpf(10f); letterSpacing = 0.04f
     }
 
     override fun atualizar(e: EstadoCeu) { this.e = e; invalidate() }
@@ -103,21 +88,13 @@ class FundoCeu(ctx: Context) : View(ctx), FundoVivo {
     override fun onDraw(c: Canvas) {
         val est = e ?: EstadoCeu(System.currentTimeMillis(), Config.LATITUDE, Config.LONGITUDE, -1, false)
         val w = width.toFloat(); val h = height.toFloat()
-        val alt = Astronomia.alturaSol(est.agoraMs, est.lat, est.lon)
-        val cores = coresDoCeu(alt)
-        p.shader = LinearGradient(0f, 0f, 0f, h, cores, floatArrayOf(0f, 0.62f, 1f), Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p); p.shader = null
+        desenharFundoEscuro(c, w, h, p)
+        // Sem arco (tela de previsão): o caminho do sol e os textos "nascer/pôr" cruzariam os cartões que rolam por cima.
+        if (!comArco) return
 
-        if (alt < -6) estrelas(c, w, h, ((-6 - alt) / 10).coerceIn(0.0, 1.0).toFloat())
-        nuvens(c, w, h, alt, est.codigo)
-        if (est.chovendo || est.codigo in 51..67 || est.codigo in 80..99) chuva(c, w, h)
-        if (est.codigo == 45 || est.codigo == 48) {   // neblina: um véu claro na parte de baixo
-            p.shader = LinearGradient(0f, h * 0.3f, 0f, h, 0x00C8CDD2, 0x66C8CDD2, Shader.TileMode.CLAMP)
-            c.drawRect(0f, 0f, w, h, p); p.shader = null
-        }
-
-        // Arco do sol de hoje.
-        val hor = h * 0.60f; val x0 = w * 0.25f; val x1 = w * 0.75f; val topo = h * 0.36f   // na faixa livre entre o topo e os cards
+        // Arco do sol de hoje. hor mais alto que antes (0.60->0.50): com o brilho do sol/lua (~34 dp de raio), o ponto
+        // no horizonte (nascer/por) tinha o brilho entrando embaixo de Grade.LINHA_APPS e cortando nos icones.
+        val hor = h * 0.50f; val x0 = w * 0.25f; val x1 = w * 0.75f; val topo = h * 0.36f   // na faixa livre entre o topo e os cards
         p.style = Paint.Style.STROKE; p.strokeWidth = context.dpf(0.75f); p.color = 0x2EF3EFE6
         c.drawLine(0f, hor, w, hor, p)
         val arco = Path()
@@ -141,9 +118,7 @@ class FundoCeu(ctx: Context) : View(ctx), FundoVivo {
                 if (t in 0f..1f) Pair(x0 + (x1 - x0) * t, hor - sin(PI * t).toFloat() * (hor - topo)) else null
             }
             ponto(agora)?.let { (x, y) ->
-                val r = context.dpf(60f)
-                p.shader = RadialGradient(x, y, r, intArrayOf(0xE6FFD68C.toInt(), 0x8CFFC878.toInt(), 0x00FFC878), floatArrayOf(0f, 0.18f, 1f), Shader.TileMode.CLAMP)
-                c.drawCircle(x, y, r, p); p.shader = null
+                // Sem halo (o Paulo achou que parecia neblina atrás do sol/lua): so o disco solido.
                 p.color = 0xFFFFF3D6.toInt(); c.drawCircle(x, y, context.dpf(8f), p)
             }
             // A lua "atrasa" ~24 h por ciclo: a hora em que ela está no ponto equivalente ao sol.
@@ -151,103 +126,31 @@ class FundoCeu(ctx: Context) : View(ctx), FundoVivo {
             val horaLua = ((agora - atraso) % 24 + 24) % 24
             ponto(horaLua)?.let { (x, y) -> desenharLua(c, x, y - context.dpf(6f), context.dpf(17f), est.agoraMs, est.lat, p) }
         }
-
-        // Véu escuro embaixo: os cards e os nomes ficam legíveis em qualquer céu.
-        p.shader = LinearGradient(0f, h * 0.48f, 0f, h, 0x00030510, 0xD1030510.toInt(), Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p); p.shader = null
-        veuDoTopo(c, w, h, 0x030510)
-    }
-
-    /** Três cores (topo, meio, horizonte) conforme a altura do sol, misturando noite → crepúsculo → dia. */
-    private fun coresDoCeu(alt: Double): IntArray {
-        // Grafite neutro (mesma familia do fundo do tema Escuro), em vez do azul-marinho de antes: o Paulo achou
-        // que o fundo do Escuro ficava melhor aqui. Mesma estrutura (3 cores, horizonte mais claro), hue mais neutro.
-        val noite = intArrayOf(0xFF05070A.toInt(), 0xFF070A0D.toInt(), 0xFF0A0F14.toInt())
-        val crep = intArrayOf(0xFF0A0D10.toInt(), 0xFF16121A.toInt(), 0xFF2A1E1E.toInt())
-        val dia = intArrayOf(0xFF0C0F12.toInt(), 0xFF11161A.toInt(), 0xFF171D22.toInt())
-        fun mix(a: Int, b: Int, t: Float): Int {
-            val u = t.coerceIn(0f, 1f)
-            return Color.rgb(
-                (Color.red(a) + (Color.red(b) - Color.red(a)) * u).toInt(),
-                (Color.green(a) + (Color.green(b) - Color.green(a)) * u).toInt(),
-                (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * u).toInt())
-        }
-        return when {
-            alt < -12 -> noite
-            alt < 0 -> IntArray(3) { mix(noite[it], crep[it], ((alt + 12) / 12).toFloat()) }
-            alt < 12 -> IntArray(3) { mix(crep[it], dia[it], (alt / 12).toFloat()) }
-            else -> dia
-        }
-    }
-
-    private fun estrelas(c: Canvas, w: Float, h: Float, forca: Float) {
-        var s = 7L
-        fun r(): Float { s = (s * 16807) % 2147483647; return s / 2147483647f }
-        repeat(420) {
-            val x = r() * w; val y = r() * h * 0.7f
-            val a = r() * 0.8f * (1 - y / (h * 0.75f)) * forca
-            p.color = Color.argb((a * 255).toInt().coerceIn(0, 255), 255, 255, 255)
-            c.drawCircle(x, y, (r() * 1.6f + 0.3f) * context.dpf(0.5f), p)
-        }
-    }
-
-    /** Nuvens: manchas suaves achatadas; quantas, pelo código do clima. À noite, escuras. */
-    private fun nuvens(c: Canvas, w: Float, h: Float, alt: Double, codigo: Int) {
-        val n = when (codigo) { 0 -> 2; 1 -> 5; 2 -> 9; 3, 45, 48 -> 16; in 51..99 -> 18; else -> 4 }
-        var s = 3L
-        fun r(): Float { s = (s * 48271) % 2147483647; return s / 2147483647f }
-        val noite = alt < -6
-        val base = if (noite) 0x28344F else 0xFFFFFF
-        val forte = if (codigo >= 3) 0.42f else 0.30f
-        repeat(n) {
-            val x = r() * w; val y = h * 0.12f + r() * h * 0.36f; val raio = context.dpf(100f + r() * 220f)
-            c.save(); c.translate(x, y); c.scale(1f, 0.32f)
-            val a = ((if (noite) 0.18f else forte) * 255).toInt()
-            p.shader = RadialGradient(0f, 0f, raio, (a shl 24) or base, base, Shader.TileMode.CLAMP)
-            c.drawCircle(0f, 0f, raio, p); p.shader = null
-            c.restore()
-        }
-    }
-
-    private fun chuva(c: Canvas, w: Float, h: Float) {
-        var s = 11L
-        fun r(): Float { s = (s * 69621) % 2147483647; return s / 2147483647f }
-        p.strokeWidth = context.dpf(0.6f); p.color = 0x26FFFFFF
-        repeat(260) {
-            val x = r() * w; val y = r() * h; val l = context.dpf(14f + r() * 14f)
-            c.drawLine(x, y, x - l * 0.25f, y + l, p)
-        }
     }
 }
 
-// ======================================================================== Escuro
-
 /**
- * O fundo escuro: grafite azulado com dois brilhos bem suaves (um frio atrás da hora, um quente no canto de baixo),
- * vinheta nas bordas e um véu embaixo para os cards. Desenhado uma vez só (camada de hardware); não muda com o tempo.
+ * O grafite fixo de baixo do tema Escuro: gradiente + dois brilhos bem suaves (um frio atrás da hora, um quente no
+ * canto de baixo) + vinheta nas bordas + véu embaixo para os cards. Função solta (não método da classe) só para
+ * separar, na leitura, "o fundo fixo" da linha do sol/lua, que a classe FundoEscuro desenha por cima.
  */
-class FundoEscuro(ctx: Context) : View(ctx) {
-    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { isDither = true }   // dither: sem "faixas" nos degradês escuros
-
-    override fun onDraw(c: Canvas) {
-        val w = width.toFloat(); val h = height.toFloat()
-        p.shader = LinearGradient(0f, 0f, 0f, h,
-            intArrayOf(0xFF0E1317.toInt(), 0xFF0A0D10.toInt(), 0xFF07090B.toInt()), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p)
-        // brilho frio, atrás da hora e do clima
-        p.shader = RadialGradient(w * 0.24f, h * 0.14f, w * 0.58f, 0x5A4A7388, 0x004A7388, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p)
-        // brilho quente, no canto de baixo à direita
-        p.shader = RadialGradient(w * 0.94f, h * 1.0f, w * 0.52f, 0x3C8A5A2E, 0x008A5A2E, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p)
-        // vinheta: as bordas escurecem e o olho vai para o centro
-        p.shader = RadialGradient(w / 2, h * 0.46f, w * 0.74f, 0x00000000, 0x80000000.toInt(), Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p)
-        // véu embaixo: os nomes dos cards ficam sobre um fundo mais escuro
-        p.shader = LinearGradient(0f, h * 0.62f, 0f, h, 0x00000000, 0x80000000.toInt(), Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p)
-        p.shader = null
-    }
+private fun desenharFundoEscuro(c: Canvas, w: Float, h: Float, p: Paint) {
+    p.shader = LinearGradient(0f, 0f, 0f, h,
+        intArrayOf(0xFF0E1317.toInt(), 0xFF0A0D10.toInt(), 0xFF07090B.toInt()), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+    c.drawRect(0f, 0f, w, h, p)
+    // brilho frio, atrás da hora e do clima
+    p.shader = RadialGradient(w * 0.24f, h * 0.14f, w * 0.58f, 0x5A4A7388, 0x004A7388, Shader.TileMode.CLAMP)
+    c.drawRect(0f, 0f, w, h, p)
+    // brilho quente, no canto de baixo à direita
+    p.shader = RadialGradient(w * 0.94f, h * 1.0f, w * 0.52f, 0x3C8A5A2E, 0x008A5A2E, Shader.TileMode.CLAMP)
+    c.drawRect(0f, 0f, w, h, p)
+    // vinheta: as bordas escurecem e o olho vai para o centro
+    p.shader = RadialGradient(w / 2, h * 0.46f, w * 0.74f, 0x00000000, 0x80000000.toInt(), Shader.TileMode.CLAMP)
+    c.drawRect(0f, 0f, w, h, p)
+    // véu embaixo: os nomes dos cards ficam sobre um fundo mais escuro
+    p.shader = LinearGradient(0f, h * 0.62f, 0f, h, 0x00000000, 0x80000000.toInt(), Shader.TileMode.CLAMP)
+    c.drawRect(0f, 0f, w, h, p)
+    p.shader = null
 }
 
 // ======================================================================== Galeria
@@ -257,7 +160,7 @@ class FundoEscuro(ctx: Context) : View(ctx) {
  * A lista é fixa (paisagens e cenas largas, que cabem bem em 16:9); a do dia sai pela data. A imagem é baixada
  * uma vez por dia, reduzida para o tamanho da tela e guardada em arquivo (offline, mostra a última que baixou).
  */
-class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Unit) : FrameLayout(ctx), FundoVivo {
+class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Unit, private val comEtiqueta: Boolean = true) : FrameLayout(ctx), FundoVivo {
     private class Obra(val id: Int, val titulo: String, val artista: String, val ano: String)
 
     private val obras = listOf(
@@ -313,6 +216,7 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
             rightMargin = ctx.dpf(Grade.MARGEM.toFloat()).toInt()
             bottomMargin = ctx.dpf((540 - Grade.LINHA_APPS + 14).toFloat()).toInt()
         })
+        if (!comEtiqueta) etiqueta.visibility = View.GONE   // tela de previsão: a etiqueta ficaria embaixo dos cartões
     }
 
     override fun atualizar(e: EstadoCeu) {
@@ -377,11 +281,13 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
     }
 }
 
-/** O fundo do tema [t]. */
-fun criarFundo(ctx: Context, t: Tema, emSegundoPlano: (() -> Unit) -> Unit): View = when (t) {
-    Tema.CEU -> FundoCeu(ctx)
-    Tema.GALERIA -> FundoGaleria(ctx, emSegundoPlano)
-    Tema.ESCURO -> FundoEscuro(ctx)
+/**
+ * O fundo do tema [t]. [decoracao] = false tira o que só faz sentido na home (arco do sol/lua no Escuro, etiqueta da
+ * obra na Galeria) — usado em telas com conteúdo rolando por cima, como a previsão.
+ */
+fun criarFundo(ctx: Context, t: Tema, decoracao: Boolean = true, emSegundoPlano: (() -> Unit) -> Unit): View = when (t) {
+    Tema.GALERIA -> FundoGaleria(ctx, emSegundoPlano, comEtiqueta = decoracao)
+    Tema.ESCURO -> FundoEscuro(ctx, comArco = decoracao)
 }.also {
     // Camada de hardware: a GPU guarda o fundo pronto numa textura e so o "cola" a cada quadro. Sem isto, os degrades
     // de tela cheia eram refeitos em TODO quadro (medido na TV: 69 ms por quadro no Ceu e no Astrolabio, contra 24 ms sem fundo).

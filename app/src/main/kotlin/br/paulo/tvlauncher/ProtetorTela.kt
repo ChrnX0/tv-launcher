@@ -1,6 +1,7 @@
 package br.paulo.tvlauncher
 
-import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -8,16 +9,20 @@ import android.os.Looper
 import android.service.dreams.DreamService
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextClock
 import android.widget.TextView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * O protetor de tela do launcher (um DreamService do Android). Existe para APOSENTAR o protetor de fábrica
  * (com.google.android.apps.tv.dreamx), que media ~59 MB residentes: apontamos o protetor do sistema para este,
- * que é leve — só um relógio, a data e o clima que o launcher já guardou em SharedPreferences "clima".
+ * que é leve — relógio com degradê, data, o clima e 4 indicadores (umidade, sol, chance de chuva, fase da lua).
+ * Sol e lua são calculados no aparelho (Astronomia.kt, Lua.kt), sem rede; o resto vem do SharedPreferences
+ * "clima" que o MainActivity já mantém atualizado (ver buscarClima() em MainActivity.kt).
  *
  * Anti-burn-in: a coluna inteira se desloca alguns dp a cada minuto (a TV da sala é LCD, mas um painel parado por horas
  * ainda sofre retenção de imagem; e de quebra gasta menos luz). A tela fica escurecida (setScreenBright(false)).
@@ -45,43 +50,125 @@ class ProtetorTela : DreamService() {
         isFullscreen = true
         isScreenBright = false       // tela escurecida: descanso de verdade
 
-        val fonteLeve = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        // "sans-serif-rounded" existe como variação do Roboto Flex desde o Android 12; onde não existir, o
+        // sistema cai sozinho na fonte padrão (sem crash) e só a hora deixa de ficar arredondada.
+        val fonteRelogio = Typeface.create("sans-serif-rounded", Typeface.NORMAL)
         val fonteMedia = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        val fonteLeve = Typeface.create("sans-serif-light", Typeface.NORMAL)
 
         coluna = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
         }
-        coluna.addView(TextClock(this).apply {
+
+        // ---- hora, com degradê (as mesmas cores que o app já usa para chuva/sol: azul frio -> branco -> amarelo quente)
+        val relogio = TextClock(this).apply {
             format12Hour = "HH:mm"; format24Hour = "HH:mm"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 128f)
-            setTextColor(0xFFE8EEEA.toInt())
-            typeface = fonteLeve
+            setTextColor(0xFFE8EEEA.toInt())   // cor sólida até o degradê entrar, no 1º layout
+            typeface = fonteRelogio
             includeFontPadding = false
             gravity = Gravity.CENTER
-        })
+        }
+        // O bug do dígito cortado era exatamente a falta deste LayoutParams explícito: sem ele, esta view (única
+        // entre as da coluna) herdava MATCH_PARENT de largura dentro de uma coluna que só mede WRAP_CONTENT — uma
+        // combinação instável de medida do Android que cortava a borda direita do texto (confirmado com
+        // uiautomator: o texto "11:49" estava certo, só o desenho é que clipava).
+        coluna.addView(relogio, LinearLayout.LayoutParams(-2, -2))
+        relogio.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            if (relogio.width > 0) {
+                relogio.paint.shader = LinearGradient(0f, 0f, relogio.width.toFloat(), 0f,
+                    intArrayOf(0xFF9FD8FF.toInt(), 0xFFE8EEEA.toInt(), 0xFFFFC98A.toInt()), null, Shader.TileMode.CLAMP)
+                relogio.invalidate()
+            }
+        }
+
+        // ---- data
         coluna.addView(TextClock(this).apply {
             format12Hour = "EEEE, d 'de' MMMM"; format24Hour = "EEEE, d 'de' MMMM"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
             setTextColor(0x99E8EEEA.toInt())
             typeface = fonteMedia
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(8) })
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
 
-        // Clima: só se o launcher mediu há < 3 h (senão, nada — melhor calar que mentir um número velho).
+        // ---- clima: ícone + temperatura (só com medida de até 3h; "melhor calar que mentir um número velho")
         val clima = getSharedPreferences("clima", MODE_PRIVATE)
         val frescoMs = System.currentTimeMillis() - clima.getLong("em", 0)
-        if (clima.contains("temp") && frescoMs < 3 * 60 * 60_000L) {
+        val temClima = clima.contains("temp") && frescoMs < 3 * 60 * 60_000L
+        if (temClima) {
             val temp = clima.getInt("temp", 0)
-            val chuva = if (clima.getBoolean("chovendo", false)) "  ·  chovendo" else ""
-            coluna.addView(TextView(this).apply {
-                text = "$temp°$chuva"
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
-                setTextColor(0x80E8EEEA.toInt())
-                typeface = fonteLeve
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(18) })
+            val chovendo = clima.getBoolean("chovendo", false)
+            val codigo = clima.getInt("codigo", 0)
+            val eDia = clima.getBoolean("eDia", true)
+            coluna.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(IconesClima.imagem(this@ProtetorTela, IconesClima.chave(codigo, eDia, chovendo)),
+                    LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(8) })
+                addView(TextView(this@ProtetorTela).apply {
+                    text = "$temp°" + if (chovendo) "  ·  chovendo" else ""
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                    setTextColor(0x99E8EEEA.toInt())
+                    typeface = fonteLeve
+                })
+            }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(14) })
         }
+
+        // ---- 4 indicadores (ordem pedida: sol, umidade, chuva, lua). No lugar da "bateria" (o Chromecast não
+        // tem): umidade, que combina tematicamente com os outros 3 (todos dados de clima/céu) — a alternativa
+        // seria o sinal de Wi-Fi, mais "útil" no sentido literal de status do aparelho, mas isso já vive no
+        // popup de perfil e quebraria a harmonia dos 4 cartões.
+        //
+        // Tamanho FIXO e igual nos 4 (dp(132) x dp(132)), não largura por peso dentro de um container
+        // WRAP_CONTENT: essa combinação é o mesmo tipo de medida instável que causava o corte no relógio — aqui
+        // ela não cortava nada, mas media cada quadrado pelo tamanho do seu próprio conteúdo (texto do rótulo,
+        // nº de linhas do valor), daí "Sol" com duas linhas (nascer e pôr) saía mais alto que os outros 3.
+        val lat = clima.getFloat("lat", Config.LATITUDE.toFloat()).toDouble()
+        val lon = clima.getFloat("lon", Config.LONGITUDE.toFloat()).toDouble()
+        val agoraMs = System.currentTimeMillis()
+        val hora = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val solPar = Astronomia.nascerEPor(agoraMs, lat, lon)
+        val solTexto = if (solPar != null) "↑ ${hora.format(Date(solPar.first))}\n↓ ${hora.format(Date(solPar.second))}" else "—"
+        val umidadeTexto = if (temClima && clima.getInt("umidade", -1) >= 0) "${clima.getInt("umidade", -1)}%" else "—"
+        val chuvaTexto = if (temClima && clima.getInt("chuva", -1) >= 0) "${clima.getInt("chuva", -1)}%" else "—"
+        // resumoCurto = "🌔  Minguante gibosa  ·  75%": a 1ª parte (sem o emoji) é o nome da fase, que vira o rótulo.
+        val luaPartes = Lua.resumoCurto(agoraMs, lat).split("  ·  ")
+        val luaIluminada = luaPartes.getOrElse(1) { "—" }
+        val luaFase = luaPartes[0].substringAfter("  ").trim().ifEmpty { "Lua" }
+
+        fun tile(emoji: String, valor: String, rotulo: String) = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                cornerRadius = dp(30).toFloat()
+                setColor(0x26FFFFFF)
+            }
+            addView(TextView(this@ProtetorTela).apply { text = emoji; setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f); gravity = Gravity.CENTER })
+            addView(TextView(this@ProtetorTela).apply {
+                text = valor; setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f); setTextColor(0xE6E8EEEA.toInt())
+                typeface = fonteMedia; gravity = Gravity.CENTER; maxLines = 2; setPadding(0, dp(6), 0, 0)
+                setLineSpacing(0f, 0.95f)   // nascer/pôr em 2 linhas; o quadrado tem altura fixa, então não desalinha os outros
+            })
+            addView(TextView(this@ProtetorTela).apply {
+                text = rotulo.uppercase(); setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f); setTextColor(0x80E8EEEA.toInt())
+                letterSpacing = 0.06f; gravity = Gravity.CENTER; maxLines = 2; setPadding(dp(8), dp(3), dp(8), 0)   // nome da fase da lua pode ser longo
+            })
+        }
+
+        val itens = listOf(
+            "🌅" to (solTexto to "Sol"),
+            "💧" to (umidadeTexto to "Umidade"),
+            "🌧" to (chuvaTexto to "Chuva"),
+            Lua.emoji(agoraMs, lat) to (luaIluminada to luaFase),
+        )
+        val ladoTile = dp(132)
+        val tiles = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        itens.forEachIndexed { i, (emoji, dados) ->
+            val (valor, rotulo) = dados
+            tiles.addView(tile(emoji, valor, rotulo), LinearLayout.LayoutParams(ladoTile, ladoTile).apply { if (i > 0) marginStart = dp(12) })
+        }
+        coluna.addView(tiles, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(28) })
 
         // Mesmo grafite do tema Escuro (ver Fundos.kt: FundoEscuro), simplificado para o sonho ficar barato.
         setContentView(FrameLayout(this).apply {

@@ -75,11 +75,11 @@ class MainActivity : Activity() {
     // Nos temas com fundo desenhado (ceu, pintura, mostrador) o cinza escuro sumia: la o "suave" e quase tao claro quanto o claro.
     private val textoSuave: Int get() = if (tema == Tema.ESCURO) 0xFF93A19A.toInt() else 0xFFCFD9D4.toInt()
     // O visual escolhido no menu do perfil (Tema.kt). Lido no onCreate; trocar de tema recria a tela.
-    private var tema = Tema.CEU
+    private var tema = Tema.ESCURO
     private val fonteLeve by lazy { Fontes.display(this, tema) }   // hora e temperatura
     private val fonteMedia by lazy { Fontes.uiMedia(this, tema) }
     private val fonteUi by lazy { Fontes.ui(this, tema) }
-    private val corFoco by lazy { Color.WHITE }
+
     private var fundo: View? = null                 // o fundo vivo do tema (céu, pintura, mostrador)
     @Volatile private var pontoAtual: Localizacao.Ponto? = null
     private var ultimoCodigo = -1
@@ -172,6 +172,9 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // O tema agora só troca na tela separada de Configurações do launcher (ConfigLauncherActivity), que não
+        // tem como chamar recreate() nesta Activity diretamente — então aqui a gente mesmo percebe a troca ao voltar.
+        if (Tema.atual(this) != tema) { recreate(); return }
         preencherApps()
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
@@ -714,7 +717,7 @@ class MainActivity : Activity() {
                 bottomMargin = dp(5) * i
             })
         }
-        caixa.addView(IndicadorPilha(this, frente + 1, itens.size, fonteUi),
+        caixa.addView(IndicadorPilha(this),
             FrameLayout.LayoutParams(dp(IndicadorPilha.LARGURA_DP), dp(IndicadorPilha.ALTURA_DP), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 bottomMargin = -dp(8)
             })
@@ -998,11 +1001,10 @@ class MainActivity : Activity() {
     private fun estilizar(card: View, token: String, focado: Boolean) {
         val movendo = modoMover && token == tokenMovendo
         val grupo = card as? ViewGroup
-        (grupo?.getChildAt(0))?.foreground = when {
-            movendo -> contorno(corMover, 0x2E7FD6C2, 3)
-            focado -> contorno(corFoco, Color.TRANSPARENT, 3)
-            else -> fioFino()
-        }
+        // Sem anel no foco (o circulo branco ficava pesado sobre o icone): so o disco crescendo 12% e o nome
+        // ficando branco ja mostram onde esta, como no Google TV de referencia. O fio fino continua sempre
+        // (nao so no foco): e o que impede um icone escuro (ex.: Netflix) de sumir no fundo.
+        (grupo?.getChildAt(0))?.foreground = if (movendo) contorno(corMover, 0x2E7FD6C2, 3) else fioFino()
         (grupo?.getChildAt(1) as? TextView)?.setTextColor(if (focado || movendo) Color.WHITE else textoSuave)
         // Só o disco cresce (o nome não: crescendo junto, ele encostava no nome do vizinho).
         val escala = if (movendo) 1.16f else if (focado) 1.12f else 1f
@@ -1221,8 +1223,11 @@ class MainActivity : Activity() {
                 var chovendoAgora = atual.optDouble("precipitation", 0.0) >= 0.2 && codigo >= 51   // so o modelo (sem METAR): exige chuva de verdade, nao qualquer traco
                 if (medida != null) {
                     val visto = medida.fenomeno
-                    if (visto != null) codigo = visto                 // chuva, garoa, trovoada ou neblina observada
-                    else if (codigo >= 45) codigo = medida.nuvens     // o modelo inventou chuva/neblina: fica so a nebulosidade
+                    // O aeroporto vence o modelo SEMPRE que ha observacao: chuva/neblina (visto), ou, sem nada disso,
+                    // a nebulosidade que ele mediu (medida.nuvens). Antes so corrigia o modelo quando codigo >= 45
+                    // (chuva/neblina inventada); um "nublado" (codigo 1-3) errado do modelo ficava sem correcao —
+                    // bug visto em 03/11: modelo dizia nublado com o aeroporto (e o ceu real) limpo.
+                    codigo = visto ?: medida.nuvens
                     chovendoAgora = visto != null && visto >= 51
                 }
                 val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
@@ -1271,9 +1276,14 @@ class MainActivity : Activity() {
                     ceuCoberto = codigo > 2 || chovendoAgora
                     txtTemp.text = "$temp°"
                     ultimaTemp = temp
-                    // Guarda o que o topo mostra: a previsão aberta por voz ("Boletim do Tempo") não passa por aqui e lê isto.
+                    // Guarda o que o topo mostra: a previsão aberta por voz ("Boletim do Tempo") e o protetor de tela
+                    // (ProtetorTela.kt, sem rede própria) não passam por aqui e leem isto.
                     getSharedPreferences("clima", MODE_PRIVATE).edit()
-                        .putInt("temp", temp).putBoolean("chovendo", chovendoAgora).putLong("em", System.currentTimeMillis()).apply()
+                        .putInt("temp", temp).putBoolean("chovendo", chovendoAgora)
+                        .putInt("codigo", codigo).putBoolean("eDia", eDia)
+                        .putInt("umidade", umidade ?: -1).putInt("chuva", picoChuva)
+                        .putFloat("lat", ponto.lat.toFloat()).putFloat("lon", ponto.lon.toFloat())
+                        .putLong("em", System.currentTimeMillis()).apply()
                     txtMax.text = "↑ $max°"
                     txtMin.text = "↓ $min°"
                     txtChuva.text = textoLinha

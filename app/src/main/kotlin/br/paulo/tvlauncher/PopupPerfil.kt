@@ -2,6 +2,7 @@ package br.paulo.tvlauncher
 
 import android.app.Activity
 import android.app.Dialog
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Outline
@@ -23,13 +24,13 @@ import android.widget.TextView
 /**
  * O menu que abre ao apertar OK na bolinha do perfil (canto superior direito):
  *  - troca rápida de perfil (uma bolinha por conta Google da TV) e "+" para adicionar;
- *  - Configurações do sistema;
- *  - DNS (abre a tela de DNS);
- *  - Wi-Fi: conectado = sinal colorido, nome da rede e velocidade do enlace; sem rede = "Conectar ao Wi-Fi".
- *    Nos dois casos OK abre as configurações de Wi-Fi da TV.
+ *  - grade de 5 cards em 2 colunas: Wi-Fi + Bluetooth lado a lado (como no quick settings nativo — ver foto),
+ *    Launcher (nossas configs) + Sistema na linha de baixo, e Saída de áudio sozinha, ocupando a largura toda.
+ *    (Google Home ficou de fora por enquanto: não existe tela fixa pra abrir nesse Chromecast — era uma função do
+ *    launcher padrão do Google, que foi substituído pelo nosso. Projeto futuro à parte, com a Home API do Google.)
  *
  * É um Dialog: uma janela por cima da tela inicial, com as próprias teclas. Voltar fecha.
- * [aoTrocarPerfil] avisa a tela inicial para redesenhar a bolinha; [aoAbrirConfig] abre as Configurações.
+ * [aoTrocarPerfil] avisa a tela inicial para redesenhar a bolinha; [aoAbrirConfig] abre as Configurações do sistema.
  */
 class PopupPerfil(
     private val tela: Activity,
@@ -43,8 +44,8 @@ class PopupPerfil(
 
     private var dialogo: Dialog? = null
     private var sinal: SinalWifi? = null
-    private var txtRede: TextView? = null
-    private var txtVelocidade: TextView? = null
+    private var txtRedeTitulo: TextView? = null
+    private var txtRedeDetalhe: TextView? = null
 
     fun abrir(rede: Rede.Resultado?) {
         fechar()
@@ -100,69 +101,52 @@ class PopupPerfil(
             addView(bolinhas, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 
-        // ---- Linhas de ação.
-        val linhaConfig = linha("Configurações do sistema") { fechar(); aoAbrirConfig() }
-        val linhaDns = linha(Dns.rotulo(tela)) {
+        // ---- Grade de cards: Launcher, Sistema, Wi-Fi, Bluetooth, Saída de áudio.
+        val cardLauncher = card("launcher", "Launcher", "Aparência, DNS, diagnóstico") {
             fechar()
-            tela.startActivity(Intent(tela, DnsActivity::class.java))
+            tela.startActivity(Intent(tela, ConfigLauncherActivity::class.java))
         }
-
-        // ---- Aparência: OK passa para o próximo visual (Céu ao vivo, Galeria, Escuro) e redesenha a tela.
-        val linhaTema = linha("Aparência: ${Tema.atual(tela).nome}") {
-            Tema.proximo(tela)
+        val cardSistema = card("sistema", "Sistema", "Configurações do Android") {
             fechar()
-            tela.recreate()
+            aoAbrirConfig()
         }
-        // ---- Velocidade da internet: baixa 25 MB de um servidor de teste (Cloudflare) e mede.
-        lateinit var linhaVelocidade: TextView
-        linhaVelocidade = linha("Testar velocidade da internet") {
-            linhaVelocidade.text = "Testando…"
-            kotlin.concurrent.thread {
-                val r = Velocidade.medir()
-                tela.runOnUiThread { linhaVelocidade.text = r }
-            }
-        }
-
-        // ---- Wi-Fi: um botão. Conectado: sinal colorido + nome + velocidade do enlace. Sem rede: atalho para conectar.
         val icone = SinalWifi(tela)
-        val nome = TextView(tela).apply {
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-            setTextColor(textoClaro)
-            typeface = fonteMedia
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
+        val cardWifi = cardWifi(icone) { fechar(); abrirWifi() }
+        val cardBluetooth = card("bluetooth", "Bluetooth", "Parear acessório") {
+            fechar()
+            // Tela de pareamento do sistema (ver conversa: a lista "Controles remotos e acessórios" é um fragmento
+            // interno do MainSettings, sem Activity própria — esta aqui é a mesma seção, já no fluxo de busca).
+            abrirComponente("com.android.tv.settings", "com.android.tv.settings.accessories.AddAccessoryActivity")
         }
-        val velocidade = TextView(tela).apply {
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setTextColor(textoSuave)
-            maxLines = 1
-        }
-        sinal = icone
-        txtRede = nome
-        txtVelocidade = velocidade
-        mostrarRede(rede)
-        val blocoWifi = LinearLayout(tela).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(18), dp(12), dp(18), dp(12))
-            isFocusable = true
-            isClickable = true
-            background = vidro(false)
-            setOnClickListener { fechar(); abrirWifi() }
-            setOnFocusChangeListener { v, temFoco ->
-                v.background = vidro(temFoco)
-                escalar(v, temFoco, 1.03f)
+        val cardAudio = card("audio", "Saída de áudio", "Som e alto-falantes") {
+            fechar()
+            try {
+                tela.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (e: ActivityNotFoundException) {
+                aoAbrirConfig()
             }
-            addView(icone, LinearLayout.LayoutParams(dp(28), dp(22)).apply { marginEnd = dp(14) })
-            addView(nome, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(velocidade, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(10) })
         }
+
+        sinal = icone
+        mostrarRede(rede)
+
+        val linha1 = LinearLayout(tela).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(cardWifi, pesoCard())
+            addView(cardBluetooth, pesoCard().apply { marginStart = dp(10) })
+        }
+        val linha2 = LinearLayout(tela).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(cardLauncher, pesoCard())
+            addView(cardSistema, pesoCard().apply { marginStart = dp(10) })
+        }
+        // (margens entre as linhas ficam no addView do painel, abaixo)
 
         val painel = LinearLayout(tela).apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(22), dp(16), dp(22), dp(14))
+            setPadding(dp(22), dp(14), dp(22), dp(14))
             background = GradientDrawable().apply {
                 cornerRadius = dp(22).toFloat()
                 setColor(0xFF161E1B.toInt())   // opaco: nada do fundo aparece por tras do texto
@@ -173,21 +157,17 @@ class PopupPerfil(
                 topMargin = dp(4)
                 bottomMargin = dp(10)
             })
-            addView(linhaConfig, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(6) })
-            addView(linhaDns, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(6) })
-            addView(linhaTema, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(6) })
-            addView(linhaVelocidade, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(10) })
-            addView(View(tela).apply { setBackgroundColor(0x22FFFFFF) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply { bottomMargin = dp(8) })
-            addView(blocoWifi, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(linha1, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+            addView(linha2, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+            addView(cardAudio, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 
         // O painel fica no canto superior direito, logo abaixo da bolinha do topo.
         val raiz = FrameLayout(tela).apply {
             clipChildren = false
             setOnClickListener { fechar() }   // toque fora do painel fecha
-            addView(painel, FrameLayout.LayoutParams(dp(350), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-                topMargin = dp(116)   // logo abaixo da bolinha (Grade.TOPO + linha da hora)
+            addView(painel, FrameLayout.LayoutParams(dp(400), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
+                topMargin = dp(104)   // logo abaixo da bolinha (Grade.TOPO + linha da hora)
                 marginEnd = dp(Grade.MARGEM)   // borda direita = borda direita da bolinha e do ultimo card
             })
         }
@@ -199,7 +179,7 @@ class PopupPerfil(
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
         janela.setOnDismissListener {
-            if (dialogo === janela) { dialogo = null; sinal = null; txtRede = null; txtVelocidade = null }
+            if (dialogo === janela) { dialogo = null; sinal = null; txtRedeTitulo = null; txtRedeDetalhe = null }
         }
         dialogo = janela
         janela.show()
@@ -210,8 +190,8 @@ class PopupPerfil(
         dialogo?.dismiss()
         dialogo = null
         sinal = null
-        txtRede = null
-        txtVelocidade = null
+        txtRedeTitulo = null
+        txtRedeDetalhe = null
     }
 
     /** Chega uma medição nova da rede: se o menu estiver aberto, atualiza na hora. */
@@ -219,34 +199,43 @@ class PopupPerfil(
 
     /**
      * [r] null = a primeira medição ainda não chegou. A velocidade é a do ENLACE Wi-Fi (TV <-> roteador), que o Android
-     * informa; não é a velocidade da internet (isso exigiria baixar um arquivo de teste).
+     * informa; não é a velocidade da internet (isso exigiria baixar um arquivo de teste — ver ConfigLauncherActivity).
      */
     private fun mostrarRede(r: Rede.Resultado?) {
         when {
             r == null -> {
-                txtRede?.text = "Wi-Fi"
-                txtVelocidade?.text = ""
+                txtRedeTitulo?.text = "Wi-Fi"
+                txtRedeDetalhe?.text = "Carregando…"
             }
             !r.conectado -> {
                 sinal?.definir(0, textoSuave)
-                txtRede?.text = "Conectar ao Wi-Fi"
-                txtVelocidade?.text = ""
+                txtRedeTitulo?.text = "Wi-Fi"
+                txtRedeDetalhe?.text = "Conectar"
             }
             else -> {
                 sinal?.definir(r.barras, corDoNivel(r.nivel))
-                txtRede?.text = r.nome
-                txtVelocidade?.text = if (r.mbps > 0) "${r.mbps} Mbps" else ""
+                txtRedeTitulo?.text = r.nome
+                txtRedeDetalhe?.text = if (r.mbps > 0) "${r.mbps} Mbps" else "Conectado"
             }
         }
     }
 
     /** Abre a tela de Wi-Fi da TV (escolher e conectar numa rede). Se a TV não tiver essa tela, cai nas Configurações. */
     private fun abrirWifi() {
-        val wifi = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val wifi = Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             tela.startActivity(wifi)
-        } catch (e: android.content.ActivityNotFoundException) {
-            tela.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: ActivityNotFoundException) {
+            try { tela.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+        }
+    }
+
+    /** Abre uma Activity de outro app pelo nome completo do pacote/classe. Se não existir nesse firmware, fica quieto. */
+    private fun abrirComponente(pacote: String, classe: String) {
+        try {
+            tela.startActivity(Intent().setClassName(pacote, classe).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            // não quebra o popup, só não abre nada
         }
     }
 
@@ -309,24 +298,88 @@ class PopupPerfil(
         }
     }
 
-    /** Uma linha de ação do menu (vidro translúcido; fica mais clara com foco). */
-    private fun linha(rotulo: String, aoClicar: () -> Unit): TextView = TextView(tela).apply {
-        text = rotulo
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        setTextColor(textoClaro)
-        typeface = fonteMedia
-        maxLines = 1
-        ellipsize = android.text.TextUtils.TruncateAt.END
-        setPadding(dp(18), dp(10), dp(18), dp(10))
-        isFocusable = true
-        isClickable = true
-        background = vidro(false)
-        setOnClickListener { aoClicar() }
-        setOnFocusChangeListener { v, temFoco ->
-            v.background = vidro(temFoco)
-            escalar(v, temFoco, 1.03f)
+    /** Um card da grade: ícone + título (claro) na primeira linha, detalhe (suave, menor) embaixo; foco clareia e levanta. */
+    private fun card(tipoIcone: String, titulo: String, detalhe: String, aoClicar: () -> Unit): LinearLayout {
+        val txtTitulo = TextView(tela).apply {
+            text = titulo
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextColor(textoClaro)
+            typeface = fonteMedia
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        val txtDetalhe = TextView(tela).apply {
+            text = detalhe
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(textoSuave)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(0, dp(4), 0, 0)
+        }
+        val linhaIcone = LinearLayout(tela).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(IconeCard(tela, tipoIcone), LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(8) })
+            addView(txtTitulo, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        return LinearLayout(tela).apply {
+            orientation = LinearLayout.VERTICAL
+            isFocusable = true
+            isClickable = true
+            background = vidro(false)
+            setPadding(dp(18), dp(14), dp(18), dp(14))
+            addView(linhaIcone)
+            addView(txtDetalhe)
+            setOnClickListener { aoClicar() }
+            setOnFocusChangeListener { v, temFoco ->
+                v.background = vidro(temFoco)
+                v.elevation = if (temFoco) dp(6).toFloat() else 0f
+                escalar(v, temFoco, 1.03f)
+            }
         }
     }
+
+    /** O card de Wi-Fi: mesma casca dos outros, mas com o ícone de sinal ao lado do título (nome da rede). */
+    private fun cardWifi(icone: SinalWifi, aoClicar: () -> Unit): LinearLayout {
+        val txtTitulo = TextView(tela).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextColor(textoClaro)
+            typeface = fonteMedia
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        val txtDetalhe = TextView(tela).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(textoSuave)
+            maxLines = 1
+            setPadding(0, dp(4), 0, 0)
+        }
+        txtRedeTitulo = txtTitulo
+        txtRedeDetalhe = txtDetalhe
+        val linhaIcone = LinearLayout(tela).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(icone, LinearLayout.LayoutParams(dp(20), dp(16)).apply { marginEnd = dp(8) })
+            addView(txtTitulo, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        return LinearLayout(tela).apply {
+            orientation = LinearLayout.VERTICAL
+            isFocusable = true
+            isClickable = true
+            background = vidro(false)
+            setPadding(dp(18), dp(14), dp(18), dp(14))
+            addView(linhaIcone)
+            addView(txtDetalhe)
+            setOnClickListener { aoClicar() }
+            setOnFocusChangeListener { v, temFoco ->
+                v.background = vidro(temFoco)
+                v.elevation = if (temFoco) dp(6).toFloat() else 0f
+                escalar(v, temFoco, 1.03f)
+            }
+        }
+    }
+
+    private fun pesoCard() = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 
     private fun anel(focado: Boolean, eAtiva: Boolean): GradientDrawable = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
@@ -340,9 +393,9 @@ class PopupPerfil(
     }
 
     private fun vidro(focado: Boolean): GradientDrawable = GradientDrawable().apply {
-        cornerRadius = dp(14).toFloat()
-        setColor(if (focado) 0x2EFFFFFF else 0x12FFFFFF)
-        setStroke(dp(2), if (focado) 0xD9FFFFFF.toInt() else 0x1FFFFFFF)
+        cornerRadius = dp(26).toFloat()
+        setColor(if (focado) 0x3AFFFFFF else 0x1AFFFFFF)
+        setStroke(dp(2), if (focado) 0xD9FFFFFF.toInt() else 0x2AFFFFFF)
     }
 
     private fun circulo() = object : ViewOutlineProvider() {

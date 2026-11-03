@@ -70,6 +70,29 @@ object PrivilegioDO {
         Log.w(TAG, "ocultar $pacote falhou: $e"); false
     }
 
+    /**
+     * Quanto tempo parada a TV leva para entrar no protetor de tela, em ms. Com screensaver_activate_on_sleep=1 (ver
+     * [fixarProtetor]), o protetor entra quando o sistema "iria dormir", então este tempo é o SCREEN_OFF_TIMEOUT
+     * (testado na TV: baixando para 15 s, o ProtetorTela entrou sozinho). Int.MAX_VALUE = nunca.
+     */
+    fun tempoDescanso(ctx: Context): Int =
+        Settings.System.getInt(ctx.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT, 600_000)
+
+    /**
+     * Grava o tempo pelo Device Owner (DevicePolicyManager.setSystemSetting): SCREEN_OFF_TIMEOUT é uma das chaves que o
+     * dono do aparelho pode mudar sem a permissão WRITE_SETTINGS (que a TV nem tem tela para conceder). Devolve se gravou.
+     */
+    fun definirTempoDescanso(ctx: Context, ms: Int): Boolean = try {
+        if (!somosDonos(ctx)) false
+        else {
+            dpm(ctx).setSystemSetting(admin(ctx), Settings.System.SCREEN_OFF_TIMEOUT, ms.toString())
+            Log.i(TAG, "tempo do descanso de tela => $ms ms")
+            tempoDescanso(ctx) == ms
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "definirTempoDescanso falhou: $e"); false
+    }
+
     fun estaOculto(ctx: Context, pacote: String): Boolean = try {
         somosDonos(ctx) && dpm(ctx).isApplicationHidden(admin(ctx), pacote)
     } catch (e: Exception) { false }
