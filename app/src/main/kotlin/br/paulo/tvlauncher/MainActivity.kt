@@ -133,6 +133,29 @@ class MainActivity : Activity() {
         }
     }
 
+    // Portao de rede: no boot, a TV demora a conectar e o primeiro buscarClima() falha calado -> o widget ficaria
+    // ate 5 min mostrando nada/velho. Este observador dispara uma busca ASSIM QUE a rede sobe, se o clima estiver velho.
+    private var vigiaRede: android.net.ConnectivityManager.NetworkCallback? = null
+
+    private fun vigiarRedeParaClima() {
+        if (vigiaRede != null) return
+        val cm = getSystemService(android.net.ConnectivityManager::class.java) ?: return
+        vigiaRede = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(rede: android.net.Network) {
+                // Clima fresco (< 2 min)? Entao nao precisa; senao, busca agora, fora da fila dos 5 min.
+                val em = getSharedPreferences("clima", MODE_PRIVATE).getLong("em", 0)
+                if (System.currentTimeMillis() - em > 2 * 60_000L) ui.post { buscarClima() }
+            }
+        }
+        try { cm.registerDefaultNetworkCallback(vigiaRede!!) } catch (e: Exception) { vigiaRede = null }
+    }
+
+    private fun pararVigiaRede() {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        vigiaRede?.let { try { cm?.unregisterNetworkCallback(it) } catch (e: Exception) {} }
+        vigiaRede = null
+    }
+
     // ---------------------------------------------------------------- ciclo de vida
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -144,6 +167,7 @@ class MainActivity : Activity() {
         Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
         PrivilegioDO.aplicar(this)   // Device Owner: fixa o nosso protetor e oculta apps substituidos (ver PrivilegioDO.kt)
+        if (Config.SHELL_PROPRIO_DIAG) ShellProprio.diagnosticar(this)   // MARCO 1 do shell proprio: loga chave + porta adb (ver ShellProprio.kt)
     }
 
     override fun onResume() {
@@ -152,6 +176,7 @@ class MainActivity : Activity() {
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
+        vigiarRedeParaClima()   // busca o clima assim que a rede subir no boot, sem esperar o ciclo de 5 min
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         Privilegio.religarAcessibilidade(this)
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
@@ -164,6 +189,7 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaClima)
         ui.removeCallbacks(tarefaEclipse)
         ui.removeCallbacks(tarefaRede)
+        pararVigiaRede()
         menuAberto?.dismiss()
         popup?.fechar()
         fecharPasta()
