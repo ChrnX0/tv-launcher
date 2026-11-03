@@ -385,4 +385,7 @@ fun criarFundo(ctx: Context, t: Tema, emSegundoPlano: (() -> Unit) -> Unit): Vie
     // de tela cheia eram refeitos em TODO quadro (medido na TV: 69 ms por quadro no Ceu e no Astrolabio, contra 24 ms sem fundo).
     // O fundo so e redesenhado de verdade quando atualizar() chama invalidate() (1x por minuto e a cada clima novo).
     it.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+    // O preto de segurança (enquanto a pintura do dia carrega) fica DENTRO da camada: só é pintado quando a camada é
+    // refeita, não a cada quadro como era o preto do contêiner e da janela.
+    it.setBackgroundColor(android.graphics.Color.BLACK)
 }

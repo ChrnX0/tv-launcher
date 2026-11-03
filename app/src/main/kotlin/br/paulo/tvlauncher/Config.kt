@@ -45,6 +45,14 @@ object Config {
     //     Com true, o launcher também RELIGA o serviço sozinho se o Android o desligar (ver Privilegio.religarAcessibilidade).
     const val SHIZUKU_AUTORIZAR_TUDO = true
 
+    // --- Device Owner (ver PrivilegioDO.kt) ---
+    // FIXAR_PROTETOR: o app aponta o screensaver do sistema para o nosso ProtetorTela (aposenta o dreamx, ~59 MB).
+    const val FIXAR_PROTETOR = true
+    // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
+    const val OTIMIZAR_MEMORIA = true
+    // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).
+    val APPS_OCULTAR = listOf("com.google.android.apps.tv.dreamx")
+
     // --- Depuração sem fio (adb pela rede, usado pelo computador para instalar e testar): true = o launcher a LIGA de novo
     //     sozinho quando a TV reinicia e sempre que abre, se o Android a tiver desligado. Custo: com ela ligada, a TV deixa uma porta de adb
     //     aberta na rede (só aceita computadores já pareados, com chave). false = fica como o Android deixar (ver Privilegio.religarDepuracaoSemFio).
