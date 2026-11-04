@@ -105,7 +105,21 @@ async function listarApps(endpoint) {
     const pacotes = saida.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('package:')).map((l) => l.slice(8));
     const congelados = new Set((await adbShell(endpoint, 'pm list packages -3 -d')).split('\n')
         .map((l) => l.trim()).filter((l) => l.startsWith('package:')).map((l) => l.slice(8)));
-    return pacotes.map((pkg) => ({ pkg, nome: nomeRapido(pkg), congelado: congelados.has(pkg) }));
+    const rotulos = await rotulosDoLauncher(endpoint);
+    return pacotes.map((pkg) => ({
+        pkg, nome: rotulos[pkg] || nomeRapido(pkg), congelado: congelados.has(pkg), protegido: PROTEGIDOS.has(pkg),
+    }));
+}
+
+// Nome REAL dos apps (o que aparece na TV), perguntado ao próprio launcher, que já sabe (PackageManager): um broadcast
+// por adb que devolve JSON {pacote: nome}. Só o adb/sistema podem pedir (DUMP). Se o launcher for antigo e não
+// responder, fica o nome derivado do pacote, como antes.
+async function rotulosDoLauncher(endpoint) {
+    try {
+        const saida = await adbShell(endpoint, 'am broadcast -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver -a br.paulo.tvlauncher.ROTULOS');
+        const m = saida.match(/data="([\s\S]*)"\s*$/m);
+        return m ? JSON.parse(m[1]) : {};
+    } catch { return {}; }
 }
 
 // Tenta um nome melhor baixando so o cabecalho do APK e procurando a label no AndroidManifest/resources.
@@ -126,9 +140,15 @@ async function atualizarNomeDeVerdade(endpoint, pkg) {
     }
 }
 
-async function congelarApp(endpoint, pkg) { await adbShell(endpoint, `pm disable-user --user 0 ${pkg}`); }
+// Apps que o painel NUNCA congela nem remove (04/11/2026): o launcher é a tela inicial E o Device Owner da TV —
+// congelá-lo deixaria a TV sem HOME. Antes a lista oferecia "Remover" e o interruptor para ele também.
+const PROTEGIDOS = new Set(['br.paulo.tvlauncher']);
+function recusarSeProtegido(pkg) {
+    if (PROTEGIDOS.has(pkg)) throw Object.assign(new Error('Este app é a tela inicial da TV e não pode ser congelado nem removido pelo painel'), { status: 403 });
+}
+async function congelarApp(endpoint, pkg) { recusarSeProtegido(pkg); await adbShell(endpoint, `pm disable-user --user 0 ${pkg}`); }
 async function descongelarApp(endpoint, pkg) { await adbShell(endpoint, `pm enable ${pkg}`); }
-async function removerApp(endpoint, pkg) { await adb(['-s', endpoint, 'uninstall', pkg], { timeoutMs: 30000 }); }
+async function removerApp(endpoint, pkg) { recusarSeProtegido(pkg); await adb(['-s', endpoint, 'uninstall', pkg], { timeoutMs: 30000 }); }
 async function instalarApp(endpoint, caminhoApkLocal) {
     await adb(['-s', endpoint, 'install', '-r', '-t', caminhoApkLocal], { timeoutMs: 120000 });
 }
