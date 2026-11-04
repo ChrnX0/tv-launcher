@@ -245,15 +245,57 @@ app.get('/api/dispositivos/:id/arquivos/baixar', envolver(async (req, res) => {
 const WS_SCRCPY_URL = 'http://localhost:8000';
 const WS_SCRCPY_WS_URL = 'ws://localhost:8000';
 const PORTA_SCRCPY_NO_APARELHO = 8886; // fixo no ws-scrcpy (SERVER_PORT em common/Constants.ts)
+// scrcpy-server no aparelho: o ws-scrcpy só o inicia quando o aparelho (re)conecta no adb do PC (Device.ts:
+// fetchDeviceInfo roda na conexão e em novas tentativas após falha, nunca mais). Se o servidor morre — ou não subiu
+// naquele momento — a tela fica preta até a TV reconectar. Essa era a causa da "tela preta" em aberto (medido em
+// 04/11/2026: matei o servidor e nem abrir o stream nem abrir a lista do ws-scrcpy o religou).
+// Então o painel confere e, se faltar, sobe ele mesmo, com o MESMO comando que o ws-scrcpy usa (visto no log dele).
+const SCRCPY_JAR = '/data/local/tmp/scrcpy-server.jar';
+const JAR_LOCAL = 'C:\\Users\\rockx\\ws-scrcpy\\vendor\\Genymobile\\scrcpy\\scrcpy-server.jar';
+const SCRCPY_ARGS = `com.genymobile.scrcpy.Server 1.19-ws8 web ERROR ${8886} true`;
+async function scrcpyRodando(endpoint) {
+    const ps = await adbShell(endpoint, "ps -A -o ARGS | grep 'app_process / com.genymobile.scrcpy.Server' | grep -v grep; true");
+    return ps.trim().length > 0;
+}
+async function garantirScrcpyServer(endpoint) {
+    if (await scrcpyRodando(endpoint)) return 'ja rodando';
+    // O scrcpy-server APAGA o próprio jar ao iniciar (medido: some de /data/local/tmp), e o ws-scrcpy o reenvia antes
+    // de cada partida. Fazemos o mesmo, com o jar que vem no próprio ws-scrcpy.
+    const temJar = (await adbShell(endpoint, `ls ${SCRCPY_JAR} 2>/dev/null; true`)).trim();
+    if (!temJar) await adb(['-s', endpoint, 'push', JAR_LOCAL, SCRCPY_JAR], { timeoutMs: 20000 });
+    // "&" + redirecionar tudo: o adb devolve na hora e o servidor continua (nohup).
+    await adbShell(endpoint, `CLASSPATH=${SCRCPY_JAR} nohup app_process / ${SCRCPY_ARGS} >/dev/null 2>&1 &`, { timeoutMs: 8000 });
+    for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        if (await scrcpyRodando(endpoint)) return 'iniciado pelo painel';
+    }
+    return 'nao subiu';
+}
+
 app.get('/api/dispositivos/:id/tela', envolver(async (req, res) => {
     const endpoint = endpointDe(req.params.id);
+    try { console.log('scrcpy-server:', await garantirScrcpyServer(endpoint)); } catch (e) { console.warn('scrcpy-server:', e.message); }
     // O link precisa de "ws" (a URL do proxy adb->websocket que o ws-scrcpy monta sozinho quando a pessoa
     // clica na lista normal dele); aqui montamos ela a mao com a mesma formula, pra abrir direto sem passar
     // por aquela lista.
     const wsQuery = new URLSearchParams({ action: 'proxy-adb', remote: `tcp:${PORTA_SCRCPY_NO_APARELHO}`, udid: endpoint });
     const ws = `${WS_SCRCPY_WS_URL}/?${wsQuery.toString()}`;
     const hash = new URLSearchParams({ action: 'stream', udid: endpoint, player: 'mse', ws }).toString();
-    res.json({ url: `${WS_SCRCPY_URL}/#!${hash}` });
+    // Passa pela página auxiliar (ver ws-scrcpy-extra/painel-tela.html): ela fixa 1280x720 antes de abrir o stream.
+    // Se a cópia dela falhou, cai no link direto (imagem pode sair embaralhada, mas abre).
+    const pagina = paginaTelaInstalada ? '/painel-tela.html' : '/';
+    res.json({ url: `${WS_SCRCPY_URL}${pagina}#!${hash}` });
 }));
+
+// Copia a página auxiliar da tela para a pasta pública do ws-scrcpy (dist/public é saída de build dele, fora do git;
+// o código-fonte do ws-scrcpy continua intacto). Feito a cada início, porque um rebuild do ws-scrcpy apaga a cópia.
+const PASTA_PUBLICA_WS_SCRCPY = 'C:\\Users\\rockx\\ws-scrcpy\\dist\\public';
+let paginaTelaInstalada = false;
+try {
+    fs.copyFileSync(path.join(__dirname, 'ws-scrcpy-extra', 'painel-tela.html'), path.join(PASTA_PUBLICA_WS_SCRCPY, 'painel-tela.html'));
+    paginaTelaInstalada = true;
+} catch (e) {
+    console.warn('nao consegui copiar painel-tela.html para o ws-scrcpy:', e.message);
+}
 
 app.listen(PORTA, () => console.log(`Painel do Chromecast em http://localhost:${PORTA}`));
