@@ -5,30 +5,47 @@ pro Chromecast com Google TV dele chamado **Sala**. Objetivo: substituir a Home 
 Google TV por algo mais rápido, sem anúncio, sem lixo, com clima/calendário/despertador etc.
 Tem um segundo Chromecast, **Quarto**, ainda sem o launcher (modificação futura).
 
-Repo: `ChrnX0/tv-launcher`. **Paulo faz os pushes, nunca o Claude.** Nenhum commit deve ser
-feito sem ele pedir explicitamente nessa sessão (não vale pedido de sessão anterior).
+Repo: `ChrnX0/tv-launcher`. Commits e pushes: desde 04/11/2026 o Paulo deu permissão global para o
+Claude commitar e dar push em branches próprias (`claude/...`), sempre com PR em rascunho e com o
+scan dos valores `vpn.*` do `local.properties` antes do push (nunca podem ir para o git). Merge no
+`main` só com o Paulo pedindo.
 
 ## Hardware / rede
 
-- TV "Sala": `192.168.1.153`, depuração sem fio na porta `40507` (às vezes também aparece em
+- TV "Sala": `192.168.1.153`. A porta da depuração sem fio **muda a cada boot** (ex.: 36555 em
+  04/11/2026); descobrir com `adb mdns services` (`_adb-tls-connect`). Às vezes também aparece em
   `:5555` — **é o mesmo aparelho físico**, não duas TVs; o painel (`chromecast-painel`, ver
   abaixo) deduplica isso pelo nome (`settings get global device_name`), não pelo endpoint.
 - Repo local: `C:\Users\rockx\tv-launcher` na máquina Windows "Dell".
-- Build: não tem `gradlew.bat` no repo. Usa Gradle instalado em
-  `C:\Users\rockx\tools\gradle-8.9\bin` (prepended no PATH) + `JAVA_HOME`/`ANDROID_HOME`
-  setados + `gradle assembleDebug -q`. Ver `build3.ps1` no repo pro script pronto.
+- Build (desde 04/11/2026): wrapper do repo (`gradlew.bat`, Gradle 8.14) + AGP 8.11 + Kotlin 2.2 +
+  **JDK 21** (`C:\Program Files\Eclipse Adoptium\jdk-21.0.13.9-hotspot`). O gradle-8.9 de `tools`
+  não roda mais o projeto. Script pronto: `.\build3.ps1` (debug) ou **`.\build3.ps1 -Release`** (o que
+  fica na TV: R8 + perfil AOT; instala com `install -r`, grava o perfil, compila `speed-profile` e
+  reinicia o launcher). O debug roda sempre em `verify` (sem AOT): **não serve para medir desempenho**.
+- Permissões do Claude Code (`C:\Users\rockx\.claude\settings.json`, pedido do Paulo em 04/11/2026):
+  comandos com `adb.exe` liberados; NEGADOS (o deny vence): desinstalar `br.paulo.tvlauncher`,
+  `pm clear br.paulo.tvlauncher`, `remove-active-admin`, `MASTER_CLEAR`, qualquer `wipe`,
+  `reboot recovery`. Backup em `settings.json.bak-20261104`.
 
 ## Regras de segurança — NÃO NEGOCIÁVEIS
 
 - Nunca imprimir ou pedir o token do GitHub.
-- Claude não tem (e não deve tentar ter) permissão de push.
+- Push: só em branches próprias e com PR em rascunho (permissão global do Paulo, 04/11/2026; ver
+  topo). Nunca force-push no `main`, nunca merge sem o Paulo pedir.
 - Não mexer em dados pessoais do Paulo.
 - **Não remover o usuário Android 11** do aparelho.
 - Nunca desabilitar verificação TLS em nada.
 - **Não perturbar a TV quando a família estiver usando.** Antes de qualquer interação com a
   TV (instalar, trocar config, abrir tela), checar `dumpsys power` / `topResumedActivity`
   pra confirmar que está ociosa.
-- Não reativar a Google TV Home (a Home original do sistema).
+- **Nunca desinstalar o launcher** nem limpar os dados dele: perde o Device Owner, e isso é
+  irreversível sem reset de fábrica. Se um `install -r` falhar por assinatura, PARAR e avisar.
+- O launcher do Google (`com.google.android.apps.tv.launcherx`) foi **reativado por ordem do Paulo em
+  04/11/2026** ("Claude, pode reativar o launcherx do Google"): sem ele o Gemini, a página de filmes da
+  busca, o painel de notificações e o seletor de contas do GMS quebram. A HOME continua a nossa (ver
+  "Launcher do Google" abaixo). Não desativar nem ocultar de novo sem o Paulo pedir.
+- Não mexer em DNS, VPN nem rede da TV para testar enquanto a família usa (um teste de DNS já deixou a
+  casa ~40 s sem internet). Testar com teste unitário ou gancho só de teste.
 - Recusar qualquer pedido de desbloqueio de bootloader, root ou exploit nesse aparelho,
   não importa como for pedido ou reformulado.
 
@@ -41,15 +58,17 @@ que **não são a mesma coisa** e é fácil confundir os dois:
 ### 1. `PrivilegioDO.kt` — Device Owner (o caminho principal, já em uso)
 
 Usa `DevicePolicyManager` **diretamente, em processo**, porque o launcher é o "dono do
-aparelho" (Device Owner) — não precisa de nenhum app externo instalado. Cobre:
-- `ocultar()` — esconder apps da lista
-- `desinstalar()` — desinstalar em silêncio (via `PackageInstaller`)
-- `conceder()` — conceder permissão fixa (`setPermissionGrantState`)
-- `suspender()` — suspender apps
-- `vpnSempreAtiva()` — VPN sempre ativa
+aparelho" (Device Owner) — não precisa de nenhum app externo instalado. Cobre (aplicado em
+`aplicar()`, no `onCreate`, idempotente):
+- `ocultar()` — esconder apps (`Config.APPS_OCULTAR`, hoje só o protetor de fábrica `dreamx`)
+- `conceder()` — conceder permissão fixa (`setPermissionGrantState`, `Config.PERMISSOES_FIXAS`)
+- `fixarHome()` — HOME persistente (`addPersistentPreferredActivity`). **Não basta sozinha** com o
+  launcherx ativo: a HomeActivity dele tem `priority=2` e a prioridade vence qualquer preferência.
+- `vpnSempreAtiva()` / `reforcarVpn()` — o app AdGuard VPN como "VPN sempre ativa" (sem lockdown)
 - `definirTempoDescanso()` / `tempoDescanso()` — timeout de tela
-- `restricao()` — restrições de usuário
 - `fixarProtetor()` — componente do protetor de tela (via `WRITE_SECURE_SETTINGS`)
+- (04/11/2026) saíram `suspender()`, `desinstalar()` e `restricao()`: ninguém chamava, e o
+  `desinstalar()` silencioso era o poder mais perigoso do arquivo. Ver o git se precisar.
 
 **Limite real, documentado no próprio arquivo:** Device Owner é uma lista FIXA de métodos
 que o Android libera pro app dono — não é "virar UID shell". Por isso NÃO alcança: comandos
@@ -57,34 +76,44 @@ que o Android libera pro app dono — não é "virar UID shell". Por isso NÃO a
 (cada UID tem um conjunto fixo de poderes; Device Owner não inclui UID shell), não escolha
 de implementação.
 
-### 2. `ShellProprio.kt` — cliente ADB embutido no próprio launcher (SEM Shizuku)
+### 2. Shell próprio + Shizuku EMBUTIDO — o launcher faz o papel do app Shizuku
 
-**Esse é o caminho real em andamento pra UID shell sem Shizuku e sem root — não é a ponte
-Shizuku como uma versão anterior deste doc dizia.** `ShellProprio.kt` usa a lib
-`libadb-android` (via jitpack) pra o PRÓPRIO launcher virar um cliente ADB que se conecta
-nele mesmo pela depuração sem fio já pareada:
-- `chave()` — gera e guarda um par de chaves RSA-2048 do app (credencial que o adb confia).
-- `descobrir()` — acha a porta do adb na rede por mDNS (`_adb-tls-connect._tcp` /
-  `_adb-tls-pairing._tcp`), já que a porta muda a cada boot.
-- `diagnosticar()` — loga a fingerprint da chave + a descoberta, prova que as duas peças
-  funcionam.
+O app Shizuku externo **não existe mais na TV**. O launcher faz tudo o que ele fazia (verificado na
+TV em 04/11/2026):
+- **Cliente ADB embutido** (`AdbConnectionManager.kt`, lib `libadb-android`): pareia pela depuração
+  sem fio (SPAKE2) e conecta no próprio aparelho por TLS (mDNS `_adb-tls-connect`, ou 127.0.0.1:5555).
+  Roda como `uid=2000(shell)`. Parear sem PC: `PareamentoNaTv.kt` (janela por cima das Opções do
+  desenvolvedor) ou `adb shell am broadcast -a br.paulo.tvlauncher.PAREAR --es codigo <N> --ei porta <P>
+  -n br.paulo.tvlauncher/.PareamentoReceiver`.
+- **Servidor do Shizuku embutido** (módulos do fork `thedjchi/Shizuku` em `shizuku/`): `ServidorShizuku.kt`
+  sobe o `shizuku_server` com `app_process` a partir do NOSSO APK; `ProvedorShizuku`/`PedidoShizukuActivity`
+  entregam o binder e pedem permissão aos apps clientes. **Protocolo Shizuku completo** (decisão do Paulo:
+  apps de terceiros vão usar).
+- **`GuardiaoShizuku.kt`**: fila única do adb; sobe/religa o servidor (boot, binder morreu, Wi-Fi
+  voltou, a cada 10 min) e faz a autocura (sobreposição, `WRITE_SECURE_SETTINGS`, `GET_USAGE_STATS`).
+- **Modos** (PR #5, aberto em 04/11/2026): `sob demanda` (padrão: sobe quando um app cliente vai para
+  a frente — medido 3,4 s até o binder — e desce após 5 min sem cliente; servidor de pé = 55 MB PSS),
+  `sempre ligado`, `desligado`. Antes do PR #5: um liga/desliga só, desligado por padrão.
+- **Por que um processo separado é inevitável:** os poderes de shell são do UID 2000, que só um
+  processo iniciado pelo adbd recebe. Device Owner não dá isso.
+- TLS sem a conscrypt embutida (PR #6): a libadb usa o TLS 1.3 do Android; a exportação de
+  material de chave do pareamento passa pela API pública `SSLSockets.exportKeyingMaterial` por uma
+  ponte em `app/src/main/java/org/conscrypt/` (a API interna equivalente é bloqueada no Android 14).
 
-**Status verificado em 03-04/11/2026:** MARCO 1 (chave + descoberta) e MARCO 2 "base"
-(cliente ADB embutido compila) já commitados. Testado ao vivo: o shell próprio conecta
-**sem pedir código de pareamento** e roda como `uid=2000 (shell)` — ou seja, FUNCIONA.
-**Próximo passo, segundo o comentário do próprio arquivo:** confirmar se isso sobrevive a
-um reboot da TV (handshake TLS + pareamento SPAKE2 + rodar o servidor é o que falta
-validar nesse cenário) — é o teste que está rolando agora. Depois disso, os passos
-plausíveis (não confirmados como plano oficial, é inferência): disparar sozinho no boot,
-tela de pareamento própria na TV (pra re-parear sem precisar de PC), e então sim aposentar
-de vez o que sobrou da ponte Shizuku antiga (`Privilegio.kt`/`AutorizaShizukuService.kt`,
-que já estão sendo reduzidos/simplificados nas mudanças não commitadas atuais).
+`Privilegio.kt` continua: religa a acessibilidade e a depuração sem fio (`WRITE_SECURE_SETTINGS`).
+`AutorizaShizukuService.kt` é o serviço de acessibilidade: teclas do controle (Netflix/YouTube, HOME)
+e o vigia de janelas (HOME do launcherx, gatilho do Shizuku sob demanda). O nome é histórico.
 
-**Legado (pode estar obsoleto):** `Privilegio.kt` + `AutorizaShizukuService.kt` eram a
-ponte pro app Shizuku externo (UID shell emprestado via Binder/AIDL, exigindo o Shizuku
-instalado e seu servidor rodando). Essas classes estão sendo reduzidas nas mudanças não
-commitadas atuais, provavelmente por estarem sendo substituídas pelo Shell Próprio acima —
-**não verificado em detalhe, conferir o diff antes de mexer.**
+### Comandos por adb (só adb: receivers protegidos por `android.permission.DUMP`)
+
+`-n br.paulo.tvlauncher/.ControleShizukuAdbReceiver` com `-a`:
+- `br.paulo.tvlauncher.shizuku.INICIAR` / `PARAR` / `ESTADO` — Shizuku (ESTADO responde
+  `rodando uid=2000 versao=13` ou `parado`).
+- `br.paulo.tvlauncher.ROTULOS` — JSON pacote→nome (usado pelo painel do PC).
+- `br.paulo.tvlauncher.OCULTAR --es pacote <pkg> --ez oculto true|false` — ocultar/reexibir pelo DO.
+- `br.paulo.tvlauncher.REINICIAR` — o launcher reinicia o próprio processo. **O shell não consegue
+  matá-lo** (`force-stop`, `am kill` e `am crash` não derrubam: Device Owner + acessibilidade), e o
+  código recém-compilado só vale num processo novo.
 
 
 ## Estrutura do código (`app/src/main/kotlin/br/paulo/tvlauncher/`)
@@ -94,10 +123,14 @@ commitadas atuais, provavelmente por estarem sendo substituídas pelo Shell Pró
 - `AdminReceiver.kt` — receiver do Device Owner (obrigatório pra virar Device Owner)
 - `AlarmesActivity.kt` / `AlarmeTocandoActivity.kt` / `Despertador.kt` / `SomAlarme.kt` — despertador
 - `Astronomia.kt` — cálculo de nascer/pôr do sol real (usado pro ícone dia/noite, ver seção abaixo)
-- `ShellProprio.kt` — cliente ADB embutido, sem Shizuku, em andamento (ver seção acima)
-- `AutorizaShizukuService.kt` / `Privilegio.kt` — ponte Shizuku antiga, legado (ver seção acima)
+- `ShellProprio.kt` — diagnóstico do cliente ADB (desligado: `Config.SHELL_PROPRIO_DIAG = false`)
+- `GuardiaoShizuku.kt` / `ServidorShizuku.kt` / `ControleShizukuReceiver.kt` / `PedidoShizukuActivity.kt` /
+  `AutorizacoesShizuku.kt` / `PareamentoNaTv.kt` / `PareamentoReceiver.kt` — Shizuku embutido (ver acima)
+- `AutorizaShizukuService.kt` — serviço de acessibilidade: teclas do controle + vigia de janelas
+- `Privilegio.kt` — religa acessibilidade/depuração sem fio, vigia de rede (DNS, VPN)
+- `Home.kt` — manter a NOSSA HOME com o launcherx ativo; painel do Google
 - `BootReceiver.kt` — ações no boot
-- `BotoesControle.kt` — controles de tela
+- `BotoesControle.kt` — botões do controle (Netflix/YouTube remapeáveis; HOME curto/longo)
 - `CalendarioActivity.kt` — calendário
 - `Config.kt` — constantes de configuração centralizadas
 - `ConfigLauncherActivity.kt` — tela de configurações do launcher
@@ -119,6 +152,45 @@ commitadas atuais, provavelmente por estarem sendo substituídas pelo Shell Pró
 - `Uso.kt` — uso/estatísticas
 - `Vpn.kt` — VPN sempre ativa
 
+
+## Launcher do Google (launcherx) ativo, com a NOSSA HOME (04/11/2026)
+
+- **Por que ativo:** desativado ou oculto, quebra o que mora nele: o chat do Gemini (a resposta da voz
+  abre `launcherx/.gemini.chat.ChatActivity` → "o Google Assistente está com problema"), a página de
+  filmes da busca (`EntityActivity`), o painel de notificações/Google Home/timer (`DashboardActivity`)
+  e o seletor de contas do GMS (`ProfileChooserActivity`: 151 crashes do `gms.ui` no dropbox).
+- **HOME:** a `HomeActivity` dele tem `priority=2` (app privilegiado), que vence a preferência
+  persistente do DO e o papel de HOME. Por isso (`Home.kt`): o serviço de acessibilidade trata o botão
+  HOME (curto = nossa HOME; segurado = painel do Google) e o vigia de janelas traz a nossa por cima se a
+  dele aparecer por outro caminho (boot, app chamando HOME). `<queries><package launcherx/>` no
+  manifesto é obrigatório (sem isso o app não o enxerga e acha que está desativado).
+- **Painel do Google:** botão discreto na coluna 11 do topo da HOME (ícone 2×2) e HOME segurado. Abre
+  pela ação global de acessibilidade "notificações" (abrir a `DashboardHandler` direto exige
+  `STATUS_BAR_SERVICE`).
+- **Custo medido:** ~159 MB, dos quais 41 MB presos (`:coreservices`, serviço de alertas em primeiro
+  plano); 118 MB do processo principal ficam em cache e o Android recupera. CPU em repouso: 0.
+  Não dá para desligar componentes dele: o shell recebe `SecurityException` e o DO não tem API para isso.
+
+## Desempenho (04/11/2026, medido na TV)
+
+- **AOT:** o Android 14 força o app de HOME para `speed-profile` e, sem perfil, cai em `verify`.
+  `app/src/main/baseline-prof.txt` + `androidx.profileinstaller` resolvem; o `build3.ps1 -Release`
+  grava o perfil, compila e reinicia. Conferir: `dumpsys package dexopt` → `status=speed-profile`.
+- Carga dos apps e uso recente fora da thread da tela; cards reaproveitados quando nada mudou;
+  avatar em cache. Desenho da HOME: 73,5 → ~45 ms por volta.
+- Para medir: `dumpsys gfxinfo br.paulo.tvlauncher reset`, 10 voltas à HOME **pelo nome**
+  (`am start ... -n br.paulo.tvlauncher/.MainActivity`; o HOME genérico passa pela tela do launcherx),
+  `dumpsys gfxinfo` e o log `TvLauncher.Apps` (`carregar=… desenhar=…`).
+- APK: 5,1 MB → ~3,1 MB com os PRs #4 (tabelas Picnic) e #6 (sem conscrypt).
+
+## Limites de teste (anotar para não redescobrir)
+
+- `input keyevent` pelo adb **não passa** pelo filtro de teclas da acessibilidade: o que depende do
+  serviço de teclas só se testa com o controle de verdade. BACK injetado com a tela dormindo não chega.
+- `uiautomator dump` **desconecta** os serviços de acessibilidade enquanto roda: navegar por screenshot.
+- Nas Opções do desenvolvedor, cuidado com o OK: "Ativar opções", "Depuração por Wi-Fi > Desativado" e
+  "Revogar autorizações" derrubam o adb.
+- `pm dump`/`resolve-activity` do shell não mostram a preferência persistente do DO.
 
 ## Fix recente: dia/noite do ícone de clima (03/11/2026)
 
@@ -254,13 +326,10 @@ abrir de novo pelo painel resolve.
 - **Acesso por nome** (digitar "chromecast" no navegador em vez de `localhost:9000`) —
   não investigado. Provável caminho: mDNS/hosts local; precisa checar viabilidade.
 
-## Shizuku automático — decisão tomada, falta implementar
+## Shizuku automático — FEITO (04/11/2026)
 
-Confirmado pelo Paulo (03/11/2026): ele QUER essa automação, não é só uma ideia em aberto.
-Ver seção "ponte Shizuku" acima: instalar Shizuku em silêncio via Device Owner + iniciar o
-servidor dele via `adb shell` (mesma depuração sem fio já pareada), sem o usuário tocar em
-nada. Ainda não implementado — é trabalho real a fazer, não precisa esperar um caso de uso
-específico pedir UID shell: é um objetivo direto do projeto.
+Era um objetivo (03/11/2026) e foi além do planejado: em vez de instalar o app Shizuku, o servidor
+foi EMBUTIDO no launcher, que pareia, sobe e vigia sozinho (ver "Shell próprio + Shizuku embutido").
 
 ## Brainstorm aprovado em princípio, NÃO iniciado (não começar sem o Paulo pedir)
 
@@ -286,4 +355,4 @@ nem elogio. Toda afirmação factual etiquetada (verificado / lido em fonte / n�
 verificado). Discordar uma vez com o motivo e, se ele mantiver a decisão, executar sem
 reabrir a discussão. Antes de tarefa grande/cara, dizer escopo e custo em números. Para
 código: ele é iniciante aprendendo ao vivo — explicar o que o código faz e por quê, inline
-e curto. **Nunca commitar no git sem ele pedir explicitamente nessa sessão.**
+e curto. Commits/push: branch própria + PR em rascunho (permissão global de 04/11/2026; ver topo).

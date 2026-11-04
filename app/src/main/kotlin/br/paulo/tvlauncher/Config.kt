@@ -106,7 +106,6 @@ object Config {
 
     // --- De quanto em quanto tempo cada informação do topo/rodapé é atualizada.
     const val CLIMA_A_CADA_MIN = 5L   // as fontes mudam a cada 15 min (modelo) e ~60 min (aeroporto, ou antes se o tempo virar); 5 min pega a mudança cedo
-    const val LUA_A_CADA_MIN = 30L   // fase da lua: recalculada no proprio aparelho, sem internet
     const val REDE_A_CADA_SEG = 30L
     const val ECLIPSE_A_CADA_SEG = 60L   // so importa durante um eclipse solar: a lua anda no icone a cada tanto
 
