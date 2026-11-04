@@ -65,7 +65,6 @@
     </queries>
 
     <application
-        android:testOnly="true"
         android:allowBackup="false"
         android:icon="@android:drawable/sym_def_app_icon"
         android:banner="@android:drawable/sym_def_app_icon"

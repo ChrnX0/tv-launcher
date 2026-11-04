@@ -43,7 +43,9 @@ android {
             // Release encolhe o APK e remove código não usado. Assina com a chave debug só para instalar via adb.
             isMinifyEnabled = true
             isShrinkResources = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            // proguard-rules.pro (04/11/2026): mantém o servidor do Shizuku, a libadb, o conscrypt e o sun-security, que são
+            // achados por nome (app_process, reflexão, JNI). Sem elas o release quebrava o shell próprio e o Shizuku.
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }

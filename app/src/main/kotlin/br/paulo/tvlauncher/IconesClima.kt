@@ -69,6 +69,8 @@ object IconesClima {
     }
 
     /** A imagem da chave (lida do assets uma vez só). null se o arquivo faltar: quem chama cai no texto. */
+    // synchronized: desde 04/11/2026 o ícone também é preparado fora da thread da tela (ver MainActivity.buscarClima).
+    @Synchronized
     fun bitmap(ctx: Context, chave: String): Bitmap? = cache.getOrPut(chave) {
         try {
             val img = ctx.assets.open(caminho(chave.removePrefix(PREFIXO))).use { BitmapFactory.decodeStream(it) }
