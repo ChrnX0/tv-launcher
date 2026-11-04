@@ -62,6 +62,9 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
         </intent>
+        <!-- O launcher do Google (04/11/2026): sem isto o PackageManager diz que ele não existe, e o Home.kt
+             (botão HOME pelo serviço de teclas, atalho do painel) achava que ele estava desativado. -->
+        <package android:name="com.google.android.apps.tv.launcherx" />
     </queries>
 
     <application
