@@ -246,10 +246,11 @@ abrir de novo pelo painel resolve.
 - **Arquivos** (listar/enviar/baixar) — feito, testado, incluindo nome com espaço e
   verificação byte a byte do download.
 - **Tela ao vivo (ws-scrcpy)** — funcionando (04/11/2026), ver seção acima.
-- **Visual (CSS/JS) geral** — bugs conhecidos corrigidos (`hidden`, nome de arquivo com
-  espaço); falta um passo final de conferência visual das 3 abas inteiras no navegador.
-- **Auto-start do painel** — não feito. Ideia: seguir o mesmo padrão do
-  `C:\Users\rockx\ws-scrcpy\start.ps1`/`start.vbs` (pasta Startup do Windows).
+- **Visual (CSS/JS) geral** — as 3 abas conferidas no navegador em 04/11/2026: nomes reais dos apps (pedidos
+  ao launcher), launcher protegido (sem congelar/remover), pastas sem "Baixar", texto do aparelho escapado.
+  Antes: bugs corrigidos (`hidden`, nome de arquivo com espaço).
+- **Auto-start do painel** — feito (04/11/2026): `chromecast-painel/start.ps1` + `start.vbs`, cópia em
+  `shell:startup\chromecast-painel.vbs`. Não sobe duas vezes (confere a porta 9000). Log em `cache\painel.log`.
 - **Acesso por nome** (digitar "chromecast" no navegador em vez de `localhost:9000`) —
   não investigado. Provável caminho: mDNS/hosts local; precisa checar viabilidade.
 
