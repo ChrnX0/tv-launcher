@@ -229,7 +229,11 @@ da fase 0: `/mnt/project-files/tv-launcher/painel-no-launcher.md`.
   montado de tabela fixa); instalar APK em silêncio (`PainelApps.instalar`, PIN de novo; o próprio launcher é recusado);
   aba Arquivos (`PainelArquivos.kt`, memória interna menos `Android/`; corpo do envio vai em fluxo direto ao disco, ver
   `Requisicao.fluxoCorpo`). O acesso a todos os arquivos (MANAGE_EXTERNAL_STORAGE) o launcher se concede pelo shell na 1ª vez.
-- Fases seguintes (não feitas): ficha de cada app (descrição, risco, dependências), foto da tela, controle remoto, HTTPS.
+- Ficha de cada app (`PainelFicha.kt` + `assets/fichas-apps.json`, 94 pacotes desta TV escritos à mão; overlays pela regra
+  "/overlay/" no caminho do APK): risco essencial/cuidado/seguro, efeito de ocultar, papéis em uso (teclado, HOME, VPN,
+  acessibilidade, protetor, assistente, navegador) e "usado por" calculado na TV (biblioteca compartilhada e permissão que o app
+  define). Papel em uso sobe o risco para essencial. Pacote novo na TV sem ficha = "sem informação": acrescentar no JSON.
+- Fases seguintes (não feitas): foto da tela, controle remoto, HTTPS.
 
 # chromecast-painel — painel de administração (subpasta deste mesmo repo)
 
