@@ -71,7 +71,9 @@ dependencies {
     // Shell proprio MARCO 2: cliente ADB embutido (pareamento + TLS + shell). Licenca Apache-2.0 (opcao da dupla).
     implementation("com.github.MuntashirAkon:libadb-android:3.1.1")
     implementation("com.github.MuntashirAkon:sun-security-android:1.1")
-    implementation("org.conscrypt:conscrypt-android:2.5.3")
+    // conscrypt-android SAIU (04/11/2026, -1,28 MB de lib nativa): sem ela a libadb usa o TLS 1.3 do próprio Android
+    // (SslUtils: SSLContext.getInstance("TLSv1.3"), Android 10+) e, no pareamento, a exportKeyingMaterial da
+    // conscrypt da plataforma. Testado na TV: ver o commit.
 
     // Servidor do Shizuku EMBUTIDO (MARCO S1, 04/11/2026): as classes do servidor precisam estar no APK do launcher,
     // porque o processo shizuku_server é iniciado com `app_process -Djava.class.path=<este APK>`.
