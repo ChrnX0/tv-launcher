@@ -14,7 +14,9 @@ val localProps = Properties().apply {
 
 android {
     namespace = "br.paulo.tvlauncher"
-    compileSdk = 34
+    // 36 (antes 34): exigido pelos módulos do Shizuku embutido (androidx.core 1.16 pede compileSdk >= 35).
+    // Não muda o comportamento na TV: quem manda nisso é o targetSdk, que continua 34.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "br.paulo.tvlauncher"
@@ -44,6 +46,14 @@ android {
         buildConfig = true   // gera a classe BuildConfig com os campos acima
     }
 
+    // Extrai as .so para a pasta lib/arm do app instalado (como o app Shizuku original faz). Necessário porque o
+    // servidor do Shizuku embutido roda FORA do app (app_process) e carrega a librish.so por caminho de arquivo:
+    // System.load("<nativeLibraryDir>/librish.so"). Sem isto as .so ficam só dentro do APK e o servidor cai
+    // (medido em 04/11/2026: UnsatisfiedLinkError ... lib/arm/librish.so not found).
+    packaging {
+        jniLibs { useLegacyPackaging = true }
+    }
+
     buildTypes {
         release {
             // Release encolhe o APK e remove código não usado. Assina com a chave debug só para instalar via adb.
@@ -58,9 +68,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+}
+
+// Kotlin 2.2 trocou o bloco kotlinOptions { } (dentro de android) por este.
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }
 
 // Antes eram zero dependências, de propósito (APK menor, menos RAM na TV). Até 03/11/2026 tinha a API do Shizuku
@@ -70,4 +82,11 @@ dependencies {
     implementation("com.github.MuntashirAkon:libadb-android:3.1.1")
     implementation("com.github.MuntashirAkon:sun-security-android:1.1")
     implementation("org.conscrypt:conscrypt-android:2.5.3")
+
+    // Servidor do Shizuku EMBUTIDO (MARCO S1, 04/11/2026): as classes do servidor precisam estar no APK do launcher,
+    // porque o processo shizuku_server é iniciado com `app_process -Djava.class.path=<este APK>`.
+    // "provider" + "api" = o lado cliente/gerente: recebe o binder do servidor (Shizuku.pingBinder()).
+    implementation(project(":server"))
+    implementation(project(":provider"))
+    implementation(project(":api"))
 }

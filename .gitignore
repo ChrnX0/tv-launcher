@@ -2,6 +2,8 @@
 .gradle/
 build/
 app/build/
+# build nativo (CMake) dos modulos do Shizuku embutido
+.cxx/
 
 # Caminho do SDK desta maquina
 local.properties
