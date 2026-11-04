@@ -36,6 +36,10 @@ android {
     // (medido em 04/11/2026: UnsatisfiedLinkError ... lib/arm/librish.so not found).
     packaging {
         jniLibs { useLegacyPackaging = true }
+        // 04/11/2026: tabelas da assinatura pós-quântica "Picnic" do bouncycastle (vem de carona numa dependência do
+        // Shizuku/libadb). Eram 1,2 MB comprimidos (~2,3 MB reais) no APK e nada do launcher usa Picnic: o pareamento
+        // e o TLS do adb usam SPAKE2 (libspake2) e conscrypt. Medido no release: lowmcL1/L3/L5.bin.properties.
+        resources { excludes += "org/bouncycastle/pqc/crypto/picnic/**" }
     }
 
     buildTypes {
