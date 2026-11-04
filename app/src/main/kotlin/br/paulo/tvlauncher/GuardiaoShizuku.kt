@@ -157,6 +157,7 @@ object GuardiaoShizuku {
             override fun run() {
                 garantir(app, "periodico")
                 Thread { PrivilegioDO.reforcarVpn(app) }.start()   // e a VPN fixa (AdGuard), se o túnel caiu
+                Thread { Dns.voltarAoAutomaticoSeQuebrado(app) }.start()   // e o DNS fixo, se parou de responder
                 principal.postDelayed(this, PERIODO_MS)
             }
         }

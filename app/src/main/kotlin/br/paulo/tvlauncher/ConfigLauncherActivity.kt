@@ -116,7 +116,11 @@ class ConfigLauncherActivity : Activity() {
 
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
-        adicionar(linha("DNS privado", Dns.rotulo(this)) { startActivity(Intent(this, DnsActivity::class.java)) })
+        // Se o DNS fixo caiu e o launcher voltou para o automático (Dns.voltarAoAutomaticoSeQuebrado), avisa aqui.
+        val caiu = Dns.servidorQueCaiu(this)
+        adicionar(linha("DNS privado", Dns.rotulo(this) + (if (caiu != null) " · $caiu não respondeu, voltei para o automático" else "")) {
+            startActivity(Intent(this, DnsActivity::class.java))
+        })
         adicionar(linha("VPN", detalheVpn()) {
             val abrir = packageManager.getLeanbackLaunchIntentForPackage(Config.VPN_FIXA)
                 ?: packageManager.getLaunchIntentForPackage(Config.VPN_FIXA)

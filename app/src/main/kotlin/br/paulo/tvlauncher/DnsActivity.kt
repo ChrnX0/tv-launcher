@@ -181,6 +181,7 @@ class DnsActivity : Activity() {
                 "adb shell pm grant br.paulo.tvlauncher android.permission.WRITE_SECURE_SETTINGS"
             return
         }
+        Dns.esquecerQueCaiu(this)   // a pessoa escolheu de novo: o aviso de "voltou para o automático" deixa de valer
         atualizar()
         testar()
     }
