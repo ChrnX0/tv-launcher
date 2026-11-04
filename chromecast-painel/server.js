@@ -318,4 +318,9 @@ try {
     console.warn('nao consegui copiar painel-tela.html para o ws-scrcpy:', e.message);
 }
 
-app.listen(PORTA, () => console.log(`Painel do Chromecast em http://localhost:${PORTA}`));
+// Só neste PC (04/11/2026). O painel instala/desinstala apps, mexe em permissões e arquivos da TV e não tem senha;
+// antes escutava em todas as interfaces e o firewall do Windows deixa o Node receber da rede. A tela ao vivo já só
+// funcionava aqui (o link do ws-scrcpy é http://localhost:8000). Para abrir de outro aparelho, seria preciso subir
+// com PAINEL_HOST=0.0.0.0 E pôr uma senha antes (não existe hoje).
+const HOST = process.env.PAINEL_HOST || '127.0.0.1';
+app.listen(PORTA, HOST, () => console.log(`Painel do Chromecast em http://localhost:${PORTA} (escutando em ${HOST})`));
