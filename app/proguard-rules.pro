@@ -15,8 +15,10 @@
 -dontwarn android.**
 -dontwarn com.android.internal.**
 
-# Shell proprio: cliente ADB (libadb-android), TLS/SPAKE2 (conscrypt, JNI) e certificados (sun-security-android).
+# Shell proprio: cliente ADB (libadb-android), SPAKE2 (JNI) e certificados (sun-security-android).
 -keep class io.github.muntashirakon.** { *; }
+# org.conscrypt agora sao as PONTES do proprio app (src/main/java/org/conscrypt, 04/11/2026), achadas pela libadb por
+# Class.forName: o R8 nao pode renomear nem remover.
 -keep class org.conscrypt.** { *; }
 -keep class android.sun.security.** { *; }
 -dontwarn io.github.muntashirakon.**
