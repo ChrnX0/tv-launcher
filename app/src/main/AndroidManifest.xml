@@ -36,6 +36,26 @@
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
 
+    <!-- Shizuku EMBUTIDO (MARCO S1): o launcher é o "gerente" do Shizuku. Estas são as permissões que o app Shizuku
+         original declarava (fork thedjchi, manager/src/main/AndroidManifest.xml). Os apps clientes pedem a API_V23;
+         quem decide se libera é o launcher (tela de permissão, MARCO S2). Não usamos a API_V23 nós mesmos: o servidor
+         reconhece o gerente pelo nome do pacote. -->
+    <permission-group
+        android:name="moe.shizuku.manager.permission-group.API"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="Shizuku" />
+    <permission
+        android:name="moe.shizuku.manager.permission.MANAGER"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="moe.shizuku.manager.permission.MANAGER" />
+    <permission
+        android:name="moe.shizuku.manager.permission.API_V23"
+        android:description="@string/shizuku_permissao_descricao"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="@string/shizuku_permissao_nome"
+        android:permissionGroup="moe.shizuku.manager.permission-group.API"
+        android:protectionLevel="dangerous" />
+
     <!-- Android 11+ só deixa um app enxergar outros apps se isso for declarado aqui -->
     <queries>
         <intent>
@@ -167,6 +187,31 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
+
+        <!-- Shizuku EMBUTIDO (MARCO S1): é por este provider que o servidor shizuku_server (uid 2000) entrega o binder
+             dele ao launcher ("sendBinder"). Authority <pacote>.shizuku é a que o servidor procura. INTERACT_ACROSS_USERS_FULL:
+             só o sistema e o shell podem chamar. Ver ProvedorShizuku.kt. -->
+        <provider
+            android:name=".ProvedorShizuku"
+            android:authorities="${applicationId}.shizuku"
+            android:directBootAware="true"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama
+             Shizuku.requestPermission(). Só o sistema/shell podem abrir (INTERACT_ACROSS_USERS_FULL).
+             MARCO S1: só registra no log e recusa; a tela de verdade é o MARCO S2. -->
+        <activity
+            android:name=".PedidoShizukuActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL">
+            <intent-filter>
+                <action android:name="${applicationId}.intent.action.REQUEST_PERMISSION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Device owner (ver AdminReceiver.kt). Exportado porque o sistema precisa chamá-lo; só o sistema tem BIND_DEVICE_ADMIN. -->
         <receiver

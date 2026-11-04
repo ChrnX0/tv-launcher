@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="descricao_autoriza_shizuku">Aprova sozinho os pedidos de permissão que apps fazem ao Shizuku.</string>
+    <!-- Permissão que apps clientes do Shizuku pedem ao launcher (gerente do Shizuku embutido) -->
+    <string name="shizuku_permissao_nome">acessar o Shizuku do launcher</string>
+    <string name="shizuku_permissao_descricao">Permite que o app use os poderes de sistema (shell) do launcher, se você autorizar.</string>
 </resources>
