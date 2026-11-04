@@ -35,15 +35,21 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
 
-        /** Liga o Shizuku (fica ligado, inclusive no boot) e sobe o servidor. Usado pelo INICIAR e pelas Configurações. */
+        /** Modo SEMPRE (fica ligado, inclusive no boot) e sobe o servidor. Usado pelo INICIAR e pelas Configurações. */
         fun ligar(ctx: Context) {
-            Config.marcarShizukuAtivo(ctx, true)
+            Config.definirModoShizuku(ctx, Config.ModoShizuku.SEMPRE)
             GuardiaoShizuku.garantir(ctx, "INICIAR")
         }
 
-        /** Desliga: o guardião para de religar e o servidor é encerrado (Shizuku.exit(), pelo próprio servidor). */
+        /** Volta ao padrão SOB_DEMANDA e encerra o servidor agora (ele sobe de novo quando um app cliente abrir). */
+        fun sobDemanda(ctx: Context) {
+            Config.definirModoShizuku(ctx, Config.ModoShizuku.SOB_DEMANDA)
+            fila.execute { try { if (Shizuku.pingBinder() && !Config.shizukuAtivo(ctx)) Shizuku.exit() } catch (_: Throwable) {} }
+        }
+
+        /** Modo DESLIGADO: o guardião para de religar e o servidor é encerrado (Shizuku.exit(), pelo próprio servidor). */
         fun desligar(ctx: Context) {
-            Config.marcarShizukuAtivo(ctx, false)
+            Config.definirModoShizuku(ctx, Config.ModoShizuku.DESLIGADO)
             fila.execute {
                 try { if (Shizuku.pingBinder()) Shizuku.exit() } catch (_: Throwable) {}
                 ServidorShizuku.anotar(ctx, "[controle] desligado: ${estado()}")

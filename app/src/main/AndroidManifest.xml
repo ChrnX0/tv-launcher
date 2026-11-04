@@ -48,6 +48,11 @@
         android:name="moe.shizuku.manager.permission.MANAGER"
         android:protectionLevel="signature" />
     <uses-permission android:name="moe.shizuku.manager.permission.MANAGER" />
+    <!-- Shizuku sob demanda (04/11/2026): saber quais apps pedem o Shizuku (uses-permission API_V23) exige ver todos
+         os pacotes instalados. App de uso pessoal, fora da Play Store. Ver ShizukuSobDemanda.kt. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        xmlns:tools="http://schemas.android.com/tools" tools:ignore="QueryAllPackagesPermission" />
+
     <permission
         android:name="moe.shizuku.manager.permission.API_V23"
         android:description="@string/shizuku_permissao_descricao"

@@ -22,8 +22,10 @@ class AutorizaShizukuService : AccessibilityService() {
 
     // Só TYPE_WINDOW_STATE_CHANGED (ver autoriza_acessibilidade.xml): poucas por minuto, quando uma tela abre.
     override fun onAccessibilityEvent(evento: AccessibilityEvent?) {
-        if (evento?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+        if (evento?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             Home.janelaApareceu(this, evento.packageName, evento.className)
+            ShizukuSobDemanda.janelaApareceu(this, evento.packageName)   // app cliente do Shizuku na frente: sobe o servidor
+        }
     }
 
     /**
