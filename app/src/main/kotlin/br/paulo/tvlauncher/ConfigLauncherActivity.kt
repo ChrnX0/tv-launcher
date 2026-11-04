@@ -44,50 +44,20 @@ class ConfigLauncherActivity : Activity() {
         trabalho.shutdownNow()
     }
 
-    // ---------------------------------------------------------------- VPN (ver Vpn.kt)
+    // ---------------------------------------------------------------- VPN
+    // Desde 04/11/2026 a VPN é o app AdGuard VPN (decisão do Paulo); a VPN própria do launcher (IKEv2, Vpn.kt) foi
+    // aposentada — o servidor da AdGuard recusava a autenticação dela. O launcher só fixa o app como "VPN sempre
+    // ativa" pelo Device Owner (Config.VPN_FIXA, PrivilegioDO.aplicar) e mostra o estado aqui.
 
-    private lateinit var linhaVpn: TextView
-    private val pedidoVpn = 42   // número qualquer que identifica a volta da tela "permitir VPN" em onActivityResult
+    /** Há uma rede VPN de pé agora? */
+    private fun vpnAtiva(): Boolean = try {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true }
+    } catch (e: Exception) { false }
 
-    private fun detalheVpn(): String = when {
-        !Vpn.suportada() -> "precisa de Android 11+"
-        !Vpn.configurada() -> "credenciais não configuradas (local.properties)"
-        Vpn.ativa(this) -> "ligada — OK desliga"
-        else -> "desligada — OK liga (fica sempre ativa)"
-    }
-
-    /** OK na linha: liga (cadastra o perfil, pede autorização se for a 1ª vez, liga e marca "sempre ativa") ou desliga. */
-    private fun alternarVpn() {
-        if (!Vpn.suportada() || !Vpn.configurada()) return
-        if (Vpn.ativa(this)) {
-            PrivilegioDO.vpnSempreAtiva(this, false)   // primeiro tira o "sempre ativa", senão o Android religa na hora
-            Vpn.desligar(this)
-            atualizarVpnDepois()
-            return
-        }
-        val autorizar = Vpn.cadastrar(this)
-        if (autorizar != null) startActivityForResult(autorizar, pedidoVpn)   // 1ª vez: tela do sistema "permitir VPN"
-        else ligarVpn()
-    }
-
-    @Deprecated("API antiga, mas é a que existe em Activity (sem AndroidX)")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != pedidoVpn) return
-        if (resultCode == RESULT_OK) ligarVpn() else linhaVpn.detalhe("autorização recusada")
-    }
-
-    private fun ligarVpn() {
-        linhaVpn.detalhe("conectando…")
-        if (!Vpn.ligar(this)) { linhaVpn.detalhe("o Android recusou ligar (veja o log TvLauncher.Vpn)"); return }
-        PrivilegioDO.vpnSempreAtiva(this, true)
-        atualizarVpnDepois()
-    }
-
-    /** O túnel leva alguns segundos para subir/cair: confere de novo depois. */
-    private fun atualizarVpnDepois() {
-        ui.postDelayed({ if (!isDestroyed) linhaVpn.detalhe(detalheVpn()) }, 4000)
-    }
+    private fun detalheVpn(): String =
+        (if (vpnAtiva()) "conectada" else "desconectada") + " — app AdGuard VPN, sempre ativa · OK abre o app"
 
     // ---------------------------------------------------------------- tela
 
@@ -147,8 +117,11 @@ class ConfigLauncherActivity : Activity() {
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
         adicionar(linha("DNS privado", Dns.rotulo(this)) { startActivity(Intent(this, DnsActivity::class.java)) })
-        linhaVpn = linha("VPN AdGuard", detalheVpn()) { alternarVpn() }
-        adicionar(linhaVpn)
+        adicionar(linha("VPN", detalheVpn()) {
+            val abrir = packageManager.getLeanbackLaunchIntentForPackage(Config.VPN_FIXA)
+                ?: packageManager.getLaunchIntentForPackage(Config.VPN_FIXA)
+            if (abrir != null) startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        })
         lateinit var linhaVelocidade: TextView
         linhaVelocidade = linha("Testar velocidade da internet", "baixa 25 MB e mede") {
             linhaVelocidade.detalhe("Testando…")

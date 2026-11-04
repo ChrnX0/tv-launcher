@@ -154,7 +154,11 @@ object GuardiaoShizuku {
             })
         // 3. Relógio: a cada 10 min confere (barato: se o binder responde, não faz nada).
         val relogio = object : Runnable {
-            override fun run() { garantir(app, "periodico"); principal.postDelayed(this, PERIODO_MS) }
+            override fun run() {
+                garantir(app, "periodico")
+                Thread { PrivilegioDO.reforcarVpn(app) }.start()   // e a VPN fixa (AdGuard), se o túnel caiu
+                principal.postDelayed(this, PERIODO_MS)
+            }
         }
         principal.postDelayed(relogio, PERIODO_MS)
         anotar(app, "vigiando (binder, Wi-Fi, a cada ${PERIODO_MS / 60_000} min)")
