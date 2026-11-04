@@ -1,0 +1,4 @@
+Lbr/paulo/tvlauncher/**;
+HSPLbr/paulo/tvlauncher/**;->**(**)**
+Lkotlin/**;
+HSPLkotlin/**;->**(**)**
