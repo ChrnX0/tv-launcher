@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="descricao_autoriza_shizuku">Aprova sozinho os pedidos de permissão que apps fazem ao Shizuku.</string>
+    <!-- Aparece nas Configurações de acessibilidade da TV. Até 04/11/2026 dizia "Aprova sozinho os pedidos... ao
+         Shizuku" (função antiga, removida em 03/11). -->
+    <string name="descricao_autoriza_shizuku">Teclas do controle do launcher (botões Netflix/YouTube remapeáveis) e janela de pareamento sem PC.</string>
     <!-- Permissão que apps clientes do Shizuku pedem ao launcher (gerente do Shizuku embutido) -->
     <string name="shizuku_permissao_nome">acessar o Shizuku do launcher</string>
     <string name="shizuku_permissao_descricao">Permite que o app use os poderes de sistema (shell) do launcher, se você autorizar.</string>

@@ -139,7 +139,10 @@ object PrivilegioDO {
         if (!somosDonos(ctx)) false
         else {
             val pi = ctx.packageManager.packageInstaller
-            val intent = android.content.Intent("br.paulo.tvlauncher.DESINSTALADO")
+            // setPackage: com targetSdk 34, PendingIntent MUTÁVEL com Intent IMPLÍCITO lança IllegalArgumentException
+            // (o catch engolia e a função sempre devolvia false — achado da revisão de 04/11/2026). Mutável continua
+            // necessário: o instalador escreve o resultado (EXTRA_STATUS) no Intent.
+            val intent = android.content.Intent("br.paulo.tvlauncher.DESINSTALADO").setPackage(ctx.packageName)
             val ps = android.app.PendingIntent.getBroadcast(ctx, 0, intent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE)
             pi.uninstall(pacote, ps.intentSender)
