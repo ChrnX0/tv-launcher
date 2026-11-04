@@ -28,9 +28,17 @@ object ServidorShizuku {
     private const val NOME_PROCESSO = "shizuku_server"
     private const val CLASSE = "rikka.shizuku.server.ShizukuService"
 
+    private const val LOG_MAX = 256 * 1024   // 256 KB: passou disso, o atual vira .1 e começa outro
+
+    @Synchronized
     fun anotar(ctx: Context, linha: String) {
         Log.i(TAG, linha)
-        try { File(ctx.getExternalFilesDir(null), "shell_proprio.log").appendText("[shizuku] $linha\n") } catch (_: Exception) {}
+        try {
+            val f = File(ctx.getExternalFilesDir(null), "shell_proprio.log")
+            // Rotação (revisão de 04/11/2026): o log crescia sem limite — o guardião escreve a cada boot e a cada 10 min.
+            if (f.length() > LOG_MAX) f.renameTo(File(f.path + ".1"))
+            f.appendText("[shizuku] $linha\n")
+        } catch (_: Exception) {}
     }
 
     /** Monta o comando de partida do servidor, apontando para o APK instalado do próprio launcher. */
