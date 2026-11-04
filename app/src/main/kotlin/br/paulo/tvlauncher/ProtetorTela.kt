@@ -92,6 +92,37 @@ class ProtetorTela : DreamService() {
             gravity = Gravity.CENTER
         }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
 
+        // ---- clima + 4 indicadores: num bloco próprio, refeito a cada 15 min (ver [atualizarDados]).
+        blocoDados = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        coluna.addView(blocoDados, LinearLayout.LayoutParams(-2, -2))
+        montarDados(fonteMedia, fonteLeve)
+
+        // Mesmo grafite do tema Escuro (ver Fundos.kt: FundoEscuro), simplificado para o sonho ficar barato.
+        setContentView(FrameLayout(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xFF0E1317.toInt(), 0xFF0A0D10.toInt(), 0xFF07090B.toInt()))
+            addView(coluna, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        })
+        ui.postDelayed(deslocar, 60_000)
+        ui.postDelayed(atualizarDados, ATUALIZAR_MS)
+    }
+
+    // Antes, tudo abaixo era lido UMA vez ao entrar no sonho (revisão de 04/11/2026): num protetor de 6 h o clima e o
+    // "fresco < 3 h" ficavam os da entrada, e depois da meia-noite sol e lua eram os do dia anterior. Agora o bloco é
+    // refeito a cada 15 min: sol/lua recalculados, clima relido (e escondido quando passa de 3 h).
+    private val ATUALIZAR_MS = 15 * 60_000L
+    private lateinit var blocoDados: LinearLayout
+    private val atualizarDados = object : Runnable {
+        override fun run() {
+            montarDados(Typeface.create("sans-serif-medium", Typeface.NORMAL), Typeface.create("sans-serif-light", Typeface.NORMAL))
+            ui.postDelayed(this, ATUALIZAR_MS)
+        }
+    }
+
+    private fun montarDados(fonteMedia: Typeface, fonteLeve: Typeface) {
+        blocoDados.removeAllViews()
+        android.util.Log.i("TvLauncher.Protetor", "dados do protetor (re)montados")
+        val coluna = blocoDados   // o código abaixo era da coluna principal; agora escreve no bloco
         // ---- clima: ícone + temperatura (só com medida de até 3h; "melhor calar que mentir um número velho")
         val clima = getSharedPreferences("clima", MODE_PRIVATE)
         val frescoMs = System.currentTimeMillis() - clima.getLong("em", 0)
@@ -169,18 +200,11 @@ class ProtetorTela : DreamService() {
             tiles.addView(tile(emoji, valor, rotulo), LinearLayout.LayoutParams(ladoTile, ladoTile).apply { if (i > 0) marginStart = dp(12) })
         }
         coluna.addView(tiles, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(28) })
-
-        // Mesmo grafite do tema Escuro (ver Fundos.kt: FundoEscuro), simplificado para o sonho ficar barato.
-        setContentView(FrameLayout(this).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF0E1317.toInt(), 0xFF0A0D10.toInt(), 0xFF07090B.toInt()))
-            addView(coluna, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        })
-        ui.postDelayed(deslocar, 60_000)
     }
 
     override fun onDetachedFromWindow() {
         ui.removeCallbacks(deslocar)
+        ui.removeCallbacks(atualizarDados)
         super.onDetachedFromWindow()
     }
 
