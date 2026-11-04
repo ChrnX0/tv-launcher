@@ -231,6 +231,8 @@
                 <action android:name="br.paulo.tvlauncher.shizuku.ESTADO" />
                 <!-- Nomes reais dos apps para o painel do PC (chromecast-painel). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.ROTULOS" />
+                <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.OCULTAR" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama

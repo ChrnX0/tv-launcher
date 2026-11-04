@@ -29,6 +29,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val PARAR = "br.paulo.tvlauncher.shizuku.PARAR"
         const val ESTADO = "br.paulo.tvlauncher.shizuku.ESTADO"
         const val ROTULOS = "br.paulo.tvlauncher.ROTULOS"   // nomes dos apps para o painel (só adb)
+        const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -70,6 +71,15 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     for (ai in pm.getInstalledApplications(0)) put(ai.packageName, pm.getApplicationLabel(ai).toString())
                 }.toString()
             } catch (e: Exception) { "{}" }
+            // Só pelo adb (filtro só no receiver DUMP): ocultar/reexibir um app pelo Device Owner, para testar e desfazer
+            // sem rebuild. Ex.: am broadcast -a br.paulo.tvlauncher.OCULTAR --es pacote <pkg> --ez oculto false
+            //   -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+            OCULTAR -> {
+                val pacote = intent.getStringExtra("pacote")
+                val oculto = intent.getBooleanExtra("oculto", true)
+                resultData = if (pacote.isNullOrBlank()) "falta --es pacote"
+                else "mudou=${PrivilegioDO.ocultar(ctx, pacote, oculto)} oculto_agora=${PrivilegioDO.estaOculto(ctx, pacote)}"
+            }
         }
     }
 }
