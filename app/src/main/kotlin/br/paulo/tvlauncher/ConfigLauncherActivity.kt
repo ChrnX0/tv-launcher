@@ -155,6 +155,64 @@ class ConfigLauncherActivity : Activity() {
             }
         }
 
+        // ---- Painel no navegador (PainelWeb.kt): administrar a TV pelo celular/computador da casa, com PIN.
+        secao("Painel no navegador")
+        lateinit var linhaPainel: TextView
+        lateinit var linhaPin: TextView
+        fun detalhePainel(): String = when {
+            !PainelArmazem.temPin(this) -> "desligado · defina um PIN abaixo para ligar"
+            PainelArmazem.desligadoPorErros(this) -> "desligado sozinho: PIN errado muitas vezes · OK religa"
+            PainelArmazem.ligado(this) && PainelWeb.ligado() ->
+                "ligado · abra ${PainelWeb.endereco() ?: "(sem rede)"} no navegador · OK desliga"
+            PainelArmazem.ligado(this) -> "ligado, mas a porta ${Config.PAINEL_PORTA} não abriu · OK desliga"
+            else -> "desligado · OK liga"
+        }
+        linhaPainel = linha("Painel", detalhePainel()) {
+            when {
+                !PainelArmazem.temPin(this) -> linhaPainel.detalhe("defina um PIN primeiro (linha de baixo)")
+                PainelArmazem.desligadoPorErros(this) -> {
+                    PainelArmazem.definirDesligadoPorErros(this, false)
+                    PainelArmazem.definirLigado(this, true)
+                    PainelWeb.recomecar(this)
+                }
+                else -> {
+                    PainelArmazem.definirLigado(this, !PainelArmazem.ligado(this))
+                    PainelWeb.ajustar(this)
+                }
+            }
+            if (PainelArmazem.temPin(this)) {
+                linhaPainel.detalhe(detalhePainel())
+                // A porta abre numa thread à parte: confere de novo daqui a pouco.
+                ui.postDelayed({ if (!isDestroyed) linhaPainel.detalhe(detalhePainel()) }, 800)
+            }
+        }
+        adicionar(linhaPainel)
+        linhaPin = linha("PIN", if (PainelArmazem.temPin(this)) "definido · OK troca" else "não definido · OK define") {
+            pedirPin("Novo PIN (${PinSeguro.MIN_DIGITOS} a ${PinSeguro.MAX_DIGITOS} dígitos)") { pin ->
+                if (!PinSeguro.valido(pin)) { linhaPin.detalhe("PIN precisa ter de ${PinSeguro.MIN_DIGITOS} a ${PinSeguro.MAX_DIGITOS} números"); return@pedirPin }
+                pedirPin("Digite o PIN de novo") { pin2 ->
+                    if (pin2 != pin) { linhaPin.detalhe("os dois PINs não bateram · OK tenta de novo"); return@pedirPin }
+                    linhaPin.detalhe("gravando…")
+                    // PBKDF2 com 100 mil voltas leva um tempo num ARMv7: fora da thread da tela.
+                    trabalho.execute {
+                        PainelArmazem.definirPin(this, pin)
+                        ui.post {
+                            if (isDestroyed) return@post
+                            // Definir o PIN já liga o painel (é para isso que se define) e derruba as sessões antigas.
+                            PainelArmazem.definirLigado(this, true)
+                            PainelWeb.recomecar(this)
+                            linhaPin.detalhe("definido · OK troca")
+                            linhaPainel.detalhe(detalhePainel())
+                            ui.postDelayed({ if (!isDestroyed) linhaPainel.detalhe(detalhePainel()) }, 800)
+                        }
+                    }
+                }
+            }
+        }
+        adicionar(linhaPin)
+        val acessos = PainelArmazem.resumoRegistro(this, 3)
+        adicionar(info("Últimos acessos", if (acessos.isEmpty()) "nenhum ainda" else acessos.joinToString("\n")).apply { maxLines = 4 })
+
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         secao("Permissões")
         val dono = PrivilegioDO.somosDonos(this)
@@ -252,6 +310,27 @@ class ConfigLauncherActivity : Activity() {
                 }
             }
         }
+    }
+
+    // ---------------------------------------------------------------- PIN do painel
+
+    /**
+     * Caixa para digitar o PIN com o teclado da TV (só números, escondido). [aoConfirmar] recebe o texto digitado.
+     * AlertDialog do próprio Android: o controle remoto já sabe navegar nele (OK confirma, Voltar cancela).
+     */
+    private fun pedirPin(titulo: String, aoConfirmar: (String) -> Unit) {
+        val campo = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            filters = arrayOf(android.text.InputFilter.LengthFilter(PinSeguro.MAX_DIGITOS))
+            setSingleLine()
+        }
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(titulo)
+            .setView(campo)
+            .setPositiveButton("OK") { _, _ -> aoConfirmar(campo.text.toString()) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+        campo.requestFocus()
     }
 
     // ---------------------------------------------------------------- peças

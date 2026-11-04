@@ -112,6 +112,14 @@ object Config {
     val PERMISSOES_FIXAS = listOf("android.permission.READ_CALENDAR", "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.GET_ACCOUNTS")
 
+    // --- Painel no navegador (PainelWeb.kt): liga/desliga e PIN em Configurações do launcher > Painel no navegador.
+    // Porta: abaixo de 1024 (ex.: 80) o Android não deixa um app abrir (medido na TV em 04/11/2026), por isso 8080.
+    const val PAINEL_PORTA = 8080
+    // Nomes aceitos no cabeçalho Host, além do IP da TV. São os que um registro de DNS local no roteador (UniFi UX7)
+    // pode dar: "chromecast" e as variações com o domínio da rede.
+    // Um nome fora desta lista é recusado (barreira contra "DNS rebinding"). Para outro nome, acrescente aqui.
+    val PAINEL_NOMES = setOf("chromecast", "chromecast.lan", "chromecast.local", "chromecast.localdomain", "chromecast.home.arpa")
+
     // --- Depuração sem fio (adb pela rede, usado pelo computador para instalar e testar): true = o launcher a LIGA de novo
     //     sozinho quando a TV reinicia e sempre que abre, se o Android a tiver desligado. Custo: com ela ligada, a TV deixa uma porta de adb
     //     aberta na rede (só aceita computadores já pareados, com chave). false = fica como o Android deixar (ver Privilegio.religarDepuracaoSemFio).
