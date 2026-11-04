@@ -33,10 +33,35 @@ object PrivilegioDO {
                 // Autoconcede as nossas proprias permissoes perigosas, de forma FIXA: o usuario (ou um reset de permissoes)
                 // nao consegue revogar. E o "nunca perder privilegios", pelo caminho permanente — nao depende de adb nem Shizuku.
                 Config.PERMISSOES_FIXAS.forEach { conceder(ctx, ctx.packageName, it) }
+                fixarHome(ctx)
                 if (Config.OTIMIZAR_MEMORIA) Config.APPS_OCULTAR.forEach { ocultar(ctx, it, true) }
                 // VPN sempre ativa = app AdGuard VPN (04/11/2026). Vazio = o launcher não mexe na VPN.
                 if (Config.VPN_FIXA.isNotEmpty()) vpnSempreAtiva(ctx, Config.VPN_FIXA)
             }
+        }
+    }
+
+    /**
+     * Trava a nossa MainActivity como HOME, pelo Device Owner (04/11/2026). Até aqui a HOME era só "o único launcher
+     * ativo": se o launcherx do Google voltar a ser ativado (ou uma atualização trouxer outro launcher), o Android
+     * podia abrir o dele no botão HOME. A preferência persistente do DO vence qualquer escolha do usuário ou do sistema
+     * e sobrevive a reinícios. Idempotente: o PackageManager ignora a mesma preferência já gravada.
+     * Para desfazer: clearPackagePersistentPreferredActivities(admin, nosso pacote).
+     */
+    private fun fixarHome(ctx: Context) {
+        try {
+            val filtro = android.content.IntentFilter(android.content.Intent.ACTION_MAIN).apply {
+                addCategory(android.content.Intent.CATEGORY_HOME)
+                addCategory(android.content.Intent.CATEGORY_DEFAULT)
+            }
+            val nossa = ComponentName(ctx, MainActivity::class.java)
+            dpm(ctx).addPersistentPreferredActivity(admin(ctx), filtro, nossa)
+            val resolvida = ctx.packageManager.resolveActivity(
+                android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME), 0
+            )?.activityInfo
+            Log.i(TAG, "HOME persistente => ${nossa.flattenToShortString()} (resolve hoje para ${resolvida?.packageName}/${resolvida?.name})")
+        } catch (e: Exception) {
+            Log.w(TAG, "fixarHome falhou: $e")
         }
     }
 
