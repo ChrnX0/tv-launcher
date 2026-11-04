@@ -42,7 +42,8 @@ object GuardiaoShizuku {
     fun garantir(ctx: Context, motivo: String) {
         if (!Config.SHIZUKU_AUTOMATICO) return
         val app = ctx.applicationContext
-        if (Shizuku.pingBinder()) return                       // já está tudo de pé: não toca no adb
+        if (Config.shizukuParadoPeloUsuario(app)) return        // alguém mandou PARAR (ControleShizukuReceiver)
+        if (Shizuku.pingBinder() && !precisaCurar(app)) return  // já está tudo de pé: não toca no adb
         if (!trabalhando.compareAndSet(false, true)) return     // já tem uma tentativa em curso
         fila.execute {
             try { executar(app, motivo) } catch (e: Throwable) {
@@ -75,7 +76,7 @@ object GuardiaoShizuku {
         anotar(app, "inicio ($motivo)")
         for ((n, espera) in ESPERAS_S.withIndex()) {
             if (espera > 0) Thread.sleep(espera * 1000L)
-            if (motivo != "PAREAR" && Shizuku.pingBinder()) { anotar(app, "binder ja vivo"); return }
+            if (motivo != "PAREAR" && Shizuku.pingBinder() && !precisaCurar(app)) { anotar(app, "binder ja vivo"); return }
             if (!esperarWifi(app)) { anotar(app, "tentativa ${n + 1}: sem Wi-Fi"); continue }
             Privilegio.religarDepuracaoSemFio(app)
             val m = try { AdbConnectionManager.obter(app) } catch (e: Throwable) {
@@ -85,9 +86,29 @@ object GuardiaoShizuku {
             val id = ServidorShizuku.executar(app, m, "id")
             if (id.isNullOrBlank()) { anotar(app, "tentativa ${n + 1}: id sem resposta"); try { m.disconnect() } catch (_: Exception) {}; continue }
             anotar(app, "shell PROPRIO diz: $id")
+            autocurar(app, m)
             if (ServidorShizuku.iniciar(app, m)) { anotar(app, "OK ($motivo)"); return }
         }
         anotar(app, "desisti depois de ${ESPERAS_S.size} tentativas ($motivo)")
+    }
+
+    /** true se falta algo que só o shell concede (hoje: a janela flutuante). Faz o guardião passar no adb uma vez. */
+    private fun precisaCurar(app: Context) = !android.provider.Settings.canDrawOverlays(app)
+
+    /**
+     * Com o shell (uid 2000) na mão, o launcher se concede o que o Device Owner não alcança e antes exigia o PC:
+     *  - SYSTEM_ALERT_WINDOW (janela flutuante do pareamento sem PC, ver PareamentoNaTv);
+     *  - WRITE_SECURE_SETTINGS (religar acessibilidade e depuração sem fio, DNS) — caso tenha sido revogada;
+     *  - GET_USAGE_STATS (ordenar apps por uso). Só escreve se ainda não estiver concedido.
+     */
+    private fun autocurar(app: Context, m: AdbConnectionManager) {
+        val p = app.packageName
+        if (!android.provider.Settings.canDrawOverlays(app)) ServidorShizuku.executar(app, m, "appops set $p SYSTEM_ALERT_WINDOW allow")
+        if (app.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            ServidorShizuku.executar(app, m, "pm grant $p android.permission.WRITE_SECURE_SETTINGS")
+        val uso = ServidorShizuku.executar(app, m, "appops get $p GET_USAGE_STATS") ?: ""
+        if (!uso.contains("allow")) ServidorShizuku.executar(app, m, "appops set $p GET_USAGE_STATS allow")
+        anotar(app, "autocura: sobreposicao=${android.provider.Settings.canDrawOverlays(app)}")
     }
 
     /** Espera até 60 s por um Wi-Fi conectado. */

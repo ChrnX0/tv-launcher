@@ -199,7 +199,16 @@ class ConfigLauncherActivity : Activity() {
             ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 15_000)
         }
         adicionar(linhaServidor)
-        listaClientes = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        // Parear a depuração sem fio sem PC (ver PareamentoNaTv): abre as Opções do desenvolvedor com uma janela do
+        // launcher por cima, que acha a porta sozinha e recebe o código pelo controle.
+        lateinit var linhaParear: TextView
+        linhaParear = linha("Parear sem PC", if (PareamentoNaTv.podeMostrar(this))
+            "abre a tela de pareamento do Android com um teclado do launcher por cima"
+        else "o serviço de acessibilidade do launcher está desligado") {
+            if (!PareamentoNaTv.comecar(this)) linhaParear.detalhe("o serviço de acessibilidade do launcher está desligado")
+        }
+        adicionar(linhaParear)
+        listaClientes =LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         lista.addView(listaClientes, LinearLayout.LayoutParams(MATCH, WRAP))
         carregarClientes()
 
