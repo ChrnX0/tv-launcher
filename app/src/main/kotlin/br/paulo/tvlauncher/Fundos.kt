@@ -271,8 +271,11 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
         val bruto = File(context.cacheDir, "galeria-bruto.jpg")
         (URL(url).openConnection() as HttpURLConnection).run {
             connectTimeout = 15000; readTimeout = 60000
-            inputStream.use { entrada -> bruto.outputStream().use { entrada.copyTo(it) } }
-            disconnect()
+            // Item 31 da revisão: confere o 200 (uma página de erro virava "imagem" corrompida) e fecha no finally.
+            try {
+                if (responseCode != 200) throw java.io.IOException("HTTP $responseCode na imagem")
+                inputStream.use { entrada -> bruto.outputStream().use { entrada.copyTo(it) } }
+            } finally { disconnect() }
         }
         // Lê só o tamanho, escolhe a redução (potência de 2) que ainda deixa >= 1920 de largura, e lê de verdade.
         val limites = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -295,7 +298,10 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
     private fun ler(u: String): String = (URL(u).openConnection() as HttpURLConnection).run {
         connectTimeout = 15000; readTimeout = 20000
         setRequestProperty("User-Agent", "tv-launcher/0.1")
-        inputStream.bufferedReader().use { it.readText() }.also { disconnect() }
+        try {
+            if (responseCode != 200) throw java.io.IOException("HTTP $responseCode em $u")
+            inputStream.bufferedReader().use { it.readText() }
+        } finally { disconnect() }
     }
 }
 
