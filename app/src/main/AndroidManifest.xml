@@ -230,6 +230,8 @@
                 <action android:name="br.paulo.tvlauncher.shizuku.INICIAR" />
                 <action android:name="br.paulo.tvlauncher.shizuku.PARAR" />
                 <action android:name="br.paulo.tvlauncher.shizuku.ESTADO" />
+                <!-- Nomes reais dos apps para o painel do PC (chromecast-painel). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.ROTULOS" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama

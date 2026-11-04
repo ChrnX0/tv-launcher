@@ -28,6 +28,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val INICIAR = "br.paulo.tvlauncher.shizuku.INICIAR"
         const val PARAR = "br.paulo.tvlauncher.shizuku.PARAR"
         const val ESTADO = "br.paulo.tvlauncher.shizuku.ESTADO"
+        const val ROTULOS = "br.paulo.tvlauncher.ROTULOS"   // nomes dos apps para o painel (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -52,6 +53,14 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 resultData = "parando"
             }
             ESTADO -> resultData = estado()
+            // Só chega pelo receiver do adb (o filtro de ROTULOS está só nele): o painel do PC pergunta o nome real
+            // dos apps, que o adb não sabe dizer. Resposta: JSON {pacote: nome}.
+            ROTULOS -> resultData = try {
+                val pm = ctx.packageManager
+                org.json.JSONObject().apply {
+                    for (ai in pm.getInstalledApplications(0)) put(ai.packageName, pm.getApplicationLabel(ai).toString())
+                }.toString()
+            } catch (e: Exception) { "{}" }
         }
     }
 }
