@@ -194,10 +194,9 @@ class ConfigLauncherActivity : Activity() {
         linhaServidor = linha("Servidor", detalheServidor()) {
             if (rikka.shizuku.Shizuku.pingBinder()) return@linha
             linhaServidor.detalhe("ligando…")
-            trabalho.execute {
-                val ok = try { ServidorShizuku.iniciar(this, AdbConnectionManager.obter(this)) } catch (e: Throwable) { false }
-                ui.post { if (!isDestroyed) { linhaServidor.detalhe(if (ok) detalheServidor() else "não ligou (veja shell_proprio.log)"); carregarClientes() } }
-            }
+            // Pela fila do guardião (uma conexão adb por vez); confere o resultado depois de alguns segundos.
+            GuardiaoShizuku.garantir(this, "Configuracoes")
+            ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 15_000)
         }
         adicionar(linhaServidor)
         listaClientes = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }

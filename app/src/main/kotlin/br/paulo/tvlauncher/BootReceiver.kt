@@ -24,6 +24,9 @@ class BootReceiver : BroadcastReceiver() {
         Privilegio.religarDepuracaoSemFio(context)
         Privilegio.vigiarDepuracaoSemFio(context)   // e continua de olho: o Android pode desligá-la logo depois, no boot
         Despertador.agendar(context)   // o Android esquece os alarmes agendados quando reinicia
+        // Shizuku embutido (MARCO S3): sobe o servidor sozinho (espera o Wi-Fi e a depuração sem fio) e fica vigiando.
+        GuardiaoShizuku.vigiar(context)
+        GuardiaoShizuku.garantir(context, "boot")
         if (Config.ABRIR_AO_LIGAR.isEmpty()) return
         val abrir = context.packageManager.getLeanbackLaunchIntentForPackage(Config.ABRIR_AO_LIGAR)
         if (abrir == null) {
