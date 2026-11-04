@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chromecasts</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1 id="titulo">Chromecasts da casa</h1>
+    <button id="btnVoltar" class="botao-secundario" hidden>&larr; Aparelhos</button>
+  </header>
+
+  <!-- Tela 1: lista de aparelhos -->
+  <section id="telaAparelhos">
+    <p id="semAparelhos" class="aviso" hidden>Nenhum Chromecast encontrado na rede ainda. Verifique se eles estão ligados.</p>
+    <div id="listaAparelhos" class="grade-aparelhos"></div>
+    <button id="btnAtualizarAparelhos" class="botao-secundario">Procurar aparelhos de novo</button>
+  </section>
+
+  <!-- Tela 2: um aparelho -->
+  <section id="telaAparelho" hidden>
+    <nav class="abas">
+      <button class="aba ativa" data-aba="tela">Tela</button>
+      <button class="aba" data-aba="apps">Aplicativos</button>
+      <button class="aba" data-aba="arquivos">Arquivos</button>
+    </nav>
+
+    <div id="painelTela" class="painel-aba">
+      <iframe id="iframeTela" title="Tela do aparelho"></iframe>
+    </div>
+
+    <div id="painelApps" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <label class="botao-primario" for="arquivoApk">+ Instalar aplicativo</label>
+        <input type="file" id="arquivoApk" accept=".apk" hidden />
+      </div>
+      <p id="statusInstalacao" class="aviso" hidden></p>
+      <div id="listaApps" class="lista-apps"></div>
+    </div>
+
+    <div id="painelArquivos" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <select id="pastaAtalho">
+          <option value="/sdcard/Download">Downloads</option>
+          <option value="/sdcard/DCIM/Camera">Fotos</option>
+          <option value="/sdcard/Pictures">Imagens</option>
+        </select>
+        <label class="botao-primario" for="arquivoEnviar">Enviar arquivo</label>
+        <input type="file" id="arquivoEnviar" hidden />
+      </div>
+      <p id="statusArquivo" class="aviso" hidden></p>
+      <div id="listaArquivos" class="lista-arquivos"></div>
+    </div>
+  </section>
+
+  <!-- Permissões de um app -->
+  <div id="modalPermissoes" class="modal" hidden>
+    <div class="modal-conteudo">
+      <div class="modal-cabecalho">
+        <h2 id="tituloModalPermissoes">Permissões</h2>
+        <button id="btnFecharModal" class="botao-secundario">Fechar</button>
+      </div>
+      <div id="listaPermissoes" class="lista-permissoes"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -93,6 +93,22 @@ object PrivilegioDO {
         Log.w(TAG, "definirTempoDescanso falhou: $e"); false
     }
 
+    /**
+     * VPN "sempre ativa" apontando para o NOSSO pacote (o perfil IKEv2 que o [Vpn] cadastrou): o Android religa o túnel
+     * sozinho, inclusive depois de reiniciar. [ligada] = false tira. lockdown = false: se a VPN cair, a internet continua
+     * funcionando sem ela (com true, a TV ficaria sem internet até a VPN voltar — ruim numa TV que os pais usam).
+     */
+    fun vpnSempreAtiva(ctx: Context, ligada: Boolean): Boolean = try {
+        if (!somosDonos(ctx)) false
+        else {
+            dpm(ctx).setAlwaysOnVpnPackage(admin(ctx), if (ligada) ctx.packageName else null, false)
+            Log.i(TAG, "VPN sempre ativa => $ligada")
+            true
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "vpnSempreAtiva falhou: $e"); false
+    }
+
     fun estaOculto(ctx: Context, pacote: String): Boolean = try {
         somosDonos(ctx) && dpm(ctx).isApplicationHidden(admin(ctx), pacote)
     } catch (e: Exception) { false }

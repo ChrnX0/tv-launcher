@@ -14,6 +14,11 @@ object Config {
     // acima só valem se as duas falharem. A estação de medição (aeroporto) é escolhida sozinha: a mais perto.
     // Para FIXAR uma, ponha o código ICAO aqui (ex.: "SBRP"); "" = automático.
     const val ESTACAO_METAR = ""
+    // Minutos depois do PÔR do sol real (calculado por Astronomia.nascerEPor, não o "is_day" da Open-Meteo) em que
+    // o ícone ainda considera "dia". A Open-Meteo marca noite no instante exato do pôr, sem contar o crepúsculo
+    // civil (a claridade que sobra no céu depois). Flagrado em 03/11/2026 às 18:38: pôr às 18:24, ícone já de lua,
+    // mas a foto da varanda mostrava céu claramente ainda claro. Ajuste este número se ainda trocar cedo/tarde demais.
+    const val MARGEM_CREPUSCULO_MIN = 20
 
     // --- Quais apps aparecem: os instalados por você + estes pacotes de sistema (a Play Store).
     val SEMPRE_MOSTRAR = listOf("com.android.vending")
@@ -40,10 +45,11 @@ object Config {
     // --- App aberto automaticamente quando a TV REINICIA (não quando acorda do standby). "" desliga.
     const val ABRIR_AO_LIGAR = ""   // desligado: o OneStream tem opcao propria de abrir ao reiniciar; ponha o pacote aqui so se quiser que o launcher faca isso
 
-    // --- Shizuku: true = o serviço de acessibilidade aprova SOZINHO qualquer app que pedir acesso (cada um ganha shell).
-    //     false = o diálogo do Shizuku aparece e você decide. Também dá para desligar em Configurações > Acessibilidade.
-    //     Com true, o launcher também RELIGA o serviço sozinho se o Android o desligar (ver Privilegio.religarAcessibilidade).
-    const val SHIZUKU_AUTORIZAR_TUDO = true
+    // --- Serviço de acessibilidade (AutorizaShizukuService, hoje só trata teclas do controle remoto): true = o
+    //     launcher RELIGA o serviço sozinho se o Android o desligar (ver Privilegio.religarAcessibilidade).
+    //     Até 03/11/2026 esta chave também controlava a aprovação automática dos diálogos do Shizuku; esse app
+    //     foi desinstalado e a lógica, removida — o nome ficou de antes, mas a função é só essa religada acima.
+    const val SERVICO_TECLAS_SEMPRE_LIGADO = true
 
     // --- Device Owner (ver PrivilegioDO.kt) ---
     // FIXAR_PROTETOR: o app aponta o screensaver do sistema para o nosso ProtetorTela (aposenta o dreamx, ~59 MB).

@@ -163,8 +163,7 @@ class MainActivity : Activity() {
         tema = Tema.atual(this)
         setContentView(montarTela())
         window.setBackgroundDrawable(null)   // a janela não pinta o fundo padrão do tema por baixo de tudo (ver montarTela)
-        Privilegio.religarAcessibilidade(this)   // antes de falar com o Shizuku, para o serviço já estar de pé
-        Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
+        Privilegio.religarAcessibilidade(this)   // religa o serviço de teclas do controle se o Android o desligou
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
         PrivilegioDO.aplicar(this)   // Device Owner: fixa o nosso protetor e oculta apps substituidos (ver PrivilegioDO.kt)
         if (Config.SHELL_PROPRIO_DIAG) ShellProprio.diagnosticar(this)   // MARCO 1 do shell proprio: loga chave + porta adb (ver ShellProprio.kt)
@@ -184,7 +183,6 @@ class MainActivity : Activity() {
         Privilegio.religarAcessibilidade(this)
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
         Despertador.agendar(this)   // garante o proximo alarme agendado (barato: so le as preferencias)
-        Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
     }
 
     override fun onPause() {
@@ -1230,7 +1228,17 @@ class MainActivity : Activity() {
                     codigo = visto ?: medida.nuvens
                     chovendoAgora = visto != null && visto >= 51
                 }
-                val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
+                // Dia/noite calculado AQUI, nao pelo "is_day" da Open-Meteo: ele vira noite no instante exato do por do
+                // sol, sem o crepusculo civil (a claridade que sobra no ceu por uns 20 min depois). Flagrado em 03/11
+                // as 18:38 (por as 18:24, icone ja de lua, ceu da varanda ainda claro). Usa o nascer/por REAL do lugar
+                // (Astronomia.nascerEPor) com margem so no por (Config.MARGEM_CREPUSCULO_MIN); cai no is_day da API
+                // se o calculo falhar (nao deve, exceto perto dos polos).
+                val agoraMs = System.currentTimeMillis()
+                val nascerPor = Astronomia.nascerEPor(agoraMs, ponto.lat, ponto.lon)
+                val eDia = if (nascerPor != null) {
+                    val (nascer, por) = nascerPor
+                    agoraMs in nascer until (por + Config.MARGEM_CREPUSCULO_MIN * 60_000L)
+                } else atual.optInt("is_day", 1) == 1
                 val (iconeDoTempo, descricao) = descricaoClima(codigo, eDia, chovendoAgora)
                 // A linha informativa do clima: se chove agora ou ha previsao de chuva HOJE (primeira hora com chance >= 40%),
                 // diz quando; senao, diz a condicao do tempo de agora (ex.: "Poucas nuvens").
