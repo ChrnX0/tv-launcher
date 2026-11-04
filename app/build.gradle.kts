@@ -13,6 +13,9 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1"
+        // So as arquiteturas ARM (o Chromecast e ARM). Sem isto o conscrypt entrava tambem em x86/x86_64,
+        // que nenhuma TV desta casa usa: o APK tinha ~16 MB, quase 5 MB disso eram libs x86 (medido no dist/).
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 
     buildTypes {
