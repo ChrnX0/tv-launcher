@@ -143,8 +143,12 @@ baixar arquivo, ver a tela ao vivo — tudo multi-aparelho, descoberta automáti
 `tv-launcher` (decisão do Paulo em 03/11/2026: faz parte do mesmo projeto). `node_modules/`
 e `cache/` dessa subpasta estão no `.gitignore` do repo (não versionar dependências nem
 dados locais de cache). **Atenção de segurança:** esse painel controla instalar/desinstalar
-app e dá acesso à tela da TV pela rede local, sem senha hoje — cuidado extra ao decidir se
-o repo vira público no futuro.
+app e dá acesso à tela da TV, sem senha. Por isso, desde 04/11/2026, **só escuta em 127.0.0.1**
+(painel: `server.js`, `PAINEL_HOST`; ws-scrcpy: `node -r ws-scrcpy-extra/so-localhost.js` no
+`C:\Users\rockx\ws-scrcpy\start.ps1`, sem mexer no código dele). Antes escutavam em todas as
+interfaces, e o firewall do Windows tem uma regra "Node.js" liberando entrada (Privado e Público).
+Medido depois: pelo IP da rede (192.168.1.236:9000/8000) recusa; por localhost funciona, inclusive a
+tela ao vivo. Para usar de outro aparelho: pôr senha ANTES de abrir para a rede.
 
 Motivo de existir: o Paulo rejeitou explicitamente a interface técnica/crua do `ws-scrcpy`
 ("Que coisa horrorosa é isso daqui?") — então esse painel existe pra embutir a visualização
