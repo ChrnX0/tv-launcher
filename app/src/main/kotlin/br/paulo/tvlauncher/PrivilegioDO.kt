@@ -186,37 +186,7 @@ object PrivilegioDO {
         }
     } catch (e: Exception) { Log.w(TAG, "conceder $permissao falhou: $e"); false }
 
-    /** Suspende (ou retoma) apps: o icone fica esmaecido e o app nao abre nem roda, sem desinstalar. Reversivel. */
-    fun suspender(ctx: Context, pacotes: List<String>, suspenso: Boolean): Array<String> = try {
-        if (!somosDonos(ctx)) emptyArray()
-        else dpm(ctx).setPackagesSuspended(admin(ctx), pacotes.toTypedArray(), suspenso).also {
-            Log.i(TAG, "suspender(${pacotes.joinToString()}, $suspenso) => falharam=${it.joinToString()}")
-        }
-    } catch (e: Exception) { Log.w(TAG, "suspender falhou: $e"); pacotes.toTypedArray() }
-
-    /** Desinstala um app em silencio (sem a tela do sistema), pelo Device Owner. Use com cuidado: e de verdade. */
-    fun desinstalar(ctx: Context, pacote: String): Boolean = try {
-        if (!somosDonos(ctx)) false
-        else {
-            val pi = ctx.packageManager.packageInstaller
-            // setPackage: com targetSdk 34, PendingIntent MUTÁVEL com Intent IMPLÍCITO lança IllegalArgumentException
-            // (o catch engolia e a função sempre devolvia false — achado da revisão de 04/11/2026). Mutável continua
-            // necessário: o instalador escreve o resultado (EXTRA_STATUS) no Intent.
-            val intent = android.content.Intent("br.paulo.tvlauncher.DESINSTALADO").setPackage(ctx.packageName)
-            val ps = android.app.PendingIntent.getBroadcast(ctx, 0, intent,
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE)
-            pi.uninstall(pacote, ps.intentSender)
-            Log.i(TAG, "desinstalar($pacote) solicitado")
-            true
-        }
-    } catch (e: Exception) { Log.w(TAG, "desinstalar $pacote falhou: $e"); false }
-
-    /** Liga/desliga uma restricao de usuario (ex.: UserManager.DISALLOW_SAFE_BOOT). Permanente ate reverter. */
-    fun restricao(ctx: Context, chave: String, ligada: Boolean) {
-        try {
-            if (!somosDonos(ctx)) return
-            if (ligada) dpm(ctx).addUserRestriction(admin(ctx), chave) else dpm(ctx).clearUserRestriction(admin(ctx), chave)
-            Log.i(TAG, "restricao($chave, $ligada)")
-        } catch (e: Exception) { Log.w(TAG, "restricao $chave falhou: $e") }
-    }
+    // 04/11/2026 (faxina, item 28 da revisão): saíram suspender(), desinstalar() e restricao(), que ninguém chamava.
+    // O desinstalar() era também o poder mais perigoso do arquivo (remover app em silêncio). Se um dia precisar, as
+    // chamadas do DPM são setPackagesSuspended, PackageInstaller.uninstall e add/clearUserRestriction (ver o git).
 }
