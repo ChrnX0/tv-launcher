@@ -36,8 +36,11 @@ object Despertador {
     fun listar(ctx: Context): List<Alarme> {
         val texto = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alarmes", "[]") ?: "[]"
         val arr = try { JSONArray(texto) } catch (e: Exception) { JSONArray() }
-        return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.map {
-            Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true), it.optInt("som", 0), it.optInt("rampa", 0))
+        // Um item estragado (sem id/hora/minuto) é pulado, em vez de derrubar a HOME inteira (revisão do painel, 04/11/2026).
+        return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.mapNotNull {
+            try {
+                Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true), it.optInt("som", 0), it.optInt("rampa", 0))
+            } catch (e: org.json.JSONException) { null }
         }.sortedWith(compareBy({ it.hora }, { it.minuto }))
     }
 

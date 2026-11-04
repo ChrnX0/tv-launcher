@@ -21,9 +21,19 @@ async function chamar(metodo, caminho, corpo, corpoCru) {
     opcoes.headers['Content-Type'] = 'application/json';
     opcoes.body = JSON.stringify(corpo);
   }
-  const resp = await fetch(caminho, opcoes);
+  let resp;
+  try {
+    resp = await fetch(caminho, opcoes);
+  } catch (e) {
+    // O navegador só diz "Failed to fetch"/"Load failed": a porta está fechada ou a TV saiu da rede.
+    throw new Error('Não consegui falar com a TV. Confira se ela está ligada e se o painel está ligado nas Configurações do launcher.');
+  }
   const dados = await resp.json().catch(() => ({}));
-  if (resp.status === 401 && caminho !== '/api/entrar') { mostrarEntrar(); throw new Error('Sessão expirada: entre de novo.'); }
+  // 401 em /api/entrar e /api/confirmar é "PIN errado" (a sessão continua); nas outras rotas é sessão expirada.
+  if (resp.status === 401 && caminho !== '/api/entrar' && caminho !== '/api/confirmar') {
+    mostrarEntrar('Sessão expirada: entre de novo.');
+    throw new Error('Sessão expirada: entre de novo.');
+  }
   if (resp.status === 403 && dados.precisaPin) throw new PrecisaPin(dados.erro);
   if (!resp.ok) { const e = new Error(dados.erro || `Falha (${resp.status})`); e.dados = dados; throw e; }
   return dados;
@@ -33,7 +43,9 @@ function mostrar(el, texto) { el.textContent = texto; el.hidden = !texto; }
 
 // ---------- entrar ----------
 
-function mostrarEntrar() {
+function mostrarEntrar(aviso) {
+  fecharModalAberto();
+  mostrar($('avisoEntrar'), aviso || '');
   $('telaPainel').hidden = true;
   $('telaEntrar').hidden = false;
   $('campoPin').value = '';
@@ -45,8 +57,11 @@ $('formEntrar').addEventListener('submit', async (ev) => {
   const btn = $('btnEntrar');
   btn.disabled = true;
   mostrar($('erroEntrar'), '');
+  const pin = $('campoPin').value;
+  if (!pinValido(pin)) { mostrar($('erroEntrar'), 'O PIN tem de 6 a 12 números.'); btn.disabled = false; return; }
   try {
-    await chamar('POST', '/api/entrar', { pin: $('campoPin').value });
+    await chamar('POST', '/api/entrar', { pin });
+    mostrar($('avisoEntrar'), '');
     await abrirPainel();
   } catch (e) {
     let msg = e.message;
@@ -99,11 +114,18 @@ for (const b of document.querySelectorAll('.aba')) b.addEventListener('click', (
 
 // ---------- confirmação (e PIN de novo) ----------
 
+function pinValido(pin) { return /^[0-9]{6,12}$/.test(pin); }
+
+let fecharModalAberto = () => {};
+let modalAtual = 0;   // cada confirmar() ganha um número: resposta atrasada de um quadro antigo não mexe no novo
+
 /**
  * Pergunta antes de uma ação sem volta. Se o launcher responder que precisa do PIN (passaram 5 min desde a
  * última vez), o mesmo quadro mostra o campo de PIN, confirma no launcher e tenta a ação de novo.
  */
 function confirmar(titulo, texto, rotuloOk, fazer) {
+  fecharModalAberto();
+  const meu = ++modalAtual;
   return new Promise((resolve) => {
     $('tituloModal').textContent = titulo;
     $('textoModal').textContent = texto;
@@ -111,39 +133,69 @@ function confirmar(titulo, texto, rotuloOk, fazer) {
     $('pinModal').hidden = true;
     $('pinModal').value = '';
     mostrar($('erroModal'), '');
+    $('btnOkModal').disabled = false;
+    $('btnCancelarModal').disabled = false;
     $('modal').hidden = false;
     $('btnOkModal').focus();
 
     const fechar = (resultado) => {
+      if (meu !== modalAtual) return;
+      modalAtual++;
+      fecharModalAberto = () => {};
       $('modal').hidden = true;
       $('formModal').onsubmit = null;
       $('btnCancelarModal').onclick = null;
       resolve(resultado);
     };
+    fecharModalAberto = () => fechar(null);
     $('btnCancelarModal').onclick = () => fechar(null);
     $('formModal').onsubmit = async (ev) => {
       ev.preventDefault();
+      if (meu !== modalAtual) return;
+      const pedirPin = !$('pinModal').hidden;
+      if (pedirPin && !pinValido($('pinModal').value)) {
+        mostrar($('erroModal'), 'Digite o PIN (6 a 12 números).');
+        return;
+      }
+      // Enquanto o pedido roda, nem confirmar de novo nem cancelar: a ação já foi para a TV e não para no meio.
       $('btnOkModal').disabled = true;
+      $('btnCancelarModal').disabled = true;
       mostrar($('erroModal'), '');
       try {
-        if (!$('pinModal').hidden) await chamar('POST', '/api/confirmar', { pin: $('pinModal').value });
+        if (pedirPin) {
+          await chamar('POST', '/api/confirmar', { pin: $('pinModal').value });
+          $('pinModal').hidden = true;   // confirmado: uma nova tentativa da ação não reenvia o PIN
+        }
         const r = await fazer();
         fechar(r);
       } catch (e) {
+        if (meu !== modalAtual) return;
         if (e instanceof PrecisaPin) {
           $('pinModal').hidden = false;
           $('pinModal').value = '';
           $('pinModal').focus();
           mostrar($('erroModal'), 'Por segurança, digite o PIN de novo.');
         } else {
-          mostrar($('erroModal'), e.message);
+          let msg = e.message;
+          if (e.dados && e.dados.restantes) msg += ` (mais ${e.dados.restantes} tentativa(s) antes de bloquear)`;
+          mostrar($('erroModal'), msg);
           $('pinModal').value = '';
         }
       } finally {
-        $('btnOkModal').disabled = false;
+        if (meu === modalAtual) {
+          $('btnOkModal').disabled = false;
+          $('btnCancelarModal').disabled = false;
+        }
       }
     };
   });
+}
+
+/** A TV está em uso agora? Devolve o nome do que está na tela, ou '' se está em espera ou na tela inicial. */
+async function tvEmUso() {
+  await atualizarEstado().catch(() => {});
+  const naTela = ultimoEstado.naTela || '';
+  return (naTela && naTela !== 'em espera' && naTela !== 'na tela inicial' && naTela !== 'ligada') ? naTela : '';
 }
 
 // ---------- aplicativos ----------
@@ -240,9 +292,18 @@ function linhaApp(a) {
 }
 
 async function alternarOculto(a, botao) {
+  const fazer = () => chamar('POST', '/api/apps/' + encodeURIComponent(a.pacote) + '/ocultar', { oculto: !a.oculto });
   botao.disabled = true;
   try {
-    await chamar('POST', '/api/apps/' + encodeURIComponent(a.pacote) + '/ocultar', { oculto: !a.oculto });
+    // Ocultar fecha o app na hora. Com a TV em uso, pergunta antes (a família pode estar vendo justamente ele).
+    const emUso = a.oculto ? '' : await tvEmUso();
+    if (emUso) {
+      const ok = await confirmar('Ocultar ' + a.nome + '?',
+        `A TV está em uso agora (${emUso}). Ocultar fecha o app na hora, se for ele que está na tela.`, 'Ocultar', fazer);
+      if (!ok) { botao.disabled = false; return; }
+    } else {
+      await fazer();
+    }
     a.oculto = !a.oculto;
     desenharApps();
   } catch (e) {
@@ -252,11 +313,9 @@ async function alternarOculto(a, botao) {
 }
 
 async function desinstalar(a) {
-  await atualizarEstado().catch(() => {});
-  const naTela = ultimoEstado.naTela || '';
-  const emUso = naTela && naTela !== 'em espera' && naTela !== 'na tela inicial' && naTela !== 'ligada';
+  const emUso = await tvEmUso();
   const texto = `Remove o app ${a.nome} e os dados dele da TV. Não tem volta.` +
-    (emUso ? ` Atenção: a TV está em uso agora (${naTela}).` : '');
+    (emUso ? ` Atenção: a TV está em uso agora (${emUso}).` : '');
   const ok = await confirmar('Desinstalar ' + a.nome + '?', texto, 'Desinstalar',
     () => chamar('POST', '/api/apps/' + encodeURIComponent(a.pacote) + '/desinstalar', {}));
   if (ok) {
@@ -281,8 +340,10 @@ $('arquivoBackup').addEventListener('change', async (ev) => {
     mostrar(status, 'Esse arquivo não é um backup válido (JSON).');
     return;
   }
+  const emUso = await tvEmUso();
   const r = await confirmar('Restaurar backup?',
-    `Substitui as configurações do launcher pelas de "${arquivo.name}" e reinicia o launcher na TV (a tela pisca).`,
+    `Substitui as configurações do launcher pelas de "${arquivo.name}" e reinicia o launcher na TV (a tela pisca).` +
+    (emUso ? ` Atenção: a TV está em uso agora (${emUso}).` : ''),
     'Restaurar', () => chamar('POST', '/api/backup/restaurar', undefined, texto));
   if (!r) return;
   mostrar(status, `Restaurado (${r.chaves} configurações). O launcher está reiniciando…`);
@@ -296,12 +357,32 @@ function esperarVoltar(status) {
     tentativas++;
     try {
       const r = await fetch('/api/estado', { cache: 'no-store' });
-      if (r.ok) { clearInterval(t); mostrar(status, 'Pronto: o launcher voltou.'); mostrarEntrar(); }
+      if (r.ok) { clearInterval(t); mostrarEntrar('Backup restaurado e launcher reiniciado. Entre de novo com o PIN.'); }
     } catch (e) {
       if (tentativas > 30) { clearInterval(t); mostrar(status, 'O launcher não voltou em 1 min. Confira a TV.'); }
     }
   }, 2000);
 }
+
+/** Baixa um arquivo pelo chamar() (que explica sessão expirada e "não existe" em português) e salva pelo navegador. */
+async function baixar(caminho, nome, status) {
+  mostrar(status, '');
+  try {
+    let resp;
+    try { resp = await fetch(caminho, { credentials: 'same-origin', cache: 'no-store' }); } catch (e) { throw new Error('Não consegui falar com a TV.'); }
+    if (resp.status === 401) { mostrarEntrar('Sessão expirada: entre de novo.'); return; }
+    if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.erro || `Falha (${resp.status})`); }
+    const url = URL.createObjectURL(await resp.blob());
+    const a = document.createElement('a');
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (e) {
+    mostrar(status, e.message);
+  }
+}
+$('btnBaixar').addEventListener('click', () => baixar('/api/backup', 'launcher-backup.json', $('statusBaixar')));
+$('btnBaixarAnterior').addEventListener('click', () => baixar('/api/backup/anterior', 'launcher-antes-de-restaurar.json', $('statusBackup')));
 
 // ---------- acessos ----------
 

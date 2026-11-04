@@ -15,6 +15,7 @@
     <form id="formEntrar" class="cartao-entrar" autocomplete="off">
       <h1>Chromecast</h1>
       <p class="aviso">Digite o PIN definido nas Configurações do launcher, na TV.</p>
+      <p id="avisoEntrar" class="aviso-ok" hidden></p>
       <input id="campoPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
              autocomplete="off" aria-label="PIN" placeholder="PIN" required>
       <button type="submit" class="botao-primario" id="btnEntrar">Entrar</button>
@@ -50,12 +51,13 @@
       <div class="cartao">
         <h2>Baixar backup</h2>
         <p class="aviso">Ordem dos apps, tema, alarmes, DNS e as demais configurações do launcher, num arquivo JSON. O PIN não vai junto.</p>
-        <a class="botao-primario" href="/api/backup" download>Baixar agora</a>
+        <button type="button" class="botao-primario" id="btnBaixar">Baixar agora</button>
+        <p id="statusBaixar" class="aviso" hidden></p>
       </div>
       <div class="cartao">
         <h2>Restaurar</h2>
         <p class="aviso">Substitui as configurações da TV pelas do arquivo e reinicia o launcher. O estado de antes fica guardado:
-          <a href="/api/backup/anterior" download>baixar o de antes da última restauração</a>.</p>
+          <button type="button" class="link" id="btnBaixarAnterior">baixar o de antes da última restauração</button>.</p>
         <label class="botao-secundario" for="arquivoBackup">Escolher arquivo…</label>
         <input type="file" id="arquivoBackup" accept=".json,application/json" hidden>
         <p id="statusBackup" class="aviso" hidden></p>

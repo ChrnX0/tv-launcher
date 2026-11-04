@@ -27,6 +27,8 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .aviso { color: var(--texto-fraco); margin: 8px 0; }
 .aviso-curto { color: var(--texto-fraco); margin: 4px 0 0; font-size: 14px; }
 .erro { color: var(--perigo); margin: 8px 0; }
+.aviso-ok { color: var(--ok); margin: 8px 0; }
+.link { background: none; border: none; padding: 0; color: var(--acento); text-decoration: underline; cursor: pointer; font: inherit; }
 
 .botao-primario, .botao-secundario, .botao-perigo {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
