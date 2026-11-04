@@ -97,6 +97,7 @@ object PainelApps {
         val pm = ctx.packageManager
         val abriveis = abriveis(pm)
         val pacotes: List<PackageInfo> = pm.getInstalledPackages(flagsTodos())
+        val papeis = PainelFicha.papeis(ctx)   // uma vez para a lista inteira (teclado, HOME, VPN...)
         val saida = JSONArray()
         for (pi in pacotes) {
             val ai = pi.applicationInfo ?: continue
@@ -117,7 +118,8 @@ object PainelApps {
                 .put("ocultoPeloLauncher", pi.packageName in Config.APPS_OCULTAR)
                 .put("podeOcultar", oculto || podeOcultar(ctx, ai, abrivel))
                 .put("podeDesinstalar", podeDesinstalar(ctx, ai))
-                .put("protegido", protegido(ctx, pi.packageName)))
+                .put("protegido", protegido(ctx, pi.packageName))
+                .put("risco", PainelFicha.risco(ctx, ai, papeis)))
         }
         return saida
     }

@@ -328,6 +328,7 @@ object PainelWeb {
                 "icone" -> if (req.metodo == "GET") return icone(req, pacote)
                 "ocultar" -> if (req.metodo == "POST") return ocultar(req, pacote, ip)
                 "desinstalar" -> if (req.metodo == "POST") return desinstalar(pacote, token, ip)
+                "ficha" -> if (req.metodo == "GET") return PainelFicha.ficha(app, pacote)?.let { json(200, it) } ?: erro(404, "app não encontrado")
                 "permissoes" -> if (req.metodo == "GET") return PainelPermissoes.listar(app, pacote)?.let { json(200, it) } ?: erro(404, "app não encontrado")
                 "permissao" -> if (req.metodo == "POST") return mudarPermissao(req, pacote, ip)
                 "especial" -> if (req.metodo == "POST") return mudarEspecial(req, pacote, ip)
