@@ -31,6 +31,7 @@ object BotoesControle {
     private val principal = Handler(Looper.getMainLooper())
     private var abrirLista: Runnable? = null   // o "segurou 3 s" agendado; null = nenhum botão apertado
     private var listaAberta = false             // true = a lista já abriu neste aperto: soltar não abre app
+    private var apertado: Int? = null           // tecla cujo DOWN vimos neste aperto
 
     fun botao(tecla: Int) = BOTOES.firstOrNull { it.tecla == tecla }
 
@@ -51,18 +52,25 @@ object BotoesControle {
                 // Aperto novo: agenda a lista para daqui a 3 s. Se soltar antes, o agendamento é cancelado.
                 listaAberta = false
                 abrirLista?.let { principal.removeCallbacks(it) }
+                apertado = b.tecla
                 abrirLista = Runnable {
                     listaAberta = true
                     abrirLista = null
-                    ctx.startActivity(Intent(ctx, EscolherAppActivity::class.java)
-                        .putExtra(EscolherAppActivity.EXTRA_TECLA, b.tecla)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                    // try: este código roda no processo da HOME; uma falha aqui não pode derrubar o launcher.
+                    try {
+                        ctx.startActivity(Intent(ctx, EscolherAppActivity::class.java)
+                            .putExtra(EscolherAppActivity.EXTRA_TECLA, b.tecla)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } catch (e: Exception) { Log.w(TAG, "não abriu a lista de apps: $e") }
                 }.also { principal.postDelayed(it, SEGURAR_MS) }
             }
             KeyEvent.ACTION_UP -> {
                 abrirLista?.let { principal.removeCallbacks(it) }
                 abrirLista = null
-                if (!listaAberta) abrirApp(ctx, appDo(ctx, b))
+                // Só abre o app se o DOWN deste aperto passou por aqui (ex.: serviço religado no meio do aperto
+                // recebe só o UP — antes isso abria o app sozinho).
+                if (!listaAberta && apertado == b.tecla) abrirApp(ctx, appDo(ctx, b))
+                apertado = null
             }
         }
         return true
@@ -76,6 +84,7 @@ object BotoesControle {
             Log.w(TAG, "app $pacote não encontrado")
             return
         }
-        ctx.startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        try { ctx.startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (e: Exception) { Log.w(TAG, "não abriu $pacote: $e") }
     }
 }
