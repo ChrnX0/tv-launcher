@@ -21,6 +21,7 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != ACAO_TESTE) return
+        Log.i(TAG, "recebido: ${intent.action}")   // prova no log de que o boot chegou (o receiver exige DUMP desde 04/11)
         Privilegio.religarDepuracaoSemFio(context)
         Privilegio.vigiarDepuracaoSemFio(context)   // e continua de olho: o Android pode desligá-la logo depois, no boot
         Despertador.agendar(context)   // o Android esquece os alarmes agendados quando reinicia
