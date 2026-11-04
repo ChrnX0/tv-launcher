@@ -29,8 +29,11 @@ class AutorizaShizukuService : AccessibilityService() {
      * Para descobrir o código de um botão novo: adb logcat -s TvLauncher.Tecla (registra só em modo depuração do log, nível D).
      */
     override fun onKeyEvent(e: KeyEvent): Boolean {
-        Log.d("TvLauncher.Tecla", "tecla=${KeyEvent.keyCodeToString(e.keyCode)} (${e.keyCode}) scan=${e.scanCode} " +
-            "acao=${if (e.action == KeyEvent.ACTION_DOWN) "desce" else "sobe"} repete=${e.repeatCount}")
+        // Só registra com o log da tag ligado (adb shell setprop log.tag.TvLauncher.Tecla DEBUG). Antes saía sempre:
+        // com um teclado Bluetooth, o que se digitava (senhas inclusive) ia parar no logcat (revisão de 04/11/2026).
+        if (Log.isLoggable("TvLauncher.Tecla", Log.DEBUG))
+            Log.d("TvLauncher.Tecla", "tecla=${KeyEvent.keyCodeToString(e.keyCode)} (${e.keyCode}) scan=${e.scanCode} " +
+                "acao=${if (e.action == KeyEvent.ACTION_DOWN) "desce" else "sobe"} repete=${e.repeatCount}")
         return BotoesControle.tratar(this, e)
     }
 
