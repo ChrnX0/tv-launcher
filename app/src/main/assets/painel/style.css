@@ -121,3 +121,11 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .linha-arquivo .tipo { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center;
   font-size: 24px; background: var(--superficie2); border-radius: 8px; }
 .linha-arquivo .nome.pasta { cursor: pointer; color: var(--acento); }
+
+/* ---------- ficha do app ---------- */
+.ficha { background: var(--superficie2); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.ficha p { margin: 6px 0; }
+.ficha ul { margin: 4px 0 4px 18px; padding: 0; font-size: 14px; }
+.selo.risco-essencial { color: var(--perigo); }
+.selo.risco-cuidado { color: #ffcf6b; }
+.selo.risco-seguro { color: var(--ok); }

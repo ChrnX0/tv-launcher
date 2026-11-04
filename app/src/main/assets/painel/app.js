@@ -271,6 +271,7 @@ function linhaApp(a) {
   if (a.desativado) selos.appendChild(selo('desativado'));
   if (a.sistema) selos.appendChild(selo('sistema'));
   if (a.ocultoPeloLauncher) selos.appendChild(selo('o launcher oculta sozinho'));
+  if (a.risco) selos.appendChild(selo(a.risco, 'risco-' + a.risco.replace(/\s+/g, '-')));
   info.append(nome, pacote, selos);
   linha.appendChild(info);
 
@@ -278,7 +279,7 @@ function linhaApp(a) {
   acoes.className = 'acoes';
   const bp = document.createElement('button');
   bp.className = 'botao-secundario';
-  bp.textContent = 'Permissões';
+  bp.textContent = 'Detalhes';
   bp.addEventListener('click', () => abrirPermissoes(a));
   acoes.appendChild(bp);
   if (a.protegido) {
@@ -310,6 +311,17 @@ async function alternarOculto(a, botao) {
   const fazer = () => chamar('POST', '/api/apps/' + encodeURIComponent(a.pacote) + '/ocultar', { oculto: !a.oculto });
   botao.disabled = true;
   try {
+    // App que não é "seguro": mostra antes o que para de funcionar (vem da ficha).
+    if (!a.oculto && a.risco && a.risco !== 'seguro') {
+      const f = await chamar('GET', '/api/apps/' + encodeURIComponent(a.pacote) + '/ficha').catch(() => null);
+      const emUso = await tvEmUso();
+      const ok = await confirmar('Ocultar ' + a.nome + '?',
+        `Risco: ${a.risco}. ${f ? f.efeito : ''}` + (emUso ? ` A TV está em uso agora (${emUso}).` : ''), 'Ocultar mesmo assim', fazer);
+      if (!ok) { botao.disabled = false; return; }
+      a.oculto = true;
+      desenharApps();
+      return;
+    }
     // Ocultar fecha o app na hora. Com a TV em uso, pergunta antes (a família pode estar vendo justamente ele).
     const emUso = a.oculto ? '' : await tvEmUso();
     if (emUso) {
@@ -495,15 +507,17 @@ $('btnFecharPerm').addEventListener('click', fecharPermissoes);
 
 async function abrirPermissoes(a) {
   const meu = ++permAtual;
-  $('tituloPerm').textContent = 'Permissões: ' + a.nome;
+  $('tituloPerm').textContent = a.nome;
   $('avisoPerm').textContent = 'Carregando…';
   mostrar($('statusPerm'), '');
   $('listaPerm').replaceChildren();
   $('modalPerm').hidden = false;
   try {
-    const p = await chamar('GET', '/api/apps/' + encodeURIComponent(a.pacote) + '/permissoes');
+    const base = '/api/apps/' + encodeURIComponent(a.pacote);
+    const [f, p] = await Promise.all([chamar('GET', base + '/ficha'), chamar('GET', base + '/permissoes')]);
     if (meu !== permAtual) return;
     desenharPermissoes(a, p);
+    $('listaPerm').prepend(desenharFicha(f));
   } catch (e) {
     if (meu === permAtual) $('avisoPerm').textContent = e.message;
   }
@@ -550,6 +564,34 @@ function escolha(opcoes, valor, aoMudar, travada) {
     }
   });
   return sel;
+}
+
+/** A ficha do app: o que faz, o risco de ocultar ou desinstalar, papéis e quem depende dele. */
+function desenharFicha(f) {
+  const c = document.createElement('div');
+  c.className = 'ficha';
+  const topo = document.createElement('div');
+  topo.className = 'selos';
+  topo.appendChild(selo(f.risco, 'risco-' + f.risco.replace(/\s+/g, '-')));
+  if (f.sistema) topo.appendChild(selo('sistema'));
+  const d = document.createElement('p'); d.textContent = f.descricao;
+  const q = document.createElement('p'); q.className = 'aviso';
+  q.textContent = 'Se ocultar ou desinstalar: ' + f.efeito;
+  c.append(topo, d, q);
+  const lista = (titulo, itens) => {
+    if (!itens.length) return;
+    const h = document.createElement('h3'); h.textContent = titulo; c.appendChild(h);
+    const ul = document.createElement('ul');
+    for (const t of itens) { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); }
+    c.appendChild(ul);
+  };
+  lista('O que ele faz nesta TV agora', f.papeis);
+  lista('Quem depende dele (pela TV)', f.usadoPor.map((u) => `${u.nome} — ${u.como}`));
+  lista('Quem depende dele (pela lista)', f.dependentesConhecidos);
+  const fonte = document.createElement('p'); fonte.className = 'aviso-curto';
+  fonte.textContent = `Fonte da descrição: ${f.fonte}. Papéis e dependências "pela TV" são lidos do aparelho agora.`;
+  c.appendChild(fonte);
+  return c;
 }
 
 function desenharPermissoes(a, p) {
