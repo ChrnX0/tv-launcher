@@ -75,7 +75,15 @@ object Config {
     // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).
-    val APPS_OCULTAR = listOf("com.google.android.apps.tv.dreamx")
+    // launcherx (04/11/2026): o launcher do Google já estava DESATIVADO (enabled=3), mas continuava "instalado" para os
+    // outros apps. O seletor de contas do GMS (CHOOSE_ACCOUNT -> NoTouchAccountPickerActivity) via o pacote e mandava
+    // para launcherx/.profile.chooser.ProfileChooserActivity -> ActivityNotFoundException -> gms.ui caía (151 crashes
+    // no dropbox). OCULTO, o GMS usa o seletor próprio. Medido na TV, por am start do CHOOSE_ACCOUNT com a tela apagada:
+    // antes, "Caused by: ActivityNotFoundException ... ProfileChooserActivity"; depois, "Displayed ...
+    // NoTouchAccountPickerActivity +387ms", sem crash. Desfazer: tirar daqui E reexibir por adb:
+    //   am broadcast -a br.paulo.tvlauncher.OCULTAR --es pacote com.google.android.apps.tv.launcherx --ez oculto false
+    //     -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+    val APPS_OCULTAR = listOf("com.google.android.apps.tv.dreamx", "com.google.android.apps.tv.launcherx")
     // Permissoes que o launcher se autoconcede pelo Device Owner (ver PrivilegioDO.conceder): permanentes, o usuario nao revoga.
     // So valem as declaradas no manifesto. Evita depender de `pm grant` por adb.
     // GET_ACCOUNTS desde 04/11/2026 (revisão): é "perigosa" (o DO pode fixar) e a foto/inicial do perfil depende dela;
