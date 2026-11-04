@@ -55,7 +55,14 @@ class PareamentoReceiver : BroadcastReceiver() {
             for ((n, espera) in listOf(0L, 15_000L, 45_000L).withIndex()) {
                 if (espera > 0) Thread.sleep(espera)
                 val saida = tentarShell(ctx, m, n + 1)
-                if (saida != null) { anotar(ctx, "shell PROPRIO diz: $saida"); return@thread }
+                if (saida != null) {
+                    anotar(ctx, "shell PROPRIO diz: $saida")
+                    // MARCO S1: com o shell de pé, sobe o servidor do Shizuku embutido (ver ServidorShizuku).
+                    try { ServidorShizuku.iniciar(ctx, m) } catch (e: Throwable) {
+                        anotar(ctx, "ServidorShizuku FALHOU: ${e.javaClass.simpleName}: ${e.message}")
+                    }
+                    return@thread
+                }
             }
             anotar(ctx, "desisti depois de 3 tentativas")
         }
@@ -81,12 +88,16 @@ class PareamentoReceiver : BroadcastReceiver() {
             val fluxo = m.openStream("shell:id").also { fluxoRef.set(it) }
             // Sinaliza fim do stdin: sem isso, o shell do adb fica esperando entrada e o read() trava.
             try { fluxo.openOutputStream().close() } catch (_: Exception) {}
-            val saida = fluxo.openInputStream().bufferedReader().readText().trim()
-            fluxo.close()
+            val saida = ServidorShizuku.lerAteOFim(fluxo).trim()
+            try { fluxo.close() } catch (_: Exception) {}
             saida.ifEmpty { null }
         } catch (e: Throwable) {
             anotar(ctx, "tentativa $n FALHOU: ${e.javaClass.simpleName}: ${e.message}")
             Log.w(TAG, "tentativa $n falhou", e)
+            // Derruba a conexão para a próxima tentativa abrir uma NOVA. Medido em 04/11/2026: depois de um vigia
+            // fechar um fluxo pendurado, o gerente (singleton) continuava isConnected=true, mas todo fluxo novo
+            // fechava na hora ("Stream closed.") — e as 3 tentativas falhavam em cima da mesma conexão meio morta.
+            try { m.disconnect() } catch (_: Exception) {}
             null
         } finally {
             acabou.set(true)
