@@ -200,6 +200,7 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
         setShadowLayer(ctx.dpf(8f), 0f, 0f, 0x99000000.toInt())
     }
     private var diaCarregado = ""
+    private var baixando = false   // um download por vez (atualizar() é chamado a cada tique do céu)
 
     init {
         setBackgroundColor(0xFF15140F.toInt())
@@ -221,15 +222,21 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
 
     override fun atualizar(e: EstadoCeu) {
         val dia = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(e.agoraMs)
-        if (dia == diaCarregado) return
-        diaCarregado = dia
+        if (dia == diaCarregado || baixando) return
         val obra = obras[(Calendar.getInstance().apply { timeInMillis = e.agoraMs }.get(Calendar.DAY_OF_YEAR)) % obras.size]
         mostrarEtiqueta(obra)
         val arquivo = File(context.filesDir, "galeria-${obra.id}.jpg")
-        if (arquivo.exists()) { imagem.setImageBitmap(BitmapFactory.decodeFile(arquivo.path)); return }
+        if (arquivo.exists()) { imagem.setImageBitmap(BitmapFactory.decodeFile(arquivo.path)); diaCarregado = dia; return }
+        // Só marca o dia como carregado quando a imagem CHEGA (revisão de 04/11/2026): antes marcava antes de baixar e,
+        // se o download falhasse (rede ainda subindo no boot), a galeria ficava preta até o dia seguinte. Agora o
+        // próximo atualizar() tenta de novo.
+        baixando = true
         emSegundoPlano {
             val bmp = baixar(obra, arquivo)
-            post { if (bmp != null) imagem.setImageBitmap(bmp) }
+            post {
+                baixando = false
+                if (bmp != null) { imagem.setImageBitmap(bmp); diaCarregado = dia }
+            }
         }
     }
 

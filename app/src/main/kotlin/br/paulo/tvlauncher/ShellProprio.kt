@@ -32,7 +32,15 @@ object ShellProprio {
     private const val CONEXAO = "_adb-tls-connect._tcp"
     private const val PAREAMENTO = "_adb-tls-pairing._tcp"
 
-    /** Par de chaves RSA-2048 do app (gera e guarda na 1ª vez; depois relê). Credencial do nosso futuro cliente adb. */
+    /**
+     * Par de chaves RSA-2048 do app (gera e guarda na 1ª vez; depois relê). É a credencial que o adbd confia depois do
+     * pareamento — perder ou trocar = parear de novo.
+     *
+     * @Synchronized + gravação atômica (revisão de 04/11/2026): antes, duas threads na 1ª execução (diagnóstico,
+     * pareamento, Configurações) podiam gerar duas chaves ao mesmo tempo e gravar a privada de uma com a pública da
+     * outra — ou o processo morrer entre as duas gravações. Agora grava em .tmp e renomeia.
+     */
+    @Synchronized
     fun chave(ctx: Context): KeyPair {
         val fPriv = File(ctx.filesDir, "adb_key.pk8")
         val fPub = File(ctx.filesDir, "adb_key.x509")
@@ -43,8 +51,13 @@ object ShellProprio {
             return KeyPair(pub, priv)
         }
         val kp = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
-        fPriv.writeBytes(kp.private.encoded)
-        fPub.writeBytes(kp.public.encoded)
+        fun gravar(destino: File, bytes: ByteArray) {
+            val tmp = File(destino.path + ".tmp")
+            tmp.writeBytes(bytes)
+            if (!tmp.renameTo(destino)) { destino.writeBytes(bytes); tmp.delete() }
+        }
+        gravar(fPub, kp.public.encoded)
+        gravar(fPriv, kp.private.encoded)   // a privada por último: só "existe a chave" quando as duas estão lá
         Log.i(TAG, "par de chaves ADB gerado e guardado em ${ctx.filesDir}")
         return kp
     }
