@@ -198,4 +198,48 @@ class PainelSegurancaTest {
         assertFalse(ChecagensPainel.pacoteValido(null))
         assertFalse(ChecagensPainel.pacoteValido("a." + "b".repeat(300)))
     }
+
+    // ---------------------------------------------------------------- revisão (04/11/2026)
+
+    @Test fun depoisDeVinteNadaMaisEConferido() {
+        val c = ControleTentativas({ 0L })
+        repeat(20) { c.registrarFalha() }
+        assertTrue(c.esgotado())
+        assertEquals(Long.MAX_VALUE, c.esperaMs())
+        c.zerar()
+        assertFalse(c.esgotado())
+        assertEquals(0, c.esperaMs())
+    }
+
+    @Test fun existeNaoRenovaASessao() {
+        var agora = 0L
+        val s = Sessoes({ agora })
+        val t = s.criar()
+        agora = Sessoes.OCIOSO_MS - 1
+        assertTrue(s.existe(t))   // não conta como uso...
+        agora = Sessoes.OCIOSO_MS + 1
+        assertFalse(s.existe(t))  // ...então cai com 30 min sem uso de verdade
+    }
+
+    private fun ip(t: String) = java.net.InetAddress.getByName(t).address
+
+    @Test fun mesmaRedeConfereOPrefixo() {
+        assertTrue(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ip("192.168.1.20"), 24))
+        assertFalse(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ip("192.168.2.20"), 24))
+        assertFalse(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ip("10.0.0.5"), 24))
+        assertTrue(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ip("192.168.0.9"), 16))
+        assertTrue(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ip("192.168.1.153"), 32))
+        assertFalse(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ip("192.168.1.154"), 32))
+        assertFalse(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ip("192.168.1.20"), 0))
+        assertFalse(ChecagensPainel.mesmaRede(ip("192.168.1.153"), ByteArray(16), 24))
+    }
+
+    @Test fun jsonRasoBarraAninhamentoFundo() {
+        assertTrue(ChecagensPainel.jsonRaso("""{"pin":"123456"}"""))
+        assertTrue(ChecagensPainel.jsonRaso("""{"a":{"b":[1,2,{"c":"[[[[[[[[[[[[[[[[[[[[["}]}}"""))   // colchetes dentro de string não contam
+        assertTrue(ChecagensPainel.jsonRaso("""{"a":"aspas \" e [[[[[[[[[[[[[[[[[[["}"""))
+        assertFalse(ChecagensPainel.jsonRaso("[".repeat(17)))
+        assertFalse(ChecagensPainel.jsonRaso("[".repeat(500_000)))
+        assertTrue(ChecagensPainel.jsonRaso("[".repeat(16) + "]".repeat(16)))
+    }
 }

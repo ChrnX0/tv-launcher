@@ -36,12 +36,9 @@
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
 
-    <!-- Painel no navegador (PainelWeb.kt, 04/11/2026). QUERY_ALL_PACKAGES: listar TODOS os apps (ser Device Owner não
-         dá visibilidade de pacotes no Android 11+). REQUEST_DELETE_PACKAGES: exigida pelo PackageInstaller.uninstall;
-         como somos Device Owner, a desinstalação sai sem pedir confirmação na TV. -->
-    <uses-permission
-        android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
+    <!-- Painel no navegador (PainelWeb.kt, 04/11/2026). REQUEST_DELETE_PACKAGES: exigida pelo PackageInstaller.uninstall;
+         como somos Device Owner, a desinstalação sai sem pedir confirmação na TV. (O painel também usa a QUERY_ALL_PACKAGES
+         declarada mais abaixo, a do Shizuku sob demanda, para listar todos os apps.) -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <!-- Shizuku EMBUTIDO (MARCO S1): o launcher é o "gerente" do Shizuku. Estas são as permissões que o app Shizuku

@@ -50,7 +50,7 @@ object PainelWeb {
     private lateinit var app: Context
 
     val sessoes = Sessoes({ System.currentTimeMillis() })
-    private var tentativas: ControleTentativas? = null
+    @Volatile private var tentativas: ControleTentativas? = null
     private val travaPin = Any()   // um PBKDF2 por vez: muitas tentativas juntas não derrubam a CPU da TV
 
     /** Até 3 threads atendendo e até 24 conexões esperando; além disso a conexão é recusada (503). */
@@ -61,6 +61,7 @@ object PainelWeb {
     }
 
     @Volatile private var iniciando = false
+    private var geracao = 0   // cada iniciar() ganha um número; uma thread de bind antiga não mexe no estado da nova
 
     fun ligado(): Boolean = servidor?.isClosed == false
 
@@ -71,6 +72,7 @@ object PainelWeb {
         if (deve && !ligado() && !iniciando) iniciar() else if (!deve && (ligado() || iniciando)) parar()
     }
 
+    /** Só chamar dentro de synchronized(travaPin): assim todas as threads usam o MESMO contador. */
     private fun controle(): ControleTentativas = tentativas ?: ControleTentativas(
         { System.currentTimeMillis() }, PainelArmazem.falhas(app),
     ) { PainelArmazem.definirFalhas(app, it) }.also { tentativas = it }
@@ -86,6 +88,7 @@ object PainelWeb {
     /** Abre a porta numa thread própria (abrir socket na thread da tela é proibido no Android) e fica no accept(). */
     private fun iniciar() {
         iniciando = true
+        val minha = ++geracao
         Thread({
             val s = ServerSocket()
             try {
@@ -95,22 +98,26 @@ object PainelWeb {
             } catch (e: IOException) {
                 Log.w(TAG, "não consegui abrir a porta ${Config.PAINEL_PORTA}: $e")
                 try { s.close() } catch (_: IOException) {}
-                iniciando = false
+                synchronized(this) { if (geracao == minha) iniciando = false }
                 return@Thread
             }
             synchronized(this) {
-                // Desligaram enquanto abria? Então fecha já.
-                if (!iniciando) { try { s.close() } catch (_: IOException) {}; return@Thread }
+                // Desligaram (ou religaram) enquanto abria? Então esta porta não vale mais: fecha já.
+                if (geracao != minha || !iniciando) { try { s.close() } catch (_: IOException) {}; return@Thread }
                 servidor = s
                 iniciando = false
             }
             Log.i(TAG, "painel ligado na porta ${Config.PAINEL_PORTA}")
             aceitar(s)
+            // Saiu do laço: se não foi um parar() (a porta ainda é a atual), limpa para o próximo ajustar() religar.
+            synchronized(this) { if (servidor === s) servidor = null }
+            try { s.close() } catch (_: IOException) {}
         }, "Painel-aceita").apply { priority = Thread.MIN_PRIORITY; isDaemon = true }.start()
     }
 
     @Synchronized private fun parar() {
         iniciando = false
+        geracao++
         try { servidor?.close() } catch (_: IOException) {}
         servidor = null
         sessoes.encerrarTodas()
@@ -119,7 +126,13 @@ object PainelWeb {
 
     private fun aceitar(s: ServerSocket) {
         while (!s.isClosed) {
-            val c = try { s.accept() } catch (e: IOException) { break }   // close() acorda o accept com exceção
+            val c = try { s.accept() } catch (e: IOException) {
+                if (s.isClosed) break   // parar() fechou a porta: fim
+                // Erro passageiro (ex.: faltou descritor de arquivo): não deixa o painel morrer em silêncio.
+                Log.w(TAG, "accept falhou: $e")
+                try { Thread.sleep(200) } catch (_: InterruptedException) { break }
+                continue
+            }
             if (!redeLocal(c)) { fechar(c); continue }
             try {
                 pool.execute { atender(c) }
@@ -133,39 +146,46 @@ object PainelWeb {
 
     // ---------------------------------------------------------------- de onde vem a conexão
 
-    @Volatile private var ipsCache: Pair<Long, Set<String>> = 0L to emptySet()
+    /** IPv4 da TV na rede de casa -> tamanho do prefixo da sub-rede (ex.: "192.168.1.153" -> 24). */
+    @Volatile private var redeCache: Pair<Long, Map<String, Int>> = 0L to emptyMap()
 
     /**
-     * Os IPv4 da TV na rede de casa: interfaces ligadas, menos loopback e túneis de VPN (tun/ppp/ipsec).
-     * Recalculado no máximo a cada 30 s (o IP só muda se o roteador mudar).
+     * Os IPv4 da TV na rede de casa: interfaces ligadas de Wi-Fi ou cabo (wlan*, eth*), menos túneis de VPN e o
+     * Wi-Fi Direct (p2p). Recalculado no máximo a cada 30 s (o IP só muda se o roteador mudar).
      */
-    fun ipsDaRede(): Set<String> {
-        val (quando, ips) = ipsCache
-        if (System.currentTimeMillis() - quando < 30_000 && ips.isNotEmpty()) return ips
-        val novos = HashSet<String>()
+    private fun redes(): Map<String, Int> {
+        val (quando, atual) = redeCache
+        if (System.currentTimeMillis() - quando < 30_000 && atual.isNotEmpty()) return atual
+        val novas = HashMap<String, Int>()
         try {
-            for (ni in NetworkInterface.getNetworkInterfaces() ?: return emptySet()) {
+            for (ni in NetworkInterface.getNetworkInterfaces() ?: return emptyMap()) {
                 if (!ni.isUp || ni.isLoopback || ni.isVirtual) continue
                 val nome = ni.name.lowercase()
-                if (nome.startsWith("tun") || nome.startsWith("ppp") || nome.startsWith("ipsec")) continue
-                for (a in ni.inetAddresses) if (a is Inet4Address && a.isSiteLocalAddress) novos.add(a.hostAddress ?: continue)
+                if (!nome.startsWith("wlan") && !nome.startsWith("eth")) continue
+                for (ia in ni.interfaceAddresses) {
+                    val a = ia.address
+                    if (a is Inet4Address && a.isSiteLocalAddress) novas[a.hostAddress ?: continue] = ia.networkPrefixLength.toInt()
+                }
             }
-        } catch (e: Exception) { Log.w(TAG, "ipsDaRede: $e") }
-        ipsCache = System.currentTimeMillis() to novos
-        return novos
+        } catch (e: Exception) { Log.w(TAG, "redes: $e") }
+        redeCache = System.currentTimeMillis() to novas
+        return novas
     }
+
+    fun ipsDaRede(): Set<String> = redes().keys
 
     /** O endereço para digitar no navegador (o primeiro IP da rede), ou null sem rede. */
     fun endereco(): String? = ipsDaRede().minOrNull()?.let { "http://$it:${Config.PAINEL_PORTA}/" }
 
     /**
-     * A conexão chegou num IP nosso da rede de casa (não no da VPN) e veio de um endereço privado (192.168.x, 10.x,
-     * 172.16-31.x)? Isso recusa tudo o que vier pela VPN e qualquer coisa de fora da casa.
+     * A conexão chegou num IP nosso de Wi-Fi/cabo (não no da VPN) e veio da MESMA sub-rede (ex.: 192.168.1.x)?
+     * Recusa tudo o que vier pela VPN, de outra VLAN do roteador ou de fora da casa.
      */
     private fun redeLocal(c: Socket): Boolean {
         val local = c.localAddress as? Inet4Address ?: return false
         val remoto = c.inetAddress as? Inet4Address ?: return false
-        return local.hostAddress in ipsDaRede() && remoto.isSiteLocalAddress && !remoto.isLoopbackAddress
+        val prefixo = redes()[local.hostAddress] ?: return false
+        return !remoto.isLoopbackAddress && ChecagensPainel.mesmaRede(local.address, remoto.address, prefixo)
     }
 
     private fun nomesPermitidos(): Set<String> = ipsDaRede() + Config.PAINEL_NOMES
@@ -189,8 +209,18 @@ object PainelWeb {
             val resposta = try {
                 // Só a restauração de backup aceita corpo grande; o limite é decidido antes de ler o corpo.
                 val req = PainelHttp.ler(entrada, BackupConfig.LIMITE_BYTES)
-                if (req.corpo.size > LIMITE_CORPO && req.caminho != "/api/backup/restaurar") erro(413, "corpo grande demais")
-                else rotear(req, ip)
+                when {
+                    req.corpo.size > LIMITE_CORPO && req.caminho != "/api/backup/restaurar" -> erro(413, "corpo grande demais")
+                    // JSON aninhado demais estoura a pilha do leitor do Android e derruba o launcher: recusa antes.
+                    req.corpo.isNotEmpty() && !ChecagensPainel.jsonRaso(req.corpoTexto()) -> erro(400, "JSON inválido")
+                    else -> try {
+                        rotear(req, ip)
+                    } catch (e: Exception) {
+                        // Erro nosso no meio de uma rota: responde 500 em vez de fechar a conexão calado.
+                        Log.w(TAG, "erro em ${req.metodo} ${req.caminho}: $e")
+                        erro(500, "erro na TV: ${e.javaClass.simpleName}")
+                    }
+                }
             } catch (e: ErroHttp) {
                 erro(e.codigo, e.message ?: "pedido inválido")
             }
@@ -278,7 +308,9 @@ object PainelWeb {
     private fun cookieApagado() = mapOf("Set-Cookie" to "$COOKIE=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
 
     private fun estado(token: String?): Resposta {
-        val logado = sessoes.valida(token)
+        // existe() e não valida(): a página consulta isto sozinha a cada 30 s, e isso não pode manter a sessão
+        // viva para sempre (a sessão tem de cair com 30 min sem ninguém mexer).
+        val logado = sessoes.existe(token)
         val o = JSONObject().put("logado", logado)
         if (logado) {
             o.put("aparelho", Settings.Global.getString(app.contentResolver, "device_name") ?: "TV")
@@ -294,8 +326,11 @@ object PainelWeb {
      */
     private fun conferirPin(req: Requisicao, ip: String, acao: String): Resposta? {
         val pin = try { JSONObject(req.corpoTexto()).optString("pin") } catch (e: Exception) { "" }
-        val ctl = controle()
         synchronized(travaPin) {
+            val ctl = controle()
+            // Painel desligado (por erros ou nas Configurações) ou contador esgotado: não confere mais nada, nem os
+            // pedidos que já estavam na fila quando a porta fechou.
+            if (ctl.esgotado() || !PainelArmazem.podeLigar(app)) return erro(403, "painel desligado. Religue nas Configurações do launcher, na TV.")
             val espera = ctl.esperaMs()
             if (espera > 0) return erro(429, "muitas tentativas erradas; espere ${(espera + 999) / 1000} s") { put("esperarSeg", (espera + 999) / 1000) }
             if (PainelArmazem.conferirPin(app, pin)) { ctl.registrarSucesso(); return null }
@@ -321,6 +356,7 @@ object PainelWeb {
 
     private fun entrar(req: Requisicao, ip: String): Resposta {
         conferirPin(req, ip, "entrar")?.let { return it }
+        if (!ligado()) return erro(503, "painel desligado")
         val token = sessoes.criar()
         PainelArmazem.registrar(app, ip, "entrar", "ok")
         return json(200, JSONObject().put("ok", true), cookieSessao(token))
@@ -368,10 +404,14 @@ object PainelWeb {
         } catch (e: IllegalArgumentException) {
             PainelArmazem.registrar(app, ip, "restaurar backup", "recusado: ${e.message}")
             return erro(400, "backup recusado: ${e.message}")
+        } catch (e: Exception) {
+            PainelArmazem.registrar(app, ip, "restaurar backup", "falhou: $e")
+            return erro(500, "a restauração falhou na TV (${e.javaClass.simpleName}); as configurações de antes foram mantidas")
         }
         PainelArmazem.registrar(app, ip, "restaurar backup", "ok, $n chaves")
         // Reinicia o launcher depois de a resposta sair (várias telas leem as preferências só ao abrir). É o mesmo
-        // jeito do REINICIAR do adb: o sistema sobe a HOME de novo e o painel volta junto (as sessões caem).
+        // jeito do REINICIAR do adb. O sistema sobe o processo de novo para religar o serviço de acessibilidade, e é
+        // ele (AutorizaShizukuService.onServiceConnected) que reabre o painel mesmo sem a HOME na frente. As sessões caem.
         Handler(Looper.getMainLooper()).postDelayed({ Process.killProcess(Process.myPid()) }, 1500)
         return json(200, JSONObject().put("ok", true).put("chaves", n).put("reiniciando", true))
     }

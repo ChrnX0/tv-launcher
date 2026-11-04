@@ -16,7 +16,12 @@ class AutorizaShizukuService : AccessibilityService() {
         @Volatile var instancia: AutorizaShizukuService? = null
     }
 
-    override fun onServiceConnected() { super.onServiceConnected(); instancia = this }
+    override fun onServiceConnected() {
+        super.onServiceConnected(); instancia = this
+        // O sistema religa este serviço sempre que o processo do launcher sobe de novo (reinício, restauração de
+        // backup, falta de memória), mesmo sem a HOME na frente. Então é daqui que o painel no navegador volta.
+        PainelWeb.ajustar(this)
+    }
     override fun onUnbind(intent: android.content.Intent?): Boolean { instancia = null; return super.onUnbind(intent) }
     override fun onDestroy() { instancia = null; super.onDestroy() }
 

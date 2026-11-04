@@ -73,13 +73,22 @@ class ControleTentativas(
         private set
     private var bloqueadoAte = 0L
 
-    /** Quanto falta de bloqueio, em ms (0 = pode tentar). */
-    @Synchronized fun esperaMs(): Long = (bloqueadoAte - relogio()).coerceAtLeast(0L)
+    /** Quanto falta de bloqueio, em ms (0 = pode tentar). Long.MAX_VALUE = esgotado (ver [esgotado]). */
+    @Synchronized fun esperaMs(): Long =
+        if (esgotado()) Long.MAX_VALUE else (bloqueadoAte - relogio()).coerceAtLeast(0L)
+
+    /** Errou demais: nada mais é conferido até [zerar]. */
+    @Synchronized fun esgotado(): Boolean = falhas >= LIMITE_DESLIGAR
 
     @Synchronized fun registrarFalha(): Resultado {
         falhas++
         aoMudarFalhas(falhas)
-        if (falhas >= LIMITE_DESLIGAR) return Resultado.Desligar
+        if (falhas >= LIMITE_DESLIGAR) {
+            // Estado final: nenhuma tentativa a mais é conferida (nem as que já estavam na fila) até zerar() nas
+            // Configurações. Sem isto, pedidos já aceitos antes de o painel fechar continuavam testando PINs.
+            bloqueadoAte = Long.MAX_VALUE
+            return Resultado.Desligar
+        }
         if (falhas % POR_RODADA == 0) {
             val rodada = falhas / POR_RODADA   // 1, 2, 3
             val ms = BLOQUEIO_BASE_MS shl (rodada - 1)   // 1 min, 2 min, 4 min
@@ -136,6 +145,9 @@ class Sessoes(private val relogio: () -> Long, private val maximoSessoes: Int = 
         s.ultimoUso = relogio()
         return true
     }
+
+    /** O token vale? Sem contar como uso: para consultas automáticas da página (que não podem manter a sessão viva). */
+    @Synchronized fun existe(token: String?): Boolean = buscar(token) != null
 
     @Synchronized fun elevada(token: String?): Boolean {
         val s = buscar(token) ?: return false
@@ -202,4 +214,43 @@ object ChecagensPainel {
      */
     fun origemPermitida(origem: String?, host: String?): Boolean =
         origem != null && host != null && origem.lowercase() == "http://${host.lowercase()}"
+
+    /**
+     * [remoto] está na mesma sub-rede que [local] (prefixo /[prefixo], ex.: 24 para 192.168.1.x)? Endereços IPv4 em
+     * bytes. Recusa aparelho de outra VLAN ou de rede roteada (convidados, IoT, o lado de lá da VPN), mesmo privado.
+     */
+    fun mesmaRede(local: ByteArray, remoto: ByteArray, prefixo: Int): Boolean {
+        if (local.size != 4 || remoto.size != 4 || prefixo !in 1..32) return false
+        val a = java.nio.ByteBuffer.wrap(local).int
+        val b = java.nio.ByteBuffer.wrap(remoto).int
+        val mascara = if (prefixo == 32) -1 else ((-1L shl (32 - prefixo)).toInt())
+        return (a and mascara) == (b and mascara)
+    }
+
+    /**
+     * O texto JSON tem no máximo [max] níveis de [ ou { aninhados? Varredura linear e barata, que ignora o que está
+     * dentro de strings. Necessária porque o leitor de JSON do Android é recursivo: um arquivo "[[[[..." de 512 KB
+     * estoura a pilha (StackOverflowError, que derruba o processo inteiro do launcher).
+     */
+    fun jsonRaso(texto: String, max: Int = 16): Boolean {
+        var nivel = 0
+        var emString = false
+        var escapado = false
+        for (c in texto) {
+            if (emString) {
+                when {
+                    escapado -> escapado = false
+                    c == '\\' -> escapado = true
+                    c == '"' -> emString = false
+                }
+                continue
+            }
+            when (c) {
+                '"' -> emString = true
+                '[', '{' -> if (++nivel > max) return false
+                ']', '}' -> nivel--
+            }
+        }
+        return true
+    }
 }
