@@ -148,6 +148,41 @@ object Dns {
         return Situacao(lp?.isPrivateDnsActive == true, lp?.privateDnsServerName)
     }
 
+    // ---------------------------------------------------------------- volta automática (revisão de 04/11/2026)
+
+    private const val CHAVE_CAIU = "caiu_de"   // servidor fixo que falhou e foi trocado pelo automático
+
+    /**
+     * Se o DNS fixo parou de funcionar, volta para o Automático — numa TV da família, "DNS fora do ar" = "internet
+     * quebrada", e o Android não volta sozinho (ver [testarResolucao]). Só age quando as TRÊS coisas valem: modo é
+     * servidor fixo, a rede Wi-Fi perdeu a validação, e um teste real de resolução falhou (por ~9 s). Guarda qual
+     * servidor caiu ([servidorQueCaiu]) para a tela de Configurações avisar e para dar para voltar a ele.
+     * Chamar fora da thread da tela. Devolve true se trocou.
+     */
+    fun voltarAoAutomaticoSeQuebrado(ctx: Context): Boolean {
+        val e = atual(ctx)
+        if (e.modo != Modo.HOST) return false
+        val cm = ctx.getSystemService(ConnectivityManager::class.java)
+        // A rede Wi-Fi, não a "ativa": com o AdGuard VPN ligado a ativa é a VPN, e quem perde a validação quando o DNS
+        // fixo cai é o Wi-Fi por baixo.
+        @Suppress("DEPRECATION")
+        val wifi = cm.allNetworks.firstOrNull {
+            cm.getNetworkCapabilities(it)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true
+        } ?: return false
+        val caps = cm.getNetworkCapabilities(wifi) ?: return false
+        if (caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return false
+        // E o que os apps sentem: resolução na rede ativa (pela VPN, se houver). Se ainda resolve, não mexe.
+        if (testarResolucao(ctx) != null) return false
+        val trocou = aplicar(ctx, Modo.AUTOMATICO)
+        android.util.Log.w("TvLauncher.Dns", "DNS fixo ${e.host} sem resposta; voltei para o automatico (gravou=$trocou)")
+        if (trocou) prefs(ctx).edit().putString(CHAVE_CAIU, e.host).apply()
+        return trocou
+    }
+
+    /** O servidor fixo que falhou e foi trocado pelo automático (null = nenhum). Some quando se escolhe outro DNS. */
+    fun servidorQueCaiu(ctx: Context): String? = prefs(ctx).getString(CHAVE_CAIU, null)
+    fun esquecerQueCaiu(ctx: Context) = prefs(ctx).edit().remove(CHAVE_CAIU).apply()
+
     /**
      * Tenta resolver um nome pela rede ativa e devolve quantos ms levou, ou null se não conseguiu.
      * Repete por até ~9 s, porque logo após trocar o servidor o Android ainda está validando o TLS.

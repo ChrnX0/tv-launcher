@@ -35,8 +35,26 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
-    <!-- Permissão do Shizuku: sem ela o app não aparece na lista de apps autorizáveis dele -->
-    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+
+    <!-- Shizuku EMBUTIDO (MARCO S1): o launcher é o "gerente" do Shizuku. Estas são as permissões que o app Shizuku
+         original declarava (fork thedjchi, manager/src/main/AndroidManifest.xml). Os apps clientes pedem a API_V23;
+         quem decide se libera é o launcher (tela de permissão, MARCO S2). Não usamos a API_V23 nós mesmos: o servidor
+         reconhece o gerente pelo nome do pacote. -->
+    <permission-group
+        android:name="moe.shizuku.manager.permission-group.API"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="Shizuku" />
+    <permission
+        android:name="moe.shizuku.manager.permission.MANAGER"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="moe.shizuku.manager.permission.MANAGER" />
+    <permission
+        android:name="moe.shizuku.manager.permission.API_V23"
+        android:description="@string/shizuku_permissao_descricao"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="@string/shizuku_permissao_nome"
+        android:permissionGroup="moe.shizuku.manager.permission-group.API"
+        android:protectionLevel="dangerous" />
 
     <!-- Android 11+ só deixa um app enxergar outros apps se isso for declarado aqui -->
     <queries>
@@ -47,7 +65,6 @@
     </queries>
 
     <application
-        android:testOnly="true"
         android:allowBackup="false"
         android:icon="@android:drawable/sym_def_app_icon"
         android:banner="@android:drawable/sym_def_app_icon"
@@ -70,35 +87,32 @@
             </intent-filter>
         </activity>
 
+        <!-- permission=DUMP: o BOOT_COMPLETED vem do sistema (que tem todas as permissões) e o TESTE_BOOT vem do adb.
+             Sem isto qualquer app instalado podia disparar o TESTE_BOOT (religar a depuração, abrir app) — revisão 04/11. -->
         <receiver
             android:name=".BootReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.DUMP">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
         <!-- Teste do shell proprio (MARCO 2): recebe o codigo de pareamento por adb broadcast (ver PareamentoReceiver) -->
+        <!-- permission=DUMP: so o shell (adb) e o sistema tem essa permissao. Sem isto, QUALQUER app instalado na TV
+             podia disparar o PAREAR e mandar o launcher abrir um shell. -->
         <receiver
             android:name=".PareamentoReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.DUMP">
             <intent-filter>
                 <action android:name="br.paulo.tvlauncher.PAREAR" />
             </intent-filter>
         </receiver>
-        <!-- Shizuku: o provider é por onde o Shizuku nos entrega o canal de comunicação (binder) -->
-        <provider
-            android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:enabled="true"
-            android:exported="true"
-            android:multiprocess="false"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
-
-        <!-- Aprova sozinho os pedidos de permissão ao Shizuku (ver AutorizaShizukuService) -->
+        <!-- Serviço de acessibilidade: hoje só trata as teclas do controle remoto (ver AutorizaShizukuService.kt) -->
         <service
             android:name=".AutorizaShizukuService"
             android:exported="false"
-            android:label="Autoriza Shizuku"
+            android:label="Teclas do controle"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -107,6 +121,14 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/autoriza_acessibilidade" />
         </service>
+        <!-- Lista para escolher o app dos botões Netflix/YouTube do controle (segurar 3 s, ver BotoesControle).
+             Tinha sumido do manifest no commit df3d9c0; sem ela, segurar o botão derrubava a HOME
+             (ActivityNotFoundException no processo do launcher). Devolvida em 04/11/2026. -->
+        <activity
+            android:name=".EscolherAppActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:label="Escolher app do botão" />
         <!-- Tela de DNS privado (aberta pelo chip do rodapé) -->
         <activity
             android:name=".DnsActivity"
@@ -175,6 +197,58 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
+
+        <!-- Shizuku EMBUTIDO (MARCO S1): é por este provider que o servidor shizuku_server (uid 2000) entrega o binder
+             dele ao launcher ("sendBinder"). Authority <pacote>.shizuku é a que o servidor procura. INTERACT_ACROSS_USERS_FULL:
+             só o sistema e o shell podem chamar. Ver ProvedorShizuku.kt. -->
+        <provider
+            android:name=".ProvedorShizuku"
+            android:authorities="${applicationId}.shizuku"
+            android:directBootAware="true"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <!-- Comandos INICIAR / PARAR / ESTADO do Shizuku embutido (ver ControleShizukuReceiver.kt). Dois receivers
+             porque cada um só aceita uma permissão: apps autorizados (API_V23) e o adb (DUMP). -->
+        <receiver
+            android:name=".ControleShizukuReceiver"
+            android:exported="true"
+            android:permission="moe.shizuku.manager.permission.API_V23">
+            <intent-filter>
+                <action android:name="br.paulo.tvlauncher.shizuku.INICIAR" />
+                <action android:name="br.paulo.tvlauncher.shizuku.PARAR" />
+                <action android:name="br.paulo.tvlauncher.shizuku.ESTADO" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".ControleShizukuAdbReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="br.paulo.tvlauncher.shizuku.INICIAR" />
+                <action android:name="br.paulo.tvlauncher.shizuku.PARAR" />
+                <action android:name="br.paulo.tvlauncher.shizuku.ESTADO" />
+                <!-- Nomes reais dos apps para o painel do PC (chromecast-painel). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.ROTULOS" />
+                <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.OCULTAR" />
+                <action android:name="br.paulo.tvlauncher.REINICIAR" />
+            </intent-filter>
+        </receiver>
+        <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama
+             Shizuku.requestPermission(). Só o sistema/shell podem abrir (INTERACT_ACROSS_USERS_FULL).
+             MARCO S1: só registra no log e recusa; a tela de verdade é o MARCO S2. -->
+        <activity
+            android:name=".PedidoShizukuActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL">
+            <intent-filter>
+                <action android:name="${applicationId}.intent.action.REQUEST_PERMISSION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Device owner (ver AdminReceiver.kt). Exportado porque o sistema precisa chamá-lo; só o sistema tem BIND_DEVICE_ADMIN. -->
         <receiver

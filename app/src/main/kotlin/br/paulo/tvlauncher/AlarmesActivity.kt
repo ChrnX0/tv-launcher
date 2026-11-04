@@ -42,7 +42,9 @@ class AlarmesActivity : Activity() {
                 intArrayOf(0xFF1B2326.toInt(), 0xFF0F1416.toInt(), 0xFF0A0D0E.toInt()))
         }
         setContentView(conteudo)
-        if (!tratarPedido(intent)) mostrarLista()
+        // Só trata o pedido na 1ª criação: recriada (ex.: girar/trocar config), a Activity recebe o MESMO intent e
+        // criava o alarme de novo (achado 10 da revisão, 04/11/2026).
+        if (savedInstanceState != null || !tratarPedido(intent)) mostrarLista()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -59,13 +61,47 @@ class AlarmesActivity : Activity() {
         // EXTRA_DAYS vem como Calendar.SUNDAY (1) .. Calendar.SATURDAY (7); no nosso formato, bit 0 = domingo.
         var dias = 0
         i.getIntegerArrayListExtra(AlarmClock.EXTRA_DAYS)?.forEach { d -> if (d in 1..7) dias = dias or (1 shl (d - 1)) }
-        val a = Despertador.salvar(this, Despertador.Alarme(
+        val novo = Despertador.Alarme(
             0, i.getIntExtra(AlarmClock.EXTRA_HOUR, 7).coerceIn(0, 23), i.getIntExtra(AlarmClock.EXTRA_MINUTES, 0).coerceIn(0, 59),
-            dias, i.getStringExtra(AlarmClock.EXTRA_MESSAGE).orEmpty(), true))
+            dias, i.getStringExtra(AlarmClock.EXTRA_MESSAGE).orEmpty(), true)
+
+        // Quem pediu? (achado 20 da revisão, 04/11/2026) A tela atende SET_ALARM de qualquer app, e com EXTRA_SKIP_UI
+        // um app qualquer criava alarmes em silêncio. Agora só o Assistente e o sistema criam direto; qualquer outro
+        // app passa por uma confirmação na tela. getLaunchedFromPackage (Android 14) vem do sistema — o app que chama
+        // não consegue falsificar (ao contrário do "referrer").
+        val quem = if (android.os.Build.VERSION.SDK_INT >= 34) launchedFromPackage else null
+        android.util.Log.i("TvLauncher.Alarme", "SET_ALARM de $quem: ${Despertador.horaTexto(novo)}")
+        if (quem == null || quem !in CONFIAVEIS) {
+            confirmarPedido(novo, quem)
+            return true
+        }
+        val a = Despertador.salvar(this, novo)
         Toast.makeText(this, "Alarme criado: ${Despertador.horaTexto(a)}", Toast.LENGTH_LONG).show()
         if (i.getBooleanExtra(AlarmClock.EXTRA_SKIP_UI, false)) { finish(); return true }
         mostrarLista()
         return false
+    }
+
+    /** Pedido de app desconhecido: só cria se a pessoa apertar OK em "Criar". Voltar/Cancelar = não cria nada. */
+    private fun confirmarPedido(novo: Despertador.Alarme, quem: String?) {
+        val nomeApp = quem?.let { p -> try { packageManager.getApplicationLabel(packageManager.getApplicationInfo(p, 0)).toString() } catch (e: Exception) { p } }
+            ?: "um app"
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Criar alarme às ${Despertador.horaTexto(novo)}?")
+            .setMessage("Pedido de $nomeApp.")
+            .setPositiveButton("Criar") { _, _ ->
+                val a = Despertador.salvar(this, novo)
+                Toast.makeText(this, "Alarme criado: ${Despertador.horaTexto(a)}", Toast.LENGTH_LONG).show()
+                mostrarLista()
+            }
+            .setNegativeButton("Cancelar") { _, _ -> finish() }
+            .setOnCancelListener { finish() }
+            .show()
+    }
+
+    companion object {
+        /** Quem cria alarme direto, sem confirmação: o Assistente da TV ("Ok Google, me acorda às 7") e o sistema. */
+        private val CONFIAVEIS = setOf("com.google.android.katniss", "com.google.android.googlequicksearchbox", "android")
     }
 
     // ---------------------------------------------------------------- lista

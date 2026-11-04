@@ -128,7 +128,10 @@ class MainActivity : Activity() {
     }
     private val tarefaRede = object : Runnable {
         override fun run() {
-            atualizarRede()
+            // Só mede com o menu do perfil aberto (o único lugar que mostra a medida), ou uma vez para ter a 1ª
+            // (revisão 04/11): antes, com a HOME parada, eram 3 conexões a 1.1.1.1 + um Log.i a cada 30 s, o dia todo,
+            // na mesma fila do clima e da galeria. Ao abrir o menu, abrirPopup() já pede uma medição na hora.
+            if (popup?.aberto == true || ultimaRede == null) atualizarRede()
             ui.postDelayed(this, Config.REDE_A_CADA_SEG * 1000L)
         }
     }
@@ -163,11 +166,13 @@ class MainActivity : Activity() {
         tema = Tema.atual(this)
         setContentView(montarTela())
         window.setBackgroundDrawable(null)   // a janela não pinta o fundo padrão do tema por baixo de tudo (ver montarTela)
-        Privilegio.religarAcessibilidade(this)   // antes de falar com o Shizuku, para o serviço já estar de pé
-        Privilegio.iniciar()   // liga a ponte com o Shizuku (ver Privilegio.kt)
+        Privilegio.religarAcessibilidade(this)   // religa o serviço de teclas do controle se o Android o desligou
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
         PrivilegioDO.aplicar(this)   // Device Owner: fixa o nosso protetor e oculta apps substituidos (ver PrivilegioDO.kt)
         if (Config.SHELL_PROPRIO_DIAG) ShellProprio.diagnosticar(this)   // MARCO 1 do shell proprio: loga chave + porta adb (ver ShellProprio.kt)
+        // Shizuku embutido (MARCO S3): sobe o servidor se não estiver de pé e liga o vigia (binder, Wi-Fi, 10 min).
+        GuardiaoShizuku.vigiar(this)
+        GuardiaoShizuku.garantir(this, "launcher abriu")
     }
 
     override fun onResume() {
@@ -184,7 +189,9 @@ class MainActivity : Activity() {
         Privilegio.religarAcessibilidade(this)
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
         Despertador.agendar(this)   // garante o proximo alarme agendado (barato: so le as preferencias)
-        Privilegio.verificar()   // se a autorização no Shizuku foi revogada, pede de novo
+        // DNS fixo que parou de responder deixa a TV "sem internet": confere ao voltar à HOME (fora da thread; só testa
+        // a rede de verdade se o modo é fixo E a rede perdeu a validação — no caso normal custa quase nada).
+        rede.execute { Dns.voltarAoAutomaticoSeQuebrado(this) }
     }
 
     override fun onPause() {
@@ -201,6 +208,9 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         rede.shutdownNow()
+        // Cada recreate() (troca de tema) cria uma Activity nova com a sua própria fila: sem isto a thread "Apps"
+        // da Activity velha ficava viva para sempre. shutdown (não Now): deixa terminar uma carga em curso.
+        filaApps.shutdown()
         super.onDestroy()
     }
 
@@ -501,6 +511,9 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- apps, pilhas e ocultos
 
+    /** pacote -> (APK|activity, Item). Vive enquanto o processo da HOME viver (sobrevive à troca de tema). */
+    private companion object { val cacheApps = HashMap<String, Pair<String, Item>>() }
+
     /** Todos os apps de TV instalados, sem ordem e sem tirar os ocultos (quem organiza é montarEntradas). */
     private fun carregarApps(): List<Item> {
         val pm = packageManager
@@ -513,9 +526,17 @@ class MainActivity : Activity() {
             // FLAG_SYSTEM == 0 significa "instalado por você". Os de sistema só entram se estiverem em SEMPRE_MOSTRAR.
             val instaladoPorVoce = (ri.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
             if (!instaladoPorVoce && pkg !in Config.SEMPRE_MOSTRAR) continue
-            val banner = ri.activityInfo.loadBanner(pm)
-            itens[pkg] = Item(pkg, ri.loadLabel(pm).toString(), banner ?: ri.loadIcon(pm), banner != null, iconeRedondo(ri.loadIcon(pm)))
+            // Cache por APK (04/11/2026): isto roda na thread da tela a cada volta à HOME, e o serviço de teclas do
+            // controle divide essa thread — medido 107-260 ms só aqui. O caminho do APK muda quando o app é
+            // atualizado, então serve de chave: app igual = reaproveita nome e ícone já carregados.
+            // (Antes também carregava o banner, que nada usava, e o ícone duas vezes.)
+            val chave = ri.activityInfo.applicationInfo.sourceDir + "|" + ri.activityInfo.name
+            itens[pkg] = cacheApps[pkg]?.takeIf { it.first == chave }?.second ?: run {
+                val icone = ri.loadIcon(pm)
+                Item(pkg, ri.loadLabel(pm).toString(), icone, false, iconeRedondo(icone)).also { cacheApps[pkg] = chave to it }
+            }
         }
+        cacheApps.keys.retainAll(itens.keys)   // app desinstalado sai do cache
         return itens.values.toList()
     }
 
@@ -538,7 +559,8 @@ class MainActivity : Activity() {
             for (item in itens) pilhaDe[item.pacote] = pilha
         }
 
-        val usados = if (Config.ORDENAR_POR_USO_RECENTE) Uso.ultimoUso(this) else emptyMap()
+        // Lido fora da tela por preencherApps (queryAndAggregateUsageStats de 14 dias é caro); aqui só se usa o mapa.
+        val usados = ultimoUso
         val manual = Organizacao.ordem(this).withIndex().associate { it.value to it.index }
         // Os apps de uma pilha usam o token da pilha na ordem manual; a pilha aparece onde está o seu 1º app.
         fun tokenDe(i: Item): String = pilhaDe[i.pacote]?.token ?: i.pacote
@@ -574,7 +596,32 @@ class MainActivity : Activity() {
     }
 
     private fun preencherApps() {
-        instalados = carregarApps()
+        // Carregar os apps (PackageManager + ícone redondo de cada um) roda FORA da thread da tela (04/11/2026: um ANR de
+        // 5 s tinha iconeRedondo na pilha da thread principal, no 1º onResume do processo). Só o desenho volta para ela.
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        filaApps.execute {
+            val todos = carregarApps()   // cacheApps só é tocado nesta fila (uma thread)
+            // Uso recente também aqui fora (04/11/2026): antes rodava dentro de montarEntradas, na thread da tela.
+            val uso = if (Config.ORDENAR_POR_USO_RECENTE) Uso.ultimoUso(this) else emptyMap()
+            val t1 = android.os.SystemClock.elapsedRealtime()
+            ui.post {
+                if (isDestroyed) return@post
+                instalados = todos
+                ultimoUso = uso   // reorganizar() reaproveita este mapa até a próxima volta à HOME
+                lista = montarEntradas(instalados)
+                desenhar()
+                // Medir para não deixar crescer: a thread da tela também atende as teclas do controle.
+                android.util.Log.i("TvLauncher.Apps", "preencherApps: carregar=${t1 - t0} ms (fora da tela), " +
+                    "desenhar=${android.os.SystemClock.elapsedRealtime() - t1} ms")
+            }
+        }
+    }
+    private val filaApps = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "Apps") }
+    /** pacote -> último uso (ms), lido por preencherApps na filaApps. Só lido/escrito na thread da tela. */
+    private var ultimoUso: Map<String, Long> = emptyMap()
+
+    /** Só reorganiza (pilhas, ordem, ocultos) com os apps já carregados: síncrono, quem chama lê a [lista] em seguida. */
+    private fun reorganizar() {
         lista = montarEntradas(instalados)
         desenhar()
     }
@@ -584,15 +631,39 @@ class MainActivity : Activity() {
 
     /** Desenha os cards e devolve o foco ao último card usado. */
     private fun desenhar() {
-        linhaApps.removeAllViews()
         val cards = listaDaTela()
-        cards.forEach { linhaApps.addView(criarCartao(it)) }
+        // Reaproveitar os cards (04/11/2026, item 2b). Medido na TV: o desenho refazia todos os cards a cada volta à HOME,
+        // 63-89 ms na thread da tela, mesmo sem nada ter mudado. Se a assinatura (token, nome, ícone e app da frente de
+        // cada card) é a mesma da última vez, a linha fica como está e só o foco volta. No modo mover sempre redesenha
+        // (a ordem de teste muda a cada tecla), e ao sair dele a assinatura zerada força o redesenho.
+        val assinatura = if (modoMover) null else cards.map { assinaturaDe(it) }
+        if (assinatura == null || assinatura != ultimaAssinatura || linhaApps.childCount != cards.size) {
+            linhaApps.removeAllViews()
+            cards.forEach { linhaApps.addView(criarCartao(it)) }
+            ultimaAssinatura = assinatura
+        }
         if (cards.isEmpty()) return
         linhaApps.post {
             val achado = cards.indexOfFirst { it.token == ultimoToken }
             // Se o card sumiu (ex.: app ocultado), o foco fica na mesma posição, que agora é o vizinho.
             val alvo = if (achado >= 0) achado else indiceFoco.coerceIn(0, cards.lastIndex)
             linhaApps.getChildAt(alvo)?.requestFocus()
+        }
+    }
+
+    /** O último desenho da linha (ver [desenhar]); null = redesenhar na próxima vez. */
+    private var ultimaAssinatura: List<String>? = null
+
+    /**
+     * O que define a aparência e o comportamento de um card. Os ícones entram pela identidade do objeto: um Item só é
+     * recriado (cacheApps) quando o APK ou a activity do app mudam, e aí o ícone é outro objeto.
+     */
+    private fun assinaturaDe(e: Entrada): String {
+        fun ic(i: Item) = "${i.pacote}@${System.identityHashCode(i)}"
+        return when (e) {
+            is Entrada.App -> "A|${e.nome}|${ic(e.item)}"
+            is Entrada.Pilha -> "P|${e.id}|${e.nome}|${e.frente}|" + e.itens.joinToString(",") { ic(it) }
+            is Entrada.Ocultos -> "O|${e.nome}|" + e.itens.joinToString(",") { ic(it) }
         }
     }
 
@@ -819,6 +890,7 @@ class MainActivity : Activity() {
         linhaApps.addView(vista, posicao)
         vista.requestFocus()
         linhaApps.removeViewAt(posicao + 1)
+        ultimaAssinatura = null   // a linha mudou por fora do desenhar(): o próximo desenho refaz tudo
     }
 
     // ---------------------------------------------------------------- pastas (apps ocultos e "remover do grupo")
@@ -906,7 +978,7 @@ class MainActivity : Activity() {
             .setPositiveButton("Remover") { _, _ ->
                 Organizacao.tirarDaPilha(this, app.pacote)
                 fecharPasta()
-                preencherApps()
+                reorganizar()
                 // Se a pilha ainda existe (ficou com 2+ apps), reabre a lista para tirar mais um; senão ela se desfez.
                 val restante = lista.firstOrNull { it is Entrada.Pilha && it.id == pilha.id }
                 if (restante is Entrada.Pilha) {
@@ -985,7 +1057,7 @@ class MainActivity : Activity() {
     private fun atualizarAposMudanca(foco: String?) {
         fecharPasta()
         if (foco != null) ultimoToken = foco
-        preencherApps()
+        reorganizar()
     }
 
     private fun nomeDe(pacote: String): String = instalados.firstOrNull { it.pacote == pacote }?.nome ?: pacote
@@ -1130,7 +1202,7 @@ class MainActivity : Activity() {
             Organizacao.salvarOrdem(this, listaMovendo().filter { it !is Entrada.Ocultos }.map { it.token })
         }
         terminarMover()
-        preencherApps()
+        reorganizar()
     }
 
     private fun cancelarMover() {
@@ -1158,7 +1230,7 @@ class MainActivity : Activity() {
     private fun restaurarOrdemAutomatica() {
         terminarMover()
         Organizacao.limparOrdem(this)
-        preencherApps()
+        reorganizar()
     }
 
     /** Durante o modo de mover, aparece um guia de teclas na parte de baixo da tela. */
@@ -1230,7 +1302,13 @@ class MainActivity : Activity() {
                     codigo = visto ?: medida.nuvens
                     chovendoAgora = visto != null && visto >= 51
                 }
-                val eDia = atual.optInt("is_day", 1) == 1   // a Open-Meteo diz se e dia no local (pelo nascer/por do sol)
+                // Dia/noite calculado AQUI, nao pelo "is_day" da Open-Meteo: ele vira noite no instante exato do por do
+                // sol, sem o crepusculo civil (a claridade que sobra no ceu por uns 20 min depois). Flagrado em 03/11
+                // as 18:38 (por as 18:24, icone ja de lua, ceu da varanda ainda claro). Usa o nascer/por REAL do lugar
+                // (Astronomia.nascerEPor) com margem so no por (Config.MARGEM_CREPUSCULO_MIN); cai no is_day da API
+                // se o calculo falhar (nao deve, exceto perto dos polos).
+                val agoraMs = System.currentTimeMillis()
+                val eDia = Astronomia.eDia(agoraMs, ponto.lat, ponto.lon, atual.optInt("is_day", 1) == 1)
                 val (iconeDoTempo, descricao) = descricaoClima(codigo, eDia, chovendoAgora)
                 // A linha informativa do clima: se chove agora ou ha previsao de chuva HOJE (primeira hora com chance >= 40%),
                 // diz quando; senao, diz a condicao do tempo de agora (ex.: "Poucas nuvens").
@@ -1264,9 +1342,13 @@ class MainActivity : Activity() {
                 // (se estiver chovendo, vale a chuva, como de dia). Chuva, neblina etc. mantem o proprio icone.
                 val luaVirouIcone = !eDia && codigo == 0 && !chovendoAgora   // noite limpa: a lua na fase de hoje; com nuvens, o icone lua+nuvem
                 val icone = when {
-                    luaVirouIcone -> Lua.chaveIcone(System.currentTimeMillis(), Config.LATITUDE)
+                    // ponto.lat (lugar real), não Config.LATITUDE: o desenho da fase depende do hemisfério (revisão 04/11).
+                    luaVirouIcone -> Lua.chaveIcone(System.currentTimeMillis(), ponto.lat)
                     else -> iconeDoTempo   // (se o codigo diz "nublado" mas esta chovendo, descricaoClima ja devolve a chuva)
                 }
+                // Decodifica e apara o ícone AQUI, fora da thread da tela (04/11/2026: um ANR de 5 s do launcher tinha
+                // IconesClima.aparar na pilha da thread principal). Na tela, bitmap() já acha pronto no cache.
+                if (IconesClima.ehIcone(icone)) IconesClima.bitmap(this, icone)
                 ui.post {
                     pontoAtual = ponto
                     ultimoCodigo = codigo

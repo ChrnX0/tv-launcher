@@ -186,6 +186,9 @@ class PopupPerfil(
         raiz.post { focoInicial?.requestFocus() }
     }
 
+    /** O menu está na tela agora? (a medição periódica da rede só roda com ele aberto — ver MainActivity.tarefaRede) */
+    val aberto: Boolean get() = dialogo?.isShowing == true
+
     fun fechar() {
         dialogo?.dismiss()
         dialogo = null
@@ -287,8 +290,12 @@ class PopupPerfil(
             addView(sinalMais, FrameLayout.LayoutParams(dp(56), dp(56)))
             setOnClickListener {
                 fechar()
-                val adicionar = Intent(Settings.ACTION_ADD_ACCOUNT)
-                    .putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
+                // As Configurações da TV (a pessoa vai em "Contas e perfis"), não o ACTION_ADD_ACCOUNT: medido em 04/11/2026
+                // que o fluxo de adicionar conta passa pelo seletor do GMS (NoTouchAccountPickerActivity), que tenta abrir
+                // o seletor de perfis do launcher do Google desativado (launcherx ProfileChooserActivity) e quebra — 151
+                // crashes do com.google.android.gms.ui em 03/11. (O ACTION_SYNC_SETTINGS foi testado e descartado: abre
+                // a tela de UMA conta, com "Remover conta" logo abaixo — perigoso para um botão "+".)
+                val adicionar = Intent(Settings.ACTION_SETTINGS)
                 try {
                     tela.startActivity(adicionar)
                 } catch (e: Exception) {
