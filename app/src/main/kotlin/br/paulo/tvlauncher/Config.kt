@@ -61,12 +61,13 @@ object Config {
     // Shizuku embutido (MARCO S3, ver GuardiaoShizuku.kt): true = o launcher sobe o servidor do Shizuku sozinho (no boot e
     // ao abrir) e o religa se cair. false = so sobe por adb (PAREAR) ou pelo OK em Configuracoes > Shizuku do launcher.
     const val SHIZUKU_AUTOMATICO = true
-    // "Parado pelo usuario": quem mandou PARAR (intent br.paulo.tvlauncher.shizuku.PARAR) nao quer o guardiao religando.
-    // Fica guardado ate alguem mandar INICIAR. Ver ControleShizukuReceiver.
-    fun shizukuParadoPeloUsuario(ctx: android.content.Context) =
-        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).getBoolean("shizuku_parado", false)
-    fun marcarShizukuParado(ctx: android.content.Context, parado: Boolean) =
-        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putBoolean("shizuku_parado", parado).apply()
+    // "Shizuku ativo": o servidor so sobe (e o guardiao so religa) com isto ligado. DESLIGADO por padrao (04/11/2026):
+    // o shizuku_server ocupa ~58 MB de PSS numa TV com o swap quase cheio, e hoje nenhum app usa. Liga/desliga em
+    // Configuracoes > Shizuku do launcher > Servidor (OK) ou pelos intents INICIAR/PARAR (ControleShizukuReceiver).
+    fun shizukuAtivo(ctx: android.content.Context) =
+        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).getBoolean("shizuku_ativo", false)
+    fun marcarShizukuAtivo(ctx: android.content.Context, ativo: Boolean) =
+        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putBoolean("shizuku_ativo", ativo).apply()
     // VPN_FIXA: app que o Device Owner fixa como "VPN sempre ativa" (sem lockdown: se cair, a TV segue com internet).
     // 04/11/2026: o app AdGuard VPN, decisão do Paulo — a VPN própria do launcher (IKEv2) foi aposentada.
     // "" = o launcher não mexe na VPN.

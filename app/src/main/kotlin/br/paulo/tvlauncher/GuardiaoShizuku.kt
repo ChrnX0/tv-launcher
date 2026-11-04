@@ -42,7 +42,7 @@ object GuardiaoShizuku {
     fun garantir(ctx: Context, motivo: String) {
         if (!Config.SHIZUKU_AUTOMATICO) return
         val app = ctx.applicationContext
-        if (Config.shizukuParadoPeloUsuario(app)) return        // alguém mandou PARAR (ControleShizukuReceiver)
+        if (!Config.shizukuAtivo(app)) return                   // desligado (padrão): não sobe nem religa o servidor
         if (Shizuku.pingBinder() && !precisaCurar(app)) return  // já está tudo de pé: não toca no adb
         if (!trabalhando.compareAndSet(false, true)) return     // já tem uma tentativa em curso
         fila.execute {
@@ -87,6 +87,8 @@ object GuardiaoShizuku {
             if (id.isNullOrBlank()) { anotar(app, "tentativa ${n + 1}: id sem resposta"); try { m.disconnect() } catch (_: Exception) {}; continue }
             anotar(app, "shell PROPRIO diz: $id")
             autocurar(app, m)
+            // Shizuku desligado (padrão desde 04/11): o PAREAR/pareamento só prova o shell; não sobe o servidor.
+            if (!Config.shizukuAtivo(app)) { anotar(app, "OK ($motivo) - shell ok; servidor do Shizuku desligado nas Configuracoes"); return }
             if (ServidorShizuku.iniciar(app, m)) { anotar(app, "OK ($motivo)"); return }
         }
         anotar(app, "desisti depois de ${ESPERAS_S.size} tentativas ($motivo)")
