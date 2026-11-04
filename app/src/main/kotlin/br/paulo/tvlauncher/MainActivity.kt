@@ -186,6 +186,8 @@ class MainActivity : Activity() {
         ui.post(tarefaRede)
         vigiarRedeParaClima()   // busca o clima assim que a rede subir no boot, sem esperar o ciclo de 5 min
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
+        // O atalho do painel só faz sentido com o launcherx do Google ativo (uma consulta ao PackageManager, barata).
+        botaoPainelGoogle.visibility = if (Home.launcherxAtivo(this)) View.VISIBLE else View.GONE
         Privilegio.religarAcessibilidade(this)
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
         Despertador.agendar(this)   // garante o proximo alarme agendado (barato: so le as preferencias)
@@ -383,10 +385,14 @@ class MainActivity : Activity() {
         // Bolinha: exatamente a coluna 12 (50 dp). Centrada na altura da linha grande (hora/temperatura).
         val bolinha = botaoPerfil()
         topo.addView(bolinha, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(12)) })
+        // Atalho para o painel do Google (04/11/2026), na coluna 11, ao lado da bolinha: o mesmo do HOME segurado.
+        val painel = botaoPainel()
+        topo.addView(painel, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(11)) })
         blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             // centro do numero da hora = metade da altura do TextClock sem a folga do realce (a folga se anula com a margem negativa)
             val alturaHora = (v as LinearLayout).getChildAt(0).height - 2 * dp(folgaFoco)
             bolinha.translationY = ((alturaHora - bolinha.height) / 2f).coerceAtLeast(0f)
+            painel.translationY = bolinha.translationY
         }
         raiz.addView(topo, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.TOPO) })
 
@@ -466,6 +472,40 @@ class MainActivity : Activity() {
                 v.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
             }
         }
+    }
+
+    private lateinit var botaoPainelGoogle: View
+
+    /**
+     * Botão discreto do painel do Google TV (notificações, Google Home, timer para dormir, Wi-Fi, Bluetooth): abre a
+     * DashboardActivity do launcherx pelo mesmo pedido do HOME segurado (Home.abrirPainelGoogle). Uma View só, desenhada
+     * em código: nenhum processo novo, nada carregado até o OK. Só aparece com o launcherx ativo (ver onResume).
+     */
+    private fun botaoPainel(): View = object : View(this) {
+        private val tinta = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xD9FFFFFF.toInt() }
+        private val r = android.graphics.RectF()
+        override fun onDraw(c: Canvas) {
+            super.onDraw(c)
+            // 2x2 quadradinhos arredondados no centro: o ícone de "painel"
+            val lado = dp(9).toFloat(); val vao = dp(4).toFloat(); val raio = dp(2).toFloat()
+            val x0 = (width - (2 * lado + vao)) / 2f; val y0 = (height - (2 * lado + vao)) / 2f
+            for (i in 0..1) for (j in 0..1) {
+                r.set(x0 + i * (lado + vao), y0 + j * (lado + vao), x0 + i * (lado + vao) + lado, y0 + j * (lado + vao) + lado)
+                c.drawRoundRect(r, raio, raio, tinta)
+            }
+        }
+    }.apply {
+        contentDescription = "Painel do Google"
+        isFocusable = true
+        isClickable = true
+        background = anel(false)
+        setOnClickListener { Home.abrirPainelGoogle(this@MainActivity) }
+        setOnFocusChangeListener { v, temFoco ->
+            v.background = anel(temFoco)
+            val escala = if (temFoco) 1.12f else 1f
+            v.animate().scaleX(escala).scaleY(escala).setDuration(140).start()
+        }
+        botaoPainelGoogle = this
     }
 
     /** Redesenha a bolinha: a conta ativa mudou, ou chegou uma foto nova. */

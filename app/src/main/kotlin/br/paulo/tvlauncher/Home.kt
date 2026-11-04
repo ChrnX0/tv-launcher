@@ -43,8 +43,16 @@ object Home {
         } catch (e: Exception) { Log.w(TAG, "não abriu a nossa HOME: $e") }
     }
 
-    /** HOME segurado: o painel do Google TV (notificações, atalhos, Google Home), o mesmo pedido do sistema. */
+    /**
+     * HOME segurado e o botão do painel: o painel do Google TV (notificações, atalhos, Google Home, timer).
+     * Abrir a DashboardActivity direto exige android.permission.STATUS_BAR_SERVICE (de sistema; medido: "Permission
+     * Denial ... requires android.permission.STATUS_BAR_SERVICE"). O caminho certo é pedir ao sistema que abra as
+     * notificações (ação global da acessibilidade): no Google TV o SystemUI repassa isso ao painel do launcherx.
+     * O intent direto fica de reserva (funciona se um dia tivermos a permissão; hoje só registra a falha).
+     */
     fun abrirPainelGoogle(ctx: Context) {
+        val servico = AutorizaShizukuService.instancia
+        if (servico != null && servico.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)) return
         try {
             ctx.startActivity(Intent("android.app.action.TOGGLE_NOTIFICATION_HANDLER_PANEL").setPackage(LAUNCHERX)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
