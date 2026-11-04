@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Configuração do serviço de acessibilidade AutorizaShizukuService.
-     Só escuta o app do Shizuku (packageNames): o serviço não vê nenhum outro app. -->
-<!-- isAccessibilityTool="true" (Android 14+): sem isso o diálogo do Shizuku chega VAZIO ao serviço (0 filhos, nenhum evento),
-     porque o Shizuku marca a janela como dado sensível. Descoberto no teste de 30/10. -->
+<!-- Configuração do serviço de acessibilidade AutorizaShizukuService: hoje só serve para enxergar as teclas do
+     controle remoto antes dos botões globais do sistema (ver onKeyEvent em AutorizaShizukuService.kt). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/descricao_autoriza_shizuku"
-    android:packageNames="moe.shizuku.privileged.api"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagReportViewIds|flagRequestFilterKeyEvents"
+    android:accessibilityFlags="flagRequestFilterKeyEvents"
     android:canRequestFilterKeyEvents="true"
-    android:canRetrieveWindowContent="true"
-    android:isAccessibilityTool="true"
     android:notificationTimeout="100" />

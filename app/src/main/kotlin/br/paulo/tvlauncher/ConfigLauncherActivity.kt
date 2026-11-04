@@ -44,6 +44,51 @@ class ConfigLauncherActivity : Activity() {
         trabalho.shutdownNow()
     }
 
+    // ---------------------------------------------------------------- VPN (ver Vpn.kt)
+
+    private lateinit var linhaVpn: TextView
+    private val pedidoVpn = 42   // número qualquer que identifica a volta da tela "permitir VPN" em onActivityResult
+
+    private fun detalheVpn(): String = when {
+        !Vpn.suportada() -> "precisa de Android 11+"
+        !Vpn.configurada() -> "credenciais não configuradas (local.properties)"
+        Vpn.ativa(this) -> "ligada — OK desliga"
+        else -> "desligada — OK liga (fica sempre ativa)"
+    }
+
+    /** OK na linha: liga (cadastra o perfil, pede autorização se for a 1ª vez, liga e marca "sempre ativa") ou desliga. */
+    private fun alternarVpn() {
+        if (!Vpn.suportada() || !Vpn.configurada()) return
+        if (Vpn.ativa(this)) {
+            PrivilegioDO.vpnSempreAtiva(this, false)   // primeiro tira o "sempre ativa", senão o Android religa na hora
+            Vpn.desligar(this)
+            atualizarVpnDepois()
+            return
+        }
+        val autorizar = Vpn.cadastrar(this)
+        if (autorizar != null) startActivityForResult(autorizar, pedidoVpn)   // 1ª vez: tela do sistema "permitir VPN"
+        else ligarVpn()
+    }
+
+    @Deprecated("API antiga, mas é a que existe em Activity (sem AndroidX)")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != pedidoVpn) return
+        if (resultCode == RESULT_OK) ligarVpn() else linhaVpn.detalhe("autorização recusada")
+    }
+
+    private fun ligarVpn() {
+        linhaVpn.detalhe("conectando…")
+        if (!Vpn.ligar(this)) { linhaVpn.detalhe("o Android recusou ligar (veja o log TvLauncher.Vpn)"); return }
+        PrivilegioDO.vpnSempreAtiva(this, true)
+        atualizarVpnDepois()
+    }
+
+    /** O túnel leva alguns segundos para subir/cair: confere de novo depois. */
+    private fun atualizarVpnDepois() {
+        ui.postDelayed({ if (!isDestroyed) linhaVpn.detalhe(detalheVpn()) }, 4000)
+    }
+
     // ---------------------------------------------------------------- tela
 
     private fun montarTela(): View {
@@ -102,6 +147,8 @@ class ConfigLauncherActivity : Activity() {
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
         adicionar(linha("DNS privado", Dns.rotulo(this)) { startActivity(Intent(this, DnsActivity::class.java)) })
+        linhaVpn = linha("VPN AdGuard", detalheVpn()) { alternarVpn() }
+        adicionar(linhaVpn)
         lateinit var linhaVelocidade: TextView
         linhaVelocidade = linha("Testar velocidade da internet", "baixa 25 MB e mede") {
             linhaVelocidade.detalhe("Testando…")
@@ -112,20 +159,29 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaVelocidade)
 
+        // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
+        // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
+        if (Config.APPS_OCULTAR.isNotEmpty()) {
+            secao("Apps ocultos")
+            Config.APPS_OCULTAR.forEach { pacote ->
+                val rotulo = try {
+                    packageManager.getApplicationLabel(packageManager.getApplicationInfo(pacote, 0)).toString()
+                } catch (e: Exception) { pacote }
+                lateinit var linhaApp: TextView
+                fun detalheApp() = if (PrivilegioDO.estaOculto(this, pacote)) "oculto — OK mostra" else "visível — OK oculta"
+                linhaApp = linha(rotulo, detalheApp()) {
+                    val ocultoAntes = PrivilegioDO.estaOculto(this, pacote)
+                    if (PrivilegioDO.ocultar(this, pacote, !ocultoAntes)) linhaApp.detalhe(detalheApp())
+                    else linhaApp.detalhe("não consegui mudar (Device Owner inativo?)")
+                }
+                adicionar(linhaApp)
+            }
+        }
+
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         secao("Permissões")
         val dono = PrivilegioDO.somosDonos(this)
         adicionar(info("Device Owner", if (dono) "ativo — controla apps e permissões do sistema" else "não ativo"))
-        if (Privilegio.pronto()) {
-            adicionar(info("Shizuku", "autorizado"))
-        } else {
-            lateinit var linhaShizuku: TextView
-            linhaShizuku = linha("Shizuku: pedir autorização", "ainda não autorizado") {
-                Privilegio.verificar()
-                linhaShizuku.detalhe("pedido enviado — confirme na TV, se aparecer")
-            }
-            adicionar(linhaShizuku)
-        }
         adicionar(info("Permissões fixas concedidas", Config.PERMISSOES_FIXAS.joinToString { it.substringAfterLast('.') }))
 
         // ---- Diagnóstico: números úteis para saber se algo por trás dos panos está ok, sem precisar do logcat.
