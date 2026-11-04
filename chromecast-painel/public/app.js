@@ -28,12 +28,12 @@ async function carregarAparelhos() {
     for (const ap of aparelhos) {
       const card = document.createElement('div');
       card.className = 'cartao-aparelho';
-      card.innerHTML = `<div class="nome">${ap.nome}</div><div class="status ${ap.online ? 'online' : 'offline'}">${ap.online ? 'Na rede agora' : 'Não visto recentemente'}</div>`;
+      card.innerHTML = `<div class="nome">${esc(ap.nome)}</div><div class="status ${ap.online ? 'online' : 'offline'}">${ap.online ? 'Na rede agora' : 'Não visto recentemente'}</div>`;
       card.onclick = () => abrirAparelho(ap);
       lista.appendChild(card);
     }
   } catch (e) {
-    lista.innerHTML = `<p class="aviso">Não consegui procurar: ${e.message}</p>`;
+    lista.innerHTML = `<p class="aviso">Não consegui procurar: ${esc(e.message)}</p>`;
   }
 }
 
@@ -82,7 +82,7 @@ async function carregarTela() {
     document.getElementById('iframeTela').src = url;
     ajustarEscalaTela();
   } catch (e) {
-    document.getElementById('painelTela').innerHTML = `<p class="aviso">Não consegui abrir a tela: ${e.message}</p>`;
+    document.getElementById('painelTela').innerHTML = `<p class="aviso">Não consegui abrir a tela: ${esc(e.message)}</p>`;
   }
 }
 
@@ -95,8 +95,14 @@ async function carregarApps() {
     lista.innerHTML = '';
     for (const app of apps) lista.appendChild(linhaApp(app));
   } catch (e) {
-    lista.innerHTML = `<p class="aviso">Não consegui listar: ${e.message}</p>`;
+    lista.innerHTML = `<p class="aviso">Não consegui listar: ${esc(e.message)}</p>`;
   }
+}
+
+// Texto que vem do aparelho (nome de app, de arquivo) vai para innerHTML: escapar, senão um app com nome tipo
+// "<img onerror=...>" rodaria código no painel.
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function linhaApp(app) {
@@ -104,17 +110,18 @@ function linhaApp(app) {
   linha.className = 'linha-app';
   linha.innerHTML = `
     <div class="info">
-      <span class="nome">${app.nome}</span>
-      <span class="pacote">${app.pkg}</span>
+      <span class="nome">${esc(app.nome)}</span>
+      <span class="pacote">${esc(app.pkg)}</span>
     </div>
-    <div class="acoes">
+    <div class="acoes">${app.protegido ? '<span class="protegido">tela inicial — protegido</span>' : `
       <label class="interruptor" title="Ligado / congelado">
         <input type="checkbox" ${app.congelado ? '' : 'checked'} />
         <span class="trilho"></span>
       </label>
-      <button class="botao-perigo">Remover</button>
+      <button class="botao-perigo">Remover</button>`}
     </div>`;
   linha.querySelector('.info').onclick = () => abrirPermissoes(app);
+  if (app.protegido) return linha;   // o launcher (HOME + Device Owner) não tem interruptor nem "Remover"
   linha.querySelector('input').onchange = async (ev) => {
     const ligar = ev.target.checked;
     ev.target.disabled = true;
@@ -156,7 +163,7 @@ async function abrirPermissoes(app) {
     if (!permissoes.length) lista.innerHTML = '<p class="aviso">Este aplicativo não pede nenhuma permissão sensível.</p>';
     for (const p of permissoes) lista.appendChild(linhaPermissao(app.pkg, p));
   } catch (e) {
-    lista.innerHTML = `<p class="aviso">Não consegui carregar: ${e.message}</p>`;
+    lista.innerHTML = `<p class="aviso">Não consegui carregar: ${esc(e.message)}</p>`;
   }
 }
 function nomeAmigavelPermissao(permissao) {
@@ -198,7 +205,7 @@ async function carregarArquivos() {
     if (!itens.length) lista.innerHTML = '<p class="aviso">Pasta vazia.</p>';
     for (const linhaBruta of itens) lista.appendChild(linhaArquivo(pasta, linhaBruta));
   } catch (e) {
-    lista.innerHTML = `<p class="aviso">Não consegui listar: ${e.message}</p>`;
+    lista.innerHTML = `<p class="aviso">Não consegui listar: ${esc(e.message)}</p>`;
   }
 }
 function linhaArquivo(pasta, linhaBrutaLs) {
@@ -207,7 +214,12 @@ function linhaArquivo(pasta, linhaBrutaLs) {
   const nome = linhaBrutaLs.split(/\s+/).slice(7).join(' ');
   const linha = document.createElement('div');
   linha.className = 'linha-arquivo';
-  linha.innerHTML = `<span>${nome}</span><div class="acoes"><button class="botao-secundario">Baixar</button></div>`;
+  // Pasta (o "ls -la" começa com "d"): não dá para baixar uma pasta inteira; antes ela aparecia com "Baixar" (04/11).
+  if (linhaBrutaLs.trim().startsWith('d')) {
+    linha.innerHTML = `<span>📁 ${esc(nome)}</span><div class="acoes"><span class="protegido">pasta</span></div>`;
+    return linha;
+  }
+  linha.innerHTML = `<span>${esc(nome)}</span><div class="acoes"><button class="botao-secundario">Baixar</button></div>`;
   linha.querySelector('button').onclick = () => {
     const caminho = pasta.replace(/\/+$/, '') + '/' + nome;
     window.open(`/api/dispositivos/${aparelhoAtual.id}/arquivos/baixar?caminho=${encodeURIComponent(caminho)}`, '_blank');

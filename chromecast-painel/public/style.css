@@ -83,3 +83,6 @@ select { background: var(--superficie2); color: var(--texto); border: 1px solid 
 .modal[hidden] { display: none; }
 .modal-conteudo { background: var(--superficie); border: 1px solid var(--borda); border-radius: 16px; padding: 20px; width: 100%; max-width: 480px; max-height: 80vh; overflow: auto; }
 .modal-cabecalho { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+/* App protegido (o launcher: tela inicial + Device Owner) - sem interruptor nem Remover */
+.protegido { color: var(--texto-suave, #9aa); font-size: 13px; font-style: italic; }
