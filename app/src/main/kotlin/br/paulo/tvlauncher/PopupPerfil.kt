@@ -186,6 +186,9 @@ class PopupPerfil(
         raiz.post { focoInicial?.requestFocus() }
     }
 
+    /** O menu está na tela agora? (a medição periódica da rede só roda com ele aberto — ver MainActivity.tarefaRede) */
+    val aberto: Boolean get() = dialogo?.isShowing == true
+
     fun fechar() {
         dialogo?.dismiss()
         dialogo = null

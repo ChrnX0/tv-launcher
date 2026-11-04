@@ -51,4 +51,15 @@ object Astronomia {
         }
         return if (nascer != null && por != null) nascer to por else null
     }
+
+    /**
+     * "É dia?" para o ÍCONE do clima — a regra única das telas (04/11/2026). A Open-Meteo marca noite no instante exato
+     * do pôr do sol, sem o crepúsculo civil (fix de 03/11, ver CLAUDE.md); aqui é o nascer/pôr real do lugar com
+     * [Config.MARGEM_CREPUSCULO_MIN] de margem só no pôr. Antes só a HOME usava isto e a Previsão ainda usava o is_day
+     * da API: as duas telas podiam discordar por até 20 min. [isDayDaApi] é o fallback (perto dos polos).
+     */
+    fun eDia(ms: Long, lat: Double, lon: Double, isDayDaApi: Boolean): Boolean {
+        val (nascer, por) = nascerEPor(ms, lat, lon) ?: return isDayDaApi
+        return ms in nascer until (por + Config.MARGEM_CREPUSCULO_MIN * 60_000L)
+    }
 }

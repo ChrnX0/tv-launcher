@@ -128,7 +128,10 @@ class MainActivity : Activity() {
     }
     private val tarefaRede = object : Runnable {
         override fun run() {
-            atualizarRede()
+            // Só mede com o menu do perfil aberto (o único lugar que mostra a medida), ou uma vez para ter a 1ª
+            // (revisão 04/11): antes, com a HOME parada, eram 3 conexões a 1.1.1.1 + um Log.i a cada 30 s, o dia todo,
+            // na mesma fila do clima e da galeria. Ao abrir o menu, abrirPopup() já pede uma medição na hora.
+            if (popup?.aberto == true || ultimaRede == null) atualizarRede()
             ui.postDelayed(this, Config.REDE_A_CADA_SEG * 1000L)
         }
     }
@@ -1252,11 +1255,7 @@ class MainActivity : Activity() {
                 // (Astronomia.nascerEPor) com margem so no por (Config.MARGEM_CREPUSCULO_MIN); cai no is_day da API
                 // se o calculo falhar (nao deve, exceto perto dos polos).
                 val agoraMs = System.currentTimeMillis()
-                val nascerPor = Astronomia.nascerEPor(agoraMs, ponto.lat, ponto.lon)
-                val eDia = if (nascerPor != null) {
-                    val (nascer, por) = nascerPor
-                    agoraMs in nascer until (por + Config.MARGEM_CREPUSCULO_MIN * 60_000L)
-                } else atual.optInt("is_day", 1) == 1
+                val eDia = Astronomia.eDia(agoraMs, ponto.lat, ponto.lon, atual.optInt("is_day", 1) == 1)
                 val (iconeDoTempo, descricao) = descricaoClima(codigo, eDia, chovendoAgora)
                 // A linha informativa do clima: se chove agora ou ha previsao de chuva HOJE (primeira hora com chance >= 40%),
                 // diz quando; senao, diz a condicao do tempo de agora (ex.: "Poucas nuvens").
@@ -1290,7 +1289,8 @@ class MainActivity : Activity() {
                 // (se estiver chovendo, vale a chuva, como de dia). Chuva, neblina etc. mantem o proprio icone.
                 val luaVirouIcone = !eDia && codigo == 0 && !chovendoAgora   // noite limpa: a lua na fase de hoje; com nuvens, o icone lua+nuvem
                 val icone = when {
-                    luaVirouIcone -> Lua.chaveIcone(System.currentTimeMillis(), Config.LATITUDE)
+                    // ponto.lat (lugar real), não Config.LATITUDE: o desenho da fase depende do hemisfério (revisão 04/11).
+                    luaVirouIcone -> Lua.chaveIcone(System.currentTimeMillis(), ponto.lat)
                     else -> iconeDoTempo   // (se o codigo diz "nublado" mas esta chovendo, descricaoClima ja devolve a chuva)
                 }
                 ui.post {
