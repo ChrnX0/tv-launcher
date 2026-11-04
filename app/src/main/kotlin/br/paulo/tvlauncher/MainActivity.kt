@@ -49,8 +49,8 @@ private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: sol cobert
  */
 class MainActivity : Activity() {
 
-    /** Um app na grade: pacote (identificador), nome, imagem (banner ou ícone), se é banner (16:9) e o ícone redondo da linha principal. */
-    private class Item(val pacote: String, val nome: String, val imagem: Drawable, val ehBanner: Boolean, val icone: Drawable)
+    /** Um app na grade: pacote (identificador), nome e o ícone redondo da linha principal. */
+    private class Item(val pacote: String, val nome: String, val icone: Drawable)
 
     /**
      * Um card da linha principal: um app, uma pilha de apps, ou o card "Ocultos" (sempre o ultimo).
@@ -77,7 +77,6 @@ class MainActivity : Activity() {
     // O visual escolhido no menu do perfil (Tema.kt). Lido no onCreate; trocar de tema recria a tela.
     private var tema = Tema.ESCURO
     private val fonteLeve by lazy { Fontes.display(this, tema) }   // hora e temperatura
-    private val fonteMedia by lazy { Fontes.uiMedia(this, tema) }
     private val fonteUi by lazy { Fontes.ui(this, tema) }
 
     private var fundo: View? = null                 // o fundo vivo do tema (céu, pintura, mostrador)
@@ -572,8 +571,8 @@ class MainActivity : Activity() {
             // (Antes também carregava o banner, que nada usava, e o ícone duas vezes.)
             val chave = ri.activityInfo.applicationInfo.sourceDir + "|" + ri.activityInfo.name
             itens[pkg] = cacheApps[pkg]?.takeIf { it.first == chave }?.second ?: run {
-                val icone = ri.loadIcon(pm)
-                Item(pkg, ri.loadLabel(pm).toString(), icone, false, iconeRedondo(icone)).also { cacheApps[pkg] = chave to it }
+                // Só o ícone redondo fica guardado: o original (loadIcon) vira lixo logo depois de desenhado.
+                Item(pkg, ri.loadLabel(pm).toString(), iconeRedondo(ri.loadIcon(pm))).also { cacheApps[pkg] = chave to it }
             }
         }
         cacheApps.keys.retainAll(itens.keys)   // app desinstalado sai do cache
@@ -1622,13 +1621,4 @@ class MainActivity : Activity() {
         if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
     }
 
-    /**
-     * Fundo "vidro": branco bem translúcido com uma borda fina.
-     * Quando focado, o vidro fica mais claro e a borda quase opaca.
-     */
-    private fun fundoVidro(focado: Boolean, raio: Int): GradientDrawable = GradientDrawable().apply {
-        cornerRadius = raio.toFloat()
-        setColor(if (focado) 0x2EFFFFFF else 0x12FFFFFF)
-        setStroke(dp(2), if (focado) 0xD9FFFFFF.toInt() else 0x1FFFFFFF)
-    }
 }

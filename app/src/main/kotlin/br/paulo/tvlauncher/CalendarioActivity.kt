@@ -56,10 +56,22 @@ class CalendarioActivity : Activity() {
         super.onCreate(savedInstanceState)
         conta = Perfil.ativa(this)
         setContentView(montar())
+        // Item 30 da revisão (04/11/2026): antes redesenhava UMA vez, 6 s depois de abrir, e o que a sincronização
+        // trouxesse depois ficava de fora. Agora o provedor da agenda avisa a cada mudança enquanto a tela estiver
+        // aberta (registrado ANTES de pedir a sincronização, para não perder o aviso). Redesenho agrupado: 1 s.
+        try {
+            contentResolver.registerContentObserver(CalendarContract.Events.CONTENT_URI, true, observador)
+        } catch (e: Exception) { Log.w("TvLauncher.Agenda", "sem observador da agenda: $e") }
         sincronizar()
         desenhar()
-        // A sincronização roda em segundo plano: redesenha depois de uns segundos para pegar o que chegou.
-        ui.postDelayed({ desenhar() }, 6000)
+    }
+
+    private val redesenhar = Runnable { desenhar() }
+    private val observador = object : android.database.ContentObserver(ui) {
+        override fun onChange(selfChange: Boolean) {
+            ui.removeCallbacks(redesenhar)
+            ui.postDelayed(redesenhar, 1000)
+        }
     }
 
     private fun montar(): FrameLayout {
@@ -264,6 +276,7 @@ class CalendarioActivity : Activity() {
     }
 
     override fun onDestroy() {
+        try { contentResolver.unregisterContentObserver(observador) } catch (_: Exception) {}
         ui.removeCallbacksAndMessages(null)
         trabalho.shutdownNow()
         super.onDestroy()

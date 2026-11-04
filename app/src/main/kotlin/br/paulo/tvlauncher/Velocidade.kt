@@ -15,15 +15,17 @@ object Velocidade {
         conexao.readTimeout = 20000
         val inicio = System.nanoTime()
         var total = 0L
-        conexao.inputStream.use { entrada ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-                val n = entrada.read(buffer)
-                if (n < 0) break
-                total += n
+        // try/finally (item 31 da revisão): antes um erro no meio do download pulava o disconnect().
+        try {
+            conexao.inputStream.use { entrada ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = entrada.read(buffer)
+                    if (n < 0) break
+                    total += n
+                }
             }
-        }
-        conexao.disconnect()
+        } finally { conexao.disconnect() }
         val segundos = (System.nanoTime() - inicio) / 1e9
         val mbps = total * 8 / segundos / 1e6
         "Internet: %.0f Mbps (baixou %.0f MB em %.1f s)".format(mbps, total / 1e6, segundos)
