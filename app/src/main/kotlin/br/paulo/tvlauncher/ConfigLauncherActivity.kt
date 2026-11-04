@@ -217,7 +217,13 @@ class ConfigLauncherActivity : Activity() {
         val versao = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { null }
         adicionar(info("Versão do launcher", versao ?: "desconhecida"))
         adicionar(info("Depuração sem fio", if (Config.DEPURACAO_SEM_FIO_SEMPRE_LIGADA) "mantida ligada pelo launcher" else "como o Android deixar"))
-        adicionar(info("Chave do shell próprio", ShellProprio.impressaoDigital(this)))
+        // Fora da thread da tela (revisão 04/11): na 1ª vez isto GERA a chave RSA-2048 (segundos num ARMv7).
+        val linhaChave = info("Chave do shell próprio", "calculando…")
+        adicionar(linhaChave)
+        trabalho.execute {
+            val fp = try { ShellProprio.impressaoDigital(this) } catch (e: Exception) { "erro: ${e.javaClass.simpleName}" }
+            ui.post { if (!isDestroyed) linhaChave.detalhe(fp) }
+        }
 
         return raiz
     }

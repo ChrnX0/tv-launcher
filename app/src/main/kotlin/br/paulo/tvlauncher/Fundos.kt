@@ -226,7 +226,15 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
         val obra = obras[(Calendar.getInstance().apply { timeInMillis = e.agoraMs }.get(Calendar.DAY_OF_YEAR)) % obras.size]
         mostrarEtiqueta(obra)
         val arquivo = File(context.filesDir, "galeria-${obra.id}.jpg")
-        if (arquivo.exists()) { imagem.setImageBitmap(BitmapFactory.decodeFile(arquivo.path)); diaCarregado = dia; return }
+        if (arquivo.exists()) {
+            // Decodifica fora da thread da tela (revisão 04/11): é um JPEG de 1920 px.
+            baixando = true
+            emSegundoPlano {
+                val bmp = BitmapFactory.decodeFile(arquivo.path)
+                post { baixando = false; if (bmp != null) { imagem.setImageBitmap(bmp); diaCarregado = dia } }
+            }
+            return
+        }
         // Só marca o dia como carregado quando a imagem CHEGA (revisão de 04/11/2026): antes marcava antes de baixar e,
         // se o download falhasse (rede ainda subindo no boot), a galeria ficava preta até o dia seguinte. Agora o
         // próximo atualizar() tenta de novo.
@@ -271,7 +279,10 @@ class FundoGaleria(ctx: Context, private val emSegundoPlano: (() -> Unit) -> Uni
         BitmapFactory.decodeFile(bruto.path, limites)
         var amostra = 1
         while (limites.outWidth / (amostra * 2) >= 1920) amostra *= 2
-        val bmp = BitmapFactory.decodeFile(bruto.path, BitmapFactory.Options().apply { inSampleSize = amostra })
+        val lido = BitmapFactory.decodeFile(bruto.path, BitmapFactory.Options().apply { inSampleSize = amostra })
+        // A amostra em potência de 2 ainda deixava até ~3839 px de largura (~29 MB de bitmap num aparelho 32 bits com
+        // pouca RAM — revisão de 04/11/2026). Reduz para exatamente 1920 de largura (a tela é 1920x1080).
+        val bmp = if (lido.width > 1920) Bitmap.createScaledBitmap(lido, 1920, lido.height * 1920 / lido.width, true).also { lido.recycle() } else lido
         bruto.delete()
         context.filesDir.listFiles { f -> f.name.startsWith("galeria-") }?.forEach { it.delete() }   // guarda só a do dia
         destino.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
