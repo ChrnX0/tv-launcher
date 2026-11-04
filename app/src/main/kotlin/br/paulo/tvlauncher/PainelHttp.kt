@@ -14,16 +14,58 @@ import java.net.URLDecoder
  * Este arquivo não usa NADA do Android: assim os testes rodam no computador (app/src/test, PainelHttpTest).
  */
 
-/** Requisição já lida. [cabecalhos] tem os nomes em minúsculas. [caminho] vem cru (sem decodificar %xx). */
+/**
+ * Requisição com os cabeçalhos já lidos. O CORPO só é lido quando a rota pede ([lerCorpo] ou [fluxoCorpo]): assim um
+ * envio de arquivo de vários GB vai direto para o disco, e a rota confere sessão e PIN antes de receber um byte dele.
+ * [cabecalhos] tem os nomes em minúsculas. [caminho] vem cru (sem decodificar %xx). [tamanho] = Content-Length.
+ */
 class Requisicao(
     val metodo: String,
     val caminho: String,
     val consulta: Map<String, String>,
     val cabecalhos: Map<String, String>,
-    val corpo: ByteArray,
+    val tamanho: Long,
+    private val entrada: InputStream?,
 ) {
+    private var lido: ByteArray? = if (tamanho == 0L) ByteArray(0) else null
+
     fun cabecalho(nome: String): String? = cabecalhos[nome.lowercase()]
+
+    /** Lê o corpo inteiro para a memória, se couber em [limite] bytes (senão 413). Chamar de novo devolve o mesmo. */
+    fun lerCorpo(limite: Int): ByteArray {
+        lido?.let { return it }
+        if (tamanho > limite) throw ErroHttp(413, "corpo grande demais")
+        return PainelHttp.lerExato(entrada ?: throw IOException("sem corpo"), tamanho.toInt()).also { lido = it }
+    }
+
+    /** O corpo já lido por [lerCorpo]. */
+    val corpo: ByteArray get() = lido ?: throw IllegalStateException("corpo ainda não lido")
     fun corpoTexto(): String = String(corpo, Charsets.UTF_8)
+
+    /** O corpo como fluxo, que termina exatamente em [tamanho] bytes (para envio de arquivo grande). Uma vez só. */
+    fun fluxoCorpo(): InputStream {
+        check(lido == null || tamanho == 0L) { "corpo já lido" }
+        lido = ByteArray(0)
+        return Limitado(entrada ?: ByteArray(0).inputStream(), tamanho)
+    }
+
+    /** Não deixa ler além do Content-Length (o que viesse depois não é deste pedido). */
+    private class Limitado(private val dentro: InputStream, private var faltam: Long) : InputStream() {
+        override fun read(): Int {
+            if (faltam <= 0) return -1
+            val b = dentro.read()
+            if (b < 0) throw IOException("corpo incompleto")
+            faltam--
+            return b
+        }
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (faltam <= 0) return -1
+            val n = dentro.read(b, off, minOf(len.toLong(), faltam).toInt())
+            if (n < 0) throw IOException("corpo incompleto (faltaram $faltam bytes)")
+            faltam -= n
+            return n
+        }
+    }
 }
 
 /** Erro que vira uma resposta HTTP com este código (ex.: 413 corpo grande demais). */
@@ -33,12 +75,17 @@ object PainelHttp {
     const val LIMITE_CABECALHOS = 8 * 1024   // linha de pedido + cabeçalhos juntos
 
     /**
-     * Lê uma requisição de [entrada]. [limiteCorpo] é o maior corpo aceito (bytes) — passado por quem chama porque a
-     * restauração de backup aceita mais do que um login. Lança [ErroHttp] para pedido malformado ou grande demais,
-     * e IOException se a conexão cair no meio.
+     * Lê uma requisição INTEIRA de [entrada] (cabeçalhos e corpo). [limiteCorpo] é o maior corpo aceito (bytes).
+     * Lança [ErroHttp] para pedido malformado ou grande demais, e IOException se a conexão cair no meio.
      */
-    fun ler(entrada: InputStream, limiteCorpo: Int): Requisicao {
-        val linhas = lerCabecalhos(entrada)
+    fun ler(entrada: InputStream, limiteCorpo: Int): Requisicao =
+        lerCabecalhos(entrada, aceitarCorpo = true).also { it.lerCorpo(limiteCorpo) }
+
+    /**
+     * Lê só a linha de pedido e os cabeçalhos; o corpo fica na conexão até a rota pedir (ver [Requisicao]).
+     */
+    fun lerCabecalhos(entrada: InputStream, aceitarCorpo: Boolean = true): Requisicao {
+        val linhas = linhasCabecalho(entrada)
         val pedido = linhas.first().split(' ')
         if (pedido.size != 3 || !pedido[2].startsWith("HTTP/1.")) throw ErroHttp(400, "linha de pedido inválida")
         val metodo = pedido[0]
@@ -53,25 +100,28 @@ object PainelHttp {
             val valor = linha.substring(doisPontos + 1).trim()
             // Host repetido é o truque clássico para enganar a checagem de Host: recusa.
             if (nome == "host" && cabecalhos.containsKey("host")) throw ErroHttp(400, "Host repetido")
+            // Content-Length repetido (com valores diferentes) é o truque de "request smuggling": recusa também.
+            if (nome == "content-length" && cabecalhos.containsKey("content-length")) throw ErroHttp(400, "Content-Length repetido")
             cabecalhos[nome] = valor
         }
         // Corpo "chunked" não é suportado (o navegador só usa com stream; o painel sempre manda tamanho conhecido).
         if (cabecalhos.containsKey("transfer-encoding")) throw ErroHttp(411, "use Content-Length")
 
         val tamanho = cabecalhos["content-length"]?.let {
-            it.toIntOrNull()?.takeIf { n -> n >= 0 } ?: throw ErroHttp(400, "Content-Length inválido")
-        } ?: 0
-        if (tamanho > limiteCorpo) throw ErroHttp(413, "corpo grande demais")
-        val corpo = lerExato(entrada, tamanho)
+            // Só dígitos (o toLong aceitaria "+5"); até 19 dígitos cabe num Long.
+            if (it.isEmpty() || it.length > 18 || !it.all { c -> c in '0'..'9' }) throw ErroHttp(400, "Content-Length inválido")
+            it.toLong()
+        } ?: 0L
+        if (!aceitarCorpo && tamanho > 0) throw ErroHttp(413, "corpo grande demais")
 
         val interrogacao = alvo.indexOf('?')
         val caminho = if (interrogacao < 0) alvo else alvo.substring(0, interrogacao)
         val consulta = if (interrogacao < 0) emptyMap() else lerConsulta(alvo.substring(interrogacao + 1))
-        return Requisicao(metodo, caminho, consulta, cabecalhos, corpo)
+        return Requisicao(metodo, caminho, consulta, cabecalhos, tamanho, entrada)
     }
 
     /** Linhas até a linha vazia, sem o \r\n. Lê byte a byte (só os cabeçalhos; poucos KB) para não engolir o corpo. */
-    private fun lerCabecalhos(entrada: InputStream): List<String> {
+    private fun linhasCabecalho(entrada: InputStream): List<String> {
         val linhas = ArrayList<String>()
         val atual = ByteArrayOutputStream()
         var total = 0
@@ -97,7 +147,7 @@ object PainelHttp {
         }
     }
 
-    private fun lerExato(entrada: InputStream, n: Int): ByteArray {
+    internal fun lerExato(entrada: InputStream, n: Int): ByteArray {
         val corpo = ByteArray(n)
         var lidos = 0
         while (lidos < n) {
@@ -139,7 +189,7 @@ object PainelHttp {
         400 -> "Bad Request"; 401 -> "Unauthorized"; 403 -> "Forbidden"; 404 -> "Not Found"
         405 -> "Method Not Allowed"; 409 -> "Conflict"; 411 -> "Length Required"; 413 -> "Payload Too Large"
         421 -> "Misdirected Request"; 429 -> "Too Many Requests"; 431 -> "Request Header Fields Too Large"
-        500 -> "Internal Server Error"; 503 -> "Service Unavailable"
+        500 -> "Internal Server Error"; 503 -> "Service Unavailable"; 507 -> "Insufficient Storage"
         else -> "Status"
     }
 
@@ -159,21 +209,47 @@ object PainelHttp {
 
     /** Escreve a resposta inteira. [extras] pode sobrescrever os de segurança (ex.: Cache-Control dos ícones). */
     fun escrever(saida: OutputStream, codigo: Int, tipo: String?, corpo: ByteArray, extras: Map<String, String> = emptyMap()) {
+        escreverCabecalho(saida, codigo, tipo, corpo.size.toLong(), extras)
+        saida.write(corpo)
+        saida.flush()
+    }
+
+    /**
+     * Só a linha de status e os cabeçalhos; quem chama escreve depois exatamente [tamanho] bytes de corpo (é assim
+     * que um arquivo grande sai da TV sem ir inteiro para a memória).
+     */
+    fun escreverCabecalho(saida: OutputStream, codigo: Int, tipo: String?, tamanho: Long, extras: Map<String, String> = emptyMap()) {
         val sb = StringBuilder()
         sb.append("HTTP/1.1 ").append(codigo).append(' ').append(textoStatus(codigo)).append("\r\n")
         val todos = LinkedHashMap(CABECALHOS_SEGURANCA)
         todos.putAll(extras)
         if (tipo != null) todos["Content-Type"] = tipo
-        todos["Content-Length"] = corpo.size.toString()
+        todos["Content-Length"] = tamanho.toString()
         todos["Connection"] = "close"
         for ((nome, valor) in todos) {
             // Um \r ou \n num valor permitiria injetar cabeçalhos. Nenhum valor nosso tem, mas a barreira fica aqui.
             require('\r' !in valor && '\n' !in valor) { "quebra de linha no cabeçalho $nome" }
+            // Cabeçalho HTTP é ISO-8859-1: nome de arquivo com acento vai codificado (ver [nomeParaBaixar]).
+            require(valor.all { it.code in 0x20..0x7e }) { "caractere fora de ASCII no cabeçalho $nome" }
             sb.append(nome).append(": ").append(valor).append("\r\n")
         }
         sb.append("\r\n")
         saida.write(sb.toString().toByteArray(Charsets.ISO_8859_1))
-        saida.write(corpo)
-        saida.flush()
+    }
+
+    /**
+     * Content-Disposition para baixar um arquivo com o nome dele, inclusive com acento ("Férias.mp4"): o padrão
+     * (RFC 6266) é um nome só ASCII de reserva e o nome de verdade em UTF-8 codificado com %xx em filename*.
+     */
+    fun nomeParaBaixar(nome: String): String {
+        val reserva = nome.map { if (it.code in 0x20..0x7e && it != '"' && it != '\\' && it != '%') it else '_' }.joinToString("")
+        val utf8 = StringBuilder()
+        for (b in nome.toByteArray(Charsets.UTF_8)) {
+            val c = b.toInt() and 0xff
+            if ((c in 'a'.code..'z'.code) || (c in 'A'.code..'Z'.code) || (c in '0'.code..'9'.code) || c.toChar() in "-._~")
+                utf8.append(c.toChar())
+            else utf8.append('%').append("%02X".format(c))
+        }
+        return "attachment; filename=\"$reserva\"; filename*=UTF-8''$utf8"
     }
 }

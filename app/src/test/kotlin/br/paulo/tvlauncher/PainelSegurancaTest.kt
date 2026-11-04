@@ -242,4 +242,29 @@ class PainelSegurancaTest {
         assertFalse(ChecagensPainel.jsonRaso("[".repeat(500_000)))
         assertTrue(ChecagensPainel.jsonRaso("[".repeat(16) + "]".repeat(16)))
     }
+
+    // ---------------------------------------------------------------- fase 2: caminhos de arquivo
+
+    @Test fun nomesDeArquivo() {
+        for (ok in listOf("filme.mp4", "Férias 2026.jpg", ".escondido", "a..b", "x".repeat(200)))
+            assertTrue(ok, ChecagensPainel.nomeArquivoValido(ok))
+        for (ruim in listOf(null, "", ".", "..", "a/b", "a\\b", "   ", "x".repeat(201), "a\u0000b", "a\nb", "a\u007fb"))
+            assertFalse(ruim.toString(), ChecagensPainel.nomeArquivoValido(ruim))
+    }
+
+    @Test fun caminhosRelativos() {
+        for (ok in listOf("", "Download", "Download/Filmes", "Movies/Férias 2026"))
+            assertTrue(ok, ChecagensPainel.caminhoRelativoValido(ok))
+        for (ruim in listOf(null, "..", "Download/..", "../etc", "Download//x", "/Download", "Download/", "Android",
+                "android/data", "ANDROID/obb", "Download/./x", "a".repeat(1001)))
+            assertFalse(ruim.toString(), ChecagensPainel.caminhoRelativoValido(ruim))
+    }
+
+    @Test fun dentroDaRaiz() {
+        assertTrue(ChecagensPainel.dentroDe("/storage/emulated/0", "/storage/emulated/0"))
+        assertTrue(ChecagensPainel.dentroDe("/storage/emulated/0/Download/a", "/storage/emulated/0"))
+        assertFalse(ChecagensPainel.dentroDe("/storage/emulated/01/x", "/storage/emulated/0"))
+        assertFalse(ChecagensPainel.dentroDe("/data/data/br.paulo.tvlauncher", "/storage/emulated/0"))
+        assertFalse(ChecagensPainel.dentroDe("/storage/emulated", "/storage/emulated/0"))
+    }
 }

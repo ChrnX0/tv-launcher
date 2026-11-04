@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -25,7 +26,8 @@ import java.util.concurrent.TimeUnit
  * abrir http://<IP da TV>:8080/ (ou http://chromecast:8080/ com o nome cadastrado no roteador), digitar o PIN
  * definido nas Configurações do launcher e administrar a TV. Plano completo: painel-no-launcher.md.
  *
- * Fase 1 (esta): entrar com PIN, lista de apps com ícone, ocultar/reexibir, desinstalar e backup (baixar/restaurar).
+ * Fase 1: entrar com PIN, lista de apps com ícone, ocultar/reexibir, desinstalar e backup (baixar/restaurar).
+ * Fase 2: permissões de cada app, instalar APK e a aba Arquivos (memória interna: listar, enviar, baixar, apagar).
  *
  * Custo: com o painel DESLIGADO (o padrão), nenhum socket nem thread; [ajustar] só lê uma preferência. Ligado e
  * parado, uma thread presa no accept() e nada mais (sem timer, sem alarme). Atendendo, até 3 threads de prioridade
@@ -53,9 +55,12 @@ object PainelWeb {
     @Volatile private var tentativas: ControleTentativas? = null
     private val travaPin = Any()   // um PBKDF2 por vez: muitas tentativas juntas não derrubam a CPU da TV
 
-    /** Até 3 threads atendendo e até 24 conexões esperando; além disso a conexão é recusada (503). */
+    /**
+     * Até 4 threads atendendo e até 24 conexões esperando; além disso a conexão é recusada. 4 e não 3 (fase 2): um
+     * envio e um download grandes ao mesmo tempo ainda deixam a página responder.
+     */
     private val pool by lazy {
-        ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS, ArrayBlockingQueue(24)) { r ->
+        ThreadPoolExecutor(4, 4, 30, TimeUnit.SECONDS, ArrayBlockingQueue(24)) { r ->
             Thread({ Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "Painel-atende")
         }.apply { allowCoreThreadTimeOut(true) }
     }
@@ -192,7 +197,12 @@ object PainelWeb {
 
     // ---------------------------------------------------------------- atender uma requisição
 
-    private class Resposta(val codigo: Int, val tipo: String?, val corpo: ByteArray, val extras: Map<String, String> = emptyMap())
+    /** [arquivo] != null: o corpo é esse arquivo, mandado aos pedaços (download da aba Arquivos). */
+    private class Resposta(val codigo: Int, val tipo: String?, val corpo: ByteArray, val extras: Map<String, String> = emptyMap(),
+                           val arquivo: File? = null)
+
+    /** Rotas que recebem o corpo como fluxo, direto para o disco (arquivo de vários GB não cabe na memória). */
+    private val ROTAS_FLUXO = setOf("/api/arquivos/enviar", "/api/apps/instalar")
 
     private fun json(codigo: Int, o: JSONObject, extras: Map<String, String> = emptyMap()) =
         Resposta(codigo, "application/json; charset=utf-8", o.toString().toByteArray(), extras)
@@ -207,14 +217,20 @@ object PainelWeb {
             val entrada = c.getInputStream().buffered(8192)
             val saida = c.getOutputStream().buffered(16 * 1024)
             val resposta = try {
-                // Só a restauração de backup aceita corpo grande; o limite é decidido antes de ler o corpo.
-                val req = PainelHttp.ler(entrada, BackupConfig.LIMITE_BYTES)
+                val req = PainelHttp.lerCabecalhos(entrada)
+                // O corpo: nas rotas de fluxo fica na conexão (a rota lê depois de conferir sessão e PIN); nas outras
+                // é lido já, com limite (só a restauração de backup aceita um corpo maior).
+                if (req.caminho !in ROTAS_FLUXO)
+                    req.lerCorpo(if (req.caminho == "/api/backup/restaurar") BackupConfig.LIMITE_BYTES else LIMITE_CORPO)
                 when {
-                    req.corpo.size > LIMITE_CORPO && req.caminho != "/api/backup/restaurar" -> erro(413, "corpo grande demais")
                     // JSON aninhado demais estoura a pilha do leitor do Android e derruba o launcher: recusa antes.
-                    req.corpo.isNotEmpty() && !ChecagensPainel.jsonRaso(req.corpoTexto()) -> erro(400, "JSON inválido")
+                    req.caminho !in ROTAS_FLUXO && req.corpo.isNotEmpty() && !ChecagensPainel.jsonRaso(req.corpoTexto()) -> erro(400, "JSON inválido")
                     else -> try {
                         rotear(req, ip)
+                    } catch (e: PainelArquivos.Erro) {
+                        erro(e.codigo, e.message ?: "erro")
+                    } catch (e: IOException) {
+                        throw e   // a conexão caiu no meio (ex.: envio cancelado): nada a responder
                     } catch (e: Exception) {
                         // Erro nosso no meio de uma rota: responde 500 em vez de fechar a conexão calado.
                         Log.w(TAG, "erro em ${req.metodo} ${req.caminho}: $e")
@@ -224,7 +240,30 @@ object PainelWeb {
             } catch (e: ErroHttp) {
                 erro(e.codigo, e.message ?: "pedido inválido")
             }
-            PainelHttp.escrever(saida, resposta.codigo, resposta.tipo, resposta.corpo, resposta.extras)
+            val arq = resposta.arquivo
+            if (arq == null) {
+                PainelHttp.escrever(saida, resposta.codigo, resposta.tipo, resposta.corpo, resposta.extras)
+            } else {
+                // Arquivo: abre ANTES de mandar o cabeçalho (se sumiu, ainda dá para responder 404) e manda em pedaços.
+                // O tamanho é o do arquivo aberto; se ele crescer no meio, mandamos só os bytes anunciados.
+                val fluxo = try { java.io.FileInputStream(arq) } catch (e: IOException) { null }
+                if (fluxo == null) {
+                    val r = erro(404, "não existe (talvez apagado na TV)")
+                    PainelHttp.escrever(saida, r.codigo, r.tipo, r.corpo)
+                } else fluxo.use {
+                    val tamanho = arq.length()
+                    PainelHttp.escreverCabecalho(saida, 200, resposta.tipo, tamanho, resposta.extras)
+                    val buf = ByteArray(64 * 1024)
+                    var faltam = tamanho
+                    while (faltam > 0) {
+                        val n = it.read(buf, 0, minOf(buf.size.toLong(), faltam).toInt())
+                        if (n < 0) break
+                        saida.write(buf, 0, n)
+                        faltam -= n
+                    }
+                    saida.flush()
+                }
+            }
         } catch (e: IOException) {
             // conexão caiu ou demorou demais: nada a responder
         } catch (e: Exception) {
@@ -272,6 +311,12 @@ object PainelWeb {
             }
             "/api/backup/restaurar" -> if (req.metodo == "POST") return restaurar(req, token, ip)
             "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
+            "/api/apps/instalar" -> if (req.metodo == "POST") return instalar(req, token, ip)
+            "/api/arquivos" -> if (req.metodo == "GET") { semAcesso()?.let { return it }; return json(200, PainelArquivos.listar(req.consulta["caminho"])) }
+            "/api/arquivos/baixar" -> if (req.metodo == "GET") return baixarArquivo(req, ip)
+            "/api/arquivos/enviar" -> if (req.metodo == "POST") return enviarArquivo(req, ip)
+            "/api/arquivos/pasta" -> if (req.metodo == "POST") return criarPasta(req, ip)
+            "/api/arquivos/apagar" -> if (req.metodo == "POST") return apagarArquivo(req, token, ip)
         }
 
         // /api/apps/<pacote>/<ação>
@@ -283,6 +328,9 @@ object PainelWeb {
                 "icone" -> if (req.metodo == "GET") return icone(req, pacote)
                 "ocultar" -> if (req.metodo == "POST") return ocultar(req, pacote, ip)
                 "desinstalar" -> if (req.metodo == "POST") return desinstalar(pacote, token, ip)
+                "permissoes" -> if (req.metodo == "GET") return PainelPermissoes.listar(app, pacote)?.let { json(200, it) } ?: erro(404, "app não encontrado")
+                "permissao" -> if (req.metodo == "POST") return mudarPermissao(req, pacote, ip)
+                "especial" -> if (req.metodo == "POST") return mudarEspecial(req, pacote, ip)
             }
         }
         return erro(404, "não existe")
@@ -414,5 +462,84 @@ object PainelWeb {
         // ele (AutorizaShizukuService.onServiceConnected) que reabre o painel mesmo sem a HOME na frente. As sessões caem.
         Handler(Looper.getMainLooper()).postDelayed({ Process.killProcess(Process.myPid()) }, 1500)
         return json(200, JSONObject().put("ok", true).put("chaves", n).put("reiniciando", true))
+    }
+
+    // ---------------------------------------------------------------- fase 2: permissões
+
+    private fun corpoJson(req: Requisicao): JSONObject? = try { JSONObject(req.corpoTexto()) } catch (e: Exception) { null }
+
+    private fun mudarPermissao(req: Requisicao, pacote: String, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val permissao = o.optString("permissao")
+        val acao = o.optString("acao")
+        if (permissao.length > 200 || !ChecagensPainel.pacoteValido(permissao)) return erro(400, "permissão inválida")
+        val motivo = PainelPermissoes.mudar(app, pacote, permissao, acao)
+        PainelArmazem.registrar(app, ip, "permissão $acao ${permissao.substringAfterLast('.')} em $pacote", motivo ?: "ok")
+        return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    private fun mudarEspecial(req: Requisicao, pacote: String, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val op = o.optString("op")
+        val acao = o.optString("acao")
+        val motivo = PainelPermissoes.mudarEspecial(app, pacote, op, acao)
+        PainelArmazem.registrar(app, ip, "acesso $acao $op em $pacote", motivo ?: "ok")
+        return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    // ---------------------------------------------------------------- fase 2: instalar APK
+
+    private fun instalar(req: Requisicao, token: String?, ip: String): Resposta {
+        // Instalar é tão sem volta quanto desinstalar (o app novo pode pedir tudo): PIN de novo, ANTES de ler o arquivo.
+        if (!sessoes.elevada(token)) return precisaPin()
+        if (req.tamanho <= 0 || req.tamanho > PainelApps.LIMITE_APK) return erro(413, "APK vazio ou grande demais")
+        val r = PainelApps.instalar(app, req.fluxoCorpo(), req.tamanho)
+        val quem = r.pacote?.let { "${r.nome} ($it ${r.versao})" } ?: (req.consulta["nome"]?.take(80) ?: "APK")
+        PainelArmazem.registrar(app, ip, "instalar $quem", r.motivo ?: "ok")
+        if (r.motivo != null) return erro(409, r.motivo)
+        return json(200, JSONObject().put("ok", true).put("pacote", r.pacote).put("nome", r.nome).put("versao", r.versao))
+    }
+
+    // ---------------------------------------------------------------- fase 2: arquivos
+
+    /** Sem o "acesso a todos os arquivos", tenta se conceder pelo shell; se não der, a resposta de erro pronta. */
+    private fun semAcesso(): Resposta? =
+        if (PainelArquivos.garantirAcesso(app)) null
+        else erro(503, "o launcher ainda não tem acesso à memória interna, e o shell dele não respondeu para conceder. " +
+            "Confira se a depuração sem fio está ligada na TV e tente de novo.")
+
+    private fun baixarArquivo(req: Requisicao, ip: String): Resposta {
+        semAcesso()?.let { return it }
+        val f = PainelArquivos.paraBaixar(req.consulta["caminho"])
+        PainelArmazem.registrar(app, ip, "baixar ${f.name.take(80)}", "ok")
+        return Resposta(200, "application/octet-stream", ByteArray(0),
+            mapOf("Content-Disposition" to PainelHttp.nomeParaBaixar(f.name)), arquivo = f)
+    }
+
+    private fun enviarArquivo(req: Requisicao, ip: String): Resposta {
+        semAcesso()?.let { return it }
+        val nome = req.consulta["nome"]
+        val f = PainelArquivos.receber(app, req.consulta["pasta"], nome, req.tamanho,
+            req.consulta["substituir"] == "1", req.fluxoCorpo())
+        PainelArmazem.registrar(app, ip, "enviar ${f.name.take(80)} (${req.tamanho / 1024} KB)", "ok")
+        return json(200, JSONObject().put("ok", true).put("livre", PainelArquivos.livre()))
+    }
+
+    private fun criarPasta(req: Requisicao, ip: String): Resposta {
+        semAcesso()?.let { return it }
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        PainelArquivos.criarPasta(o.optString("pasta"), o.optString("nome"))
+        PainelArmazem.registrar(app, ip, "nova pasta ${o.optString("nome").take(80)}", "ok")
+        return json(200, JSONObject().put("ok", true))
+    }
+
+    private fun apagarArquivo(req: Requisicao, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        semAcesso()?.let { return it }
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val caminho = o.optString("caminho")
+        val n = PainelArquivos.apagar(app, caminho)
+        PainelArmazem.registrar(app, ip, "apagar ${caminho.take(120)}", "ok, $n item(ns)")
+        return json(200, JSONObject().put("ok", true).put("apagados", n))
     }
 }

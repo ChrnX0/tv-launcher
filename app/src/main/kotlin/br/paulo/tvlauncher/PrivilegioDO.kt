@@ -186,6 +186,21 @@ object PrivilegioDO {
         }
     } catch (e: Exception) { Log.w(TAG, "conceder $permissao falhou: $e"); false }
 
+    /**
+     * Política de uma permissão perigosa de [pacote] (painel no navegador): GRANTED/DENIED = fixada pelo launcher;
+     * DEFAULT = o app pede e quem decide é a pessoa na TV. Devolve null se não somos donos ou o Android recusou.
+     */
+    fun estadoPermissao(ctx: Context, pacote: String, permissao: String): Int? = try {
+        if (!somosDonos(ctx)) null else dpm(ctx).getPermissionGrantState(admin(ctx), pacote, permissao)
+    } catch (e: Exception) { null }
+
+    /** Muda a política (um dos PERMISSION_GRANT_STATE_*). DEFAULT destrava sem tirar o que já estava concedido. */
+    fun definirPermissao(ctx: Context, pacote: String, permissao: String, estado: Int): Boolean = try {
+        somosDonos(ctx) && dpm(ctx).setPermissionGrantState(admin(ctx), pacote, permissao, estado).also {
+            Log.i(TAG, "definirPermissao($pacote, $permissao, $estado) => ok=$it")
+        }
+    } catch (e: Exception) { Log.w(TAG, "definirPermissao $permissao falhou: $e"); false }
+
     // 04/11/2026 (faxina, item 28 da revisão): saíram suspender(), desinstalar() e restricao(), que ninguém chamava.
     // O desinstalar() era também o poder mais perigoso do arquivo (remover app em silêncio). Se um dia precisar, as
     // chamadas do DPM são setPackagesSuspended, PackageInstaller.uninstall e add/clearUserRestriction (ver o git).

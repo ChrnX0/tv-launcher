@@ -90,3 +90,34 @@ input[type=password], input[type=search] {
   .linha-app { flex-wrap: wrap; }
   .acoes { width: 100%; justify-content: flex-end; }
 }
+
+/* ---------- fase 2: permissões, instalar, arquivos ---------- */
+input[type=text] {
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda);
+  border-radius: 10px; padding: 10px 12px; font-size: 15px;
+}
+select {
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda);
+  border-radius: 8px; padding: 6px 8px; font-size: 14px;
+}
+.barra-acoes { flex-wrap: wrap; }
+.modal-largo { max-width: 640px; max-height: 90vh; overflow-y: auto; }
+.cabeca-modal { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lista-perm { display: flex; flex-direction: column; gap: 6px; }
+.lista-perm h3 { font-size: 15px; margin: 12px 0 4px; }
+.linha-perm { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--superficie2); border-radius: 10px; padding: 8px 12px; }
+.linha-perm .info { display: flex; flex-direction: column; min-width: 0; }
+.linha-perm .nome { font-size: 14px; }
+.linha-perm .pacote { font-size: 11px; color: var(--texto-fraco); overflow: hidden; text-overflow: ellipsis; }
+.estado-sim { color: var(--ok); font-size: 13px; white-space: nowrap; }
+.estado-nao { color: var(--texto-fraco); font-size: 13px; white-space: nowrap; }
+details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; }
+
+.trilha { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 15px; }
+.trilha button { background: none; border: none; color: var(--acento); cursor: pointer; font: inherit; padding: 2px 4px; }
+.trilha .atual { color: var(--texto); font-weight: 600; padding: 2px 4px; }
+.form-pasta { display: flex; gap: 8px; }
+.linha-arquivo .tipo { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; background: var(--superficie2); border-radius: 8px; }
+.linha-arquivo .nome.pasta { cursor: pointer; color: var(--acento); }
