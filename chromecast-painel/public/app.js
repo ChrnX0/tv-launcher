@@ -66,10 +66,21 @@ function mudarAba(nome) {
 }
 
 // ---------- Tela do aparelho ----------
+// O iframe tem 1328x736 de verdade (ver style.css: é o que faz o vídeo sair 1280x720); aqui ele é reduzido para a
+// largura da caixa. A escala não atrapalha os cliques: o navegador converte as coordenadas sozinho.
+function ajustarEscalaTela() {
+  const caixa = document.getElementById('caixaTela');
+  const iframe = document.getElementById('iframeTela');
+  if (!caixa || !iframe) return;
+  iframe.style.transform = `scale(${caixa.clientWidth / 1328})`;
+}
+window.addEventListener('resize', ajustarEscalaTela);
+
 async function carregarTela() {
   try {
     const { url } = await chamar('GET', `/api/dispositivos/${aparelhoAtual.id}/tela`);
     document.getElementById('iframeTela').src = url;
+    ajustarEscalaTela();
   } catch (e) {
     document.getElementById('painelTela').innerHTML = `<p class="aviso">Não consegui abrir a tela: ${e.message}</p>`;
   }

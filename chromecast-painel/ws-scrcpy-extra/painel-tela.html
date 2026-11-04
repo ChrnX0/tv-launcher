@@ -1,0 +1,34 @@
+<!doctype html>
+<!--
+  Página auxiliar do painel, servida PELO ws-scrcpy (http://localhost:8000/painel-tela.html). O server.js do painel a
+  copia para C:\Users\rockx\ws-scrcpy\dist\public ao iniciar (dist é saída de build, fora do git do ws-scrcpy: o
+  código do ws-scrcpy continua intacto).
+
+  Para que existe (04/11/2026): o player "mse" do ws-scrcpy pede ao Chromecast um vídeo de até 720x720 (padrão do
+  MsePlayer), que vira 720x400 — e o codificador do Chromecast embaralha essa largura (faixas diagonais; medido).
+  Com 1280x720 a imagem sai certa. Essa escolha fica no localStorage da ORIGEM do ws-scrcpy (porta 8000), que a página
+  do painel (porta 9000) não alcança; por isso esta página, na origem certa, grava 1280x720 e depois abre o stream.
+
+  Uso: /painel-tela.html#!action=stream&udid=...  (o mesmo hash do link do stream)
+-->
+<meta charset="utf-8">
+<title>Tela</title>
+<script>
+  (function () {
+    var hash = location.hash.replace(/^#!?/, '');
+    var udid = new URLSearchParams(hash).get('udid') || '';
+    try {
+      // Apaga ajustes antigos deste aparelho (inclusive as chaves com tamanho de janela) e grava o padrão bom.
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf('MseDecoder:' + udid) === 0) localStorage.removeItem(k);
+      });
+      // A chave do ws-scrcpy leva o tamanho da janela (BasePlayer.getStorageKey: prefixo:udid:LxA). Esta página roda
+      // na MESMA janela (o iframe) que o stream vai usar, então innerWidth/innerHeight dão a chave exata.
+      localStorage.setItem('MseDecoder:' + udid + ':' + innerWidth + 'x' + innerHeight, JSON.stringify({
+        bounds: { width: 1280, height: 720 }, bitrate: 7340032, maxFps: 30, iFrameInterval: 10,
+        displayId: 0, sendFrameMeta: false, lockedVideoOrientation: -1
+      }));
+    } catch (e) { /* sem localStorage: o ws-scrcpy usa o padrão dele */ }
+    location.replace('/#!' + hash);
+  })();
+</script>

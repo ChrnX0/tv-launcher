@@ -52,7 +52,13 @@ button:disabled { opacity: .5; cursor: default; }
 .aba.ativa { color: var(--texto); border-bottom-color: var(--acento); }
 
 .painel-aba { padding: 20px 0; }
-#iframeTela { width: 100%; height: 75vh; border: 1px solid var(--borda); border-radius: 12px; background: #000; }
+/* Tela ao vivo (04/11/2026): o iframe do ws-scrcpy tem tamanho FIXO de 1328x736 e é encolhido por escala para caber.
+   Motivo: o ws-scrcpy pede ao aparelho um vídeo do tamanho da própria janela; num iframe "100% x 75vh" isso dava
+   720x400, e o codificador do Chromecast embaralha larguras não alinhadas (faixas diagonais na imagem — medido).
+   1328 - 40 (barra de botões) = 1288 -> múltiplo de 16 = 1280; altura 736 -> o vídeo sai 1280x720, que funciona. */
+#caixaTela { position: relative; width: 100%; aspect-ratio: 1328 / 736; overflow: hidden; border: 1px solid var(--borda); border-radius: 12px; background: #000; }
+#iframeTela { position: absolute; top: 0; left: 0; width: 1328px; height: 736px; border: 0; transform-origin: 0 0; }
+.dica-tela { color: var(--texto-suave, #9aa); font-size: 13px; margin-top: 8px; }
 
 .barra-acoes { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 select { background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; font-size: 15px; }

@@ -193,7 +193,7 @@ depuração sem fio ativa que ela aparece sozinha, sem código novo.
   7 campos fixos antes do nome; usar `.split(/\s+/).slice(7).join(' ')`, nunca `.pop()`.
 
 
-## ws-scrcpy — visualização de tela embutida (EM ABERTO, bug real identificado)
+## ws-scrcpy — visualização de tela embutida (funcionando desde 04/11/2026)
 
 O `ws-scrcpy` (`C:\Users\rockx\ws-scrcpy`, clone oficial do GitHub, **não modificado** —
 decisão explícita do Paulo de manter "todinho do repositório") roda numa porta separada
@@ -215,43 +215,28 @@ ws://localhost:8000/?action=proxy-adb&remote=tcp:8886&udid=<endpoint>
 `src/common/Constants.ts`). As DUAS camadas usam `URLSearchParams` do início ao fim —
 nunca `encodeURIComponent` manual, senão dá encode duplo.
 
-### Bug real em aberto: tela fica preta
+### Tela preta: RESOLVIDA em 04/11/2026 (três causas, todas medidas)
 
-Causa raiz confirmada (verificado: `adb shell ps -A | grep scrcpy` no aparelho devolve
-vazio): **o processo `scrcpy-server` nunca é iniciado no aparelho** quando se abre o link
-de stream direto. O mecanismo normal do `ws-scrcpy` (`Device.startServer()`, em
-`src/server/goog-device/Device.ts`) só dispara dentro de um loop de atualização que roda
-pra cada `Device` que o servidor Node está rastreando ativamente — e esse rastreamento
-só começa quando um cliente conecta na página de LISTA de dispositivos (`DeviceTracker`),
-que é exatamente a tela que o painel pula de propósito. Testado: abrir só a página raiz
-(`http://localhost:8000/`) e esperar 3s não foi suficiente pra o processo aparecer —
-pode ser timing (o loop pode demorar mais) ou pode exigir de fato abrir a lista e ela
-reconhecer o dispositivo via `adb devices`.
+1. **O scrcpy-server só é iniciado quando o aparelho (re)conecta no adb do PC.** Em
+   `src/server/goog-device/Device.ts`, `fetchDeviceInfo` (que chama `startServer`) roda na conexão e
+   nas novas tentativas depois de falha — nunca mais. Se o servidor morre (ou não subiu naquela hora,
+   que foi o caso do diagnóstico anterior), ninguém o religa. Medido: matei o servidor e nem abrir o
+   stream nem abrir a lista do ws-scrcpy o religou. **Correção (no painel):** `garantirScrcpyServer()`
+   em `server.js` confere com `ps` e, se faltar, envia o jar (o scrcpy-server APAGA o próprio jar ao
+   iniciar) e sobe com o mesmo comando que o ws-scrcpy usa (visto no `servidor.log`).
+2. **O player `mse` pede 720x720 (padrão do `MsePlayer`) → vídeo 720x400, e o codificador do
+   Chromecast embaralha essa largura** (faixas diagonais). Com 1280x720 a imagem sai certa. A escolha
+   fica no localStorage da origem do ws-scrcpy (porta 8000), com chave `MseDecoder:<udid>:<LxA da
+   janela>`. **Correção:** `ws-scrcpy-extra/painel-tela.html`, que o painel copia para
+   `ws-scrcpy/dist/public` ao iniciar (dist é saída de build, fora do git do ws-scrcpy — o código dele
+   continua intacto): grava 1280x720 na chave certa e redireciona para o stream. O iframe tem tamanho
+   fixo 1328x736 (escalado por CSS) para a chave ser sempre a mesma.
+3. **Com a tela da TV parada, o scrcpy não manda quadro novo** e o player fica preto até algo mudar.
+   Não é bug; o painel mostra uma dica embaixo da tela.
 
-**Confirmado que NÃO é**: a URL do `ws` (testada via `new URLSearchParams` no console,
-decodifica certinho), nem o player escolhido (trocar `mse` por `tinyh264` deu o mesmo
-resultado — vídeo com `readyState=1`, metadado mas zero frame, em ambos), nem o fato de
-ser um deep-link nosso: **testei clicar no link OFICIAL do próprio `ws-scrcpy`, na lista
-de dispositivos de verdade dele (a mesma que o Paulo rejeitou mostrar pro usuário), e deu
-o mesmo resultado** — `adb shell ps -A | grep scrcpy` continua vazio mesmo depois do clique
-real. Ou seja, isso não é bug do nosso painel nem da fórmula de URL — o problema está no
-`ws-scrcpy`/aparelho em si, ou em alguma parte do fluxo de start do servidor
-(`Device.startServer()` → `ScrcpyServer.run()`, em `src/server/goog-device/Device.ts` e
-`ScrcpyServer.ts`) que não estou conseguindo instrumentar só por fora (navegador + `adb`).
-
-**Log do processo Node do ws-scrcpy** (`C:\Users\rockx\ws-scrcpy\servidor.log`, redirecionado
-via `start.ps1`) só tem o banner de inicialização — nenhum log de conexão, erro ou tentativa
-de start aparece ali, mesmo após testes reais. Ou a lib não loga essas tentativas por padrão,
-ou a redução de saída via `Start-Process -WindowStyle Hidden` + `*>>` não está capturando tudo.
-
-**Próximo passo concreto pra resolver (fazer na sessão do Code, com terminal interativo):**
-rodar o `ws-scrcpy` em primeiro plano (não como processo oculto) num terminal visível,
-repetir o clique no stream, e ver a saída em tempo real — ou adicionar `console.log`
-temporário dentro de `Device.ts`/`ScrcpyServer.ts` pra confirmar se `startServer()` chega a
-ser chamado e o que `ScrcpyServer.run()` devolve (pode ser erro de `app_process` no
-aparelho, permissão, ou o comando nunca sendo disparado pelo lado certo do código).
-
-
+Atenção: se o servidor já estiver rodando com outro tamanho (aberto por outro cliente, ex. a lista do
+ws-scrcpy), um cliente novo ADOTA o tamanho dele. Matar o `app_process ... scrcpy.Server` na TV e
+abrir de novo pelo painel resolve.
 ## Status das tarefas do painel
 
 - **Descoberta/dedup de aparelhos** — feito, testado com a Sala real.
@@ -260,8 +245,7 @@ aparelho, permissão, ou o comando nunca sendo disparado pelo lado certo do cód
   estado original.
 - **Arquivos** (listar/enviar/baixar) — feito, testado, incluindo nome com espaço e
   verificação byte a byte do download.
-- **Tela ao vivo (ws-scrcpy)** — EM ABERTO, ver seção acima. URL confirmada correta,
-  decoder não recebe frame porque o scrcpy-server não inicia no aparelho.
+- **Tela ao vivo (ws-scrcpy)** — funcionando (04/11/2026), ver seção acima.
 - **Visual (CSS/JS) geral** — bugs conhecidos corrigidos (`hidden`, nome de arquivo com
   espaço); falta um passo final de conferência visual das 3 abas inteiras no navegador.
 - **Auto-start do painel** — não feito. Ideia: seguir o mesmo padrão do

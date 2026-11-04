@@ -28,7 +28,9 @@
     </nav>
 
     <div id="painelTela" class="painel-aba">
-      <iframe id="iframeTela" title="Tela do aparelho"></iframe>
+      <!-- A caixa tem o formato da tela; o iframe dentro tem tamanho FIXO e é reduzido por escala (ver app.js). -->
+      <div id="caixaTela"><iframe id="iframeTela" title="Tela do aparelho"></iframe></div>
+      <p class="dica-tela">A imagem só se atualiza quando algo muda na TV — com a tela parada, pode demorar a aparecer.</p>
     </div>
 
     <div id="painelApps" class="painel-aba" hidden>
