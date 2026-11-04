@@ -75,4 +75,11 @@ dependencies {
     implementation(project(":server"))
     implementation(project(":provider"))
     implementation(project(":api"))
+
+    // Perfil de compilação (04/11/2026). Medido na TV: o ArtService do Android 14 força o app de HOME para
+    // "speed-profile", seja qual for o -m do `cmd package compile`, e sem perfil isso vira "verify" (o log do artd diz
+    // "Merge skipped because there are no existing profiles"). Ou seja: o launcher rodava só interpretado/JIT.
+    // O src/main/baseline-prof.txt vai dentro do APK, e este pacote grava o perfil na pasta do app quando ele abre
+    // (ou pelo broadcast INSTALL_PROFILE, usado pelo build3.ps1). Depois o compile -m speed-profile passa a valer.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 }

@@ -12,6 +12,12 @@ cd C:\Users\rockx\tv-launcher
 "BUILD exit=$LASTEXITCODE"
 if($LASTEXITCODE -ne 0){ exit }
 & $adb -s $s install -r -t app\build\outputs\apk\debug\app-debug.apk
+# Compilação AOT (04/11/2026). O Android 14 força o app de HOME para "speed-profile" (ignora o -m speed) e, sem perfil,
+# cai em "verify". Por isso: 1) pede ao profileinstaller do app que grave o perfil embutido (baseline-prof.txt);
+# 2) compila com ele. Vale para o release. No debug (debuggable) o ART sempre usa verify, e este passo não faz mal.
+# Conferir: adb shell "dumpsys package dexopt | grep -A2 br.paulo.tvlauncher"  ->  status=speed-profile
+& $adb -s $s shell "am broadcast -a androidx.profileinstaller.action.INSTALL_PROFILE -n br.paulo.tvlauncher/androidx.profileinstaller.ProfileInstallReceiver"
+& $adb -s $s shell "cmd package compile -m speed-profile -f br.paulo.tvlauncher"
 Start-Sleep 3
 & $adb -s $s shell "input keyevent HOME"
 Start-Sleep 2
