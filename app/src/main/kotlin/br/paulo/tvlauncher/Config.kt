@@ -64,10 +64,27 @@ object Config {
     // "Shizuku ativo": o servidor so sobe (e o guardiao so religa) com isto ligado. DESLIGADO por padrao (04/11/2026):
     // o shizuku_server ocupa ~58 MB de PSS numa TV com o swap quase cheio, e hoje nenhum app usa. Liga/desliga em
     // Configuracoes > Shizuku do launcher > Servidor (OK) ou pelos intents INICIAR/PARAR (ControleShizukuReceiver).
-    fun shizukuAtivo(ctx: android.content.Context) =
-        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).getBoolean("shizuku_ativo", false)
-    fun marcarShizukuAtivo(ctx: android.content.Context, ativo: Boolean) =
-        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putBoolean("shizuku_ativo", ativo).apply()
+    //
+    // MODOS (04/11/2026, pedido do Paulo: "custo zero parado e sempre disponível"):
+    //  - DESLIGADO: nunca sobe sozinho.
+    //  - SOB_DEMANDA (padrão): sobe quando um app que pede o Shizuku (uses-permission API_V23) vai para a frente, e
+    //    desce depois de 5 min sem nenhum deles na frente (ver ShizukuSobDemanda.kt).
+    //  - SEMPRE: sobe no boot e o vigia religa se cair (o comportamento antigo do "ativo").
+    enum class ModoShizuku(val rotulo: String) { DESLIGADO("desligado"), SOB_DEMANDA("sob demanda"), SEMPRE("sempre ligado") }
+    fun modoShizuku(ctx: android.content.Context): ModoShizuku {
+        val p = ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+        p.getString("shizuku_modo", null)?.let { s -> ModoShizuku.values().firstOrNull { it.name == s }?.let { return it } }
+        // Migração: quem tinha ligado o "ativo" antigo continua sempre ligado; o resto passa a sob demanda.
+        return if (p.getBoolean("shizuku_ativo", false)) ModoShizuku.SEMPRE else ModoShizuku.SOB_DEMANDA
+    }
+    fun definirModoShizuku(ctx: android.content.Context, modo: ModoShizuku) =
+        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putString("shizuku_modo", modo.name).apply()
+    /** O servidor deve estar de pé AGORA? (SEMPRE; ou SOB_DEMANDA com um app cliente usado há pouco.) */
+    fun shizukuAtivo(ctx: android.content.Context) = when (modoShizuku(ctx)) {
+        ModoShizuku.SEMPRE -> true
+        ModoShizuku.SOB_DEMANDA -> ShizukuSobDemanda.clienteAtivo()
+        ModoShizuku.DESLIGADO -> false
+    }
     // VPN_FIXA: app que o Device Owner fixa como "VPN sempre ativa" (sem lockdown: se cair, a TV segue com internet).
     // 04/11/2026: o app AdGuard VPN, decisão do Paulo — a VPN própria do launcher (IKEv2) foi aposentada.
     // "" = o launcher não mexe na VPN.
