@@ -18,6 +18,10 @@ if($LASTEXITCODE -ne 0){ exit }
 # Conferir: adb shell "dumpsys package dexopt | grep -A2 br.paulo.tvlauncher"  ->  status=speed-profile
 & $adb -s $s shell "am broadcast -a androidx.profileinstaller.action.INSTALL_PROFILE -n br.paulo.tvlauncher/androidx.profileinstaller.ProfileInstallReceiver"
 & $adb -s $s shell "cmd package compile -m speed-profile -f br.paulo.tvlauncher"
+# O código compilado só vale num processo novo, e o shell não consegue matar o launcher (Device Owner + acessibilidade):
+# ele mesmo se reinicia por este comando (só adb, DUMP). O sistema sobe a HOME e religa a acessibilidade sozinho.
+& $adb -s $s shell "am broadcast -a br.paulo.tvlauncher.REINICIAR -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver"
+Start-Sleep 3
 Start-Sleep 3
 & $adb -s $s shell "input keyevent HOME"
 Start-Sleep 2

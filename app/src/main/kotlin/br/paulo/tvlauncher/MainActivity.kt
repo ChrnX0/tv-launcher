@@ -631,15 +631,39 @@ class MainActivity : Activity() {
 
     /** Desenha os cards e devolve o foco ao último card usado. */
     private fun desenhar() {
-        linhaApps.removeAllViews()
         val cards = listaDaTela()
-        cards.forEach { linhaApps.addView(criarCartao(it)) }
+        // Reaproveitar os cards (04/11/2026, item 2b). Medido na TV: o desenho refazia todos os cards a cada volta à HOME,
+        // 63-89 ms na thread da tela, mesmo sem nada ter mudado. Se a assinatura (token, nome, ícone e app da frente de
+        // cada card) é a mesma da última vez, a linha fica como está e só o foco volta. No modo mover sempre redesenha
+        // (a ordem de teste muda a cada tecla), e ao sair dele a assinatura zerada força o redesenho.
+        val assinatura = if (modoMover) null else cards.map { assinaturaDe(it) }
+        if (assinatura == null || assinatura != ultimaAssinatura || linhaApps.childCount != cards.size) {
+            linhaApps.removeAllViews()
+            cards.forEach { linhaApps.addView(criarCartao(it)) }
+            ultimaAssinatura = assinatura
+        }
         if (cards.isEmpty()) return
         linhaApps.post {
             val achado = cards.indexOfFirst { it.token == ultimoToken }
             // Se o card sumiu (ex.: app ocultado), o foco fica na mesma posição, que agora é o vizinho.
             val alvo = if (achado >= 0) achado else indiceFoco.coerceIn(0, cards.lastIndex)
             linhaApps.getChildAt(alvo)?.requestFocus()
+        }
+    }
+
+    /** O último desenho da linha (ver [desenhar]); null = redesenhar na próxima vez. */
+    private var ultimaAssinatura: List<String>? = null
+
+    /**
+     * O que define a aparência e o comportamento de um card. Os ícones entram pela identidade do objeto: um Item só é
+     * recriado (cacheApps) quando o APK ou a activity do app mudam, e aí o ícone é outro objeto.
+     */
+    private fun assinaturaDe(e: Entrada): String {
+        fun ic(i: Item) = "${i.pacote}@${System.identityHashCode(i)}"
+        return when (e) {
+            is Entrada.App -> "A|${e.nome}|${ic(e.item)}"
+            is Entrada.Pilha -> "P|${e.id}|${e.nome}|${e.frente}|" + e.itens.joinToString(",") { ic(it) }
+            is Entrada.Ocultos -> "O|${e.nome}|" + e.itens.joinToString(",") { ic(it) }
         }
     }
 
@@ -866,6 +890,7 @@ class MainActivity : Activity() {
         linhaApps.addView(vista, posicao)
         vista.requestFocus()
         linhaApps.removeViewAt(posicao + 1)
+        ultimaAssinatura = null   // a linha mudou por fora do desenhar(): o próximo desenho refaz tudo
     }
 
     // ---------------------------------------------------------------- pastas (apps ocultos e "remover do grupo")

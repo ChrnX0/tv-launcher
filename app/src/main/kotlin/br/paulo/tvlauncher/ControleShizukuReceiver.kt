@@ -30,6 +30,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val ESTADO = "br.paulo.tvlauncher.shizuku.ESTADO"
         const val ROTULOS = "br.paulo.tvlauncher.ROTULOS"   // nomes dos apps para o painel (só adb)
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
+        const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -79,6 +80,15 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 val oculto = intent.getBooleanExtra("oculto", true)
                 resultData = if (pacote.isNullOrBlank()) "falta --es pacote"
                 else "mudou=${PrivilegioDO.ocultar(ctx, pacote, oculto)} oculto_agora=${PrivilegioDO.estaOculto(ctx, pacote)}"
+            }
+            // Só pelo adb: reinicia o processo do launcher (04/11/2026). O shell não consegue matá-lo (force-stop, am kill
+            // e am crash não derrubam: ele segura o serviço de acessibilidade e é Device Owner), e o código recém-compilado
+            // (cmd package compile) só vale num processo novo. O sistema sobe a HOME e religa a acessibilidade sozinho.
+            REINICIAR -> {
+                resultData = "reiniciando pid=${android.os.Process.myPid()}"
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                }, 500)
             }
         }
     }
