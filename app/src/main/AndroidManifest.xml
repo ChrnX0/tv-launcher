@@ -76,9 +76,12 @@
             </intent-filter>
         </receiver>
         <!-- Teste do shell proprio (MARCO 2): recebe o codigo de pareamento por adb broadcast (ver PareamentoReceiver) -->
+        <!-- permission=DUMP: so o shell (adb) e o sistema tem essa permissao. Sem isto, QUALQUER app instalado na TV
+             podia disparar o PAREAR e mandar o launcher abrir um shell. -->
         <receiver
             android:name=".PareamentoReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.DUMP">
             <intent-filter>
                 <action android:name="br.paulo.tvlauncher.PAREAR" />
             </intent-filter>
