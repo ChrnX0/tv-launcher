@@ -109,6 +109,8 @@ object Privilegio {
                     // 2 min de espera, não menos: medido em 04/11/2026 que com 20 s o empurrão pegava o AdGuard no meio da
                     // reconexão dele e a CANCELAVA ("UserCanceledVpnProfileCreation"). Só age se ainda não houver VPN.
                     principal.postDelayed({ Thread { PrivilegioDO.reforcarVpn(app) }.start() }, 120_000)
+                    // DNS fixo fora do ar = sem internet: confere 1 min depois de a rede subir (ver Dns).
+                    principal.postDelayed({ Thread { Dns.voltarAoAutomaticoSeQuebrado(app) }.start() }, 60_000)
                 }
             }
         )
