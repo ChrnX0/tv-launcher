@@ -44,3 +44,7 @@ for (m in listOf("aidl", "shared", "server-shared", "rish", "provider", "api")) 
     include(":$m")
     project(":$m").projectDir = file("shizuku/api/$m")
 }
+
+// App de teste do Shizuku embutido (cliente mínimo). Não é instalado no uso normal; ver ferramentas/cliente-shizuku.
+include(":cliente-shizuku")
+project(":cliente-shizuku").projectDir = file("ferramentas/cliente-shizuku")
