@@ -87,6 +87,11 @@ class ConfigLauncherActivity : Activity() {
             text = titulo.uppercase(); letterSpacing = 0.12f; setPadding(dp(24), dp(14), 0, dp(6))
         })
 
+        // ---- Diagnóstico de 1 botão (04/11/2026): a 1ª linha, para ser o OK mais rápido quando "o app parou".
+        adicionar(linha("Diagnosticar a TV", "internet, DNS, VPN e por que um app parou — tudo de uma vez") {
+            startActivity(Intent(this, DiagnosticoActivity::class.java))
+        })
+
         // ---- Aparência: o mesmo "trocar tema" que já existia no popup, só realocado para cá.
         secao("Aparência")
         lateinit var linhaTema: TextView
