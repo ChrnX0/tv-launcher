@@ -184,6 +184,26 @@ class ConfigLauncherActivity : Activity() {
         adicionar(info("Device Owner", if (dono) "ativo — controla apps e permissões do sistema" else "não ativo"))
         adicionar(info("Permissões fixas concedidas", Config.PERMISSOES_FIXAS.joinToString { it.substringAfterLast('.') }))
 
+        // ---- Shizuku embutido (MARCO S2): estado do servidor e os apps que pediram acesso a ele. OK num app alterna
+        // entre permitido e revogado. A lista é lida do servidor (binder) fora da thread da tela.
+        secao("Shizuku do launcher")
+        lateinit var linhaServidor: TextView
+        fun detalheServidor() = if (rikka.shizuku.Shizuku.pingBinder())
+            "rodando (uid ${rikka.shizuku.Shizuku.getUid()}, versão ${rikka.shizuku.Shizuku.getVersion()})"
+        else "parado — OK liga"
+        linhaServidor = linha("Servidor", detalheServidor()) {
+            if (rikka.shizuku.Shizuku.pingBinder()) return@linha
+            linhaServidor.detalhe("ligando…")
+            trabalho.execute {
+                val ok = try { ServidorShizuku.iniciar(this, AdbConnectionManager.obter(this)) } catch (e: Throwable) { false }
+                ui.post { if (!isDestroyed) { linhaServidor.detalhe(if (ok) detalheServidor() else "não ligou (veja shell_proprio.log)"); carregarClientes() } }
+            }
+        }
+        adicionar(linhaServidor)
+        listaClientes = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        lista.addView(listaClientes, LinearLayout.LayoutParams(MATCH, WRAP))
+        carregarClientes()
+
         // ---- Diagnóstico: números úteis para saber se algo por trás dos panos está ok, sem precisar do logcat.
         secao("Diagnóstico")
         val versao = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { null }
@@ -192,6 +212,43 @@ class ConfigLauncherActivity : Activity() {
         adicionar(info("Chave do shell próprio", ShellProprio.impressaoDigital(this)))
 
         return raiz
+    }
+
+    // ---------------------------------------------------------------- Shizuku: apps com acesso
+
+    private lateinit var listaClientes: LinearLayout
+
+    /** Lê do servidor os apps clientes (fora da thread da tela) e monta uma linha por app. */
+    private fun carregarClientes() {
+        listaClientes.removeAllViews()
+        if (!rikka.shizuku.Shizuku.pingBinder()) return
+        trabalho.execute {
+            val apps = try { AutorizacoesShizuku.clientes() } catch (e: Throwable) {
+                android.util.Log.w(ServidorShizuku.TAG, "lista de clientes falhou: $e"); null
+            }
+            ui.post {
+                if (isDestroyed) return@post
+                listaClientes.removeAllViews()
+                if (apps.isNullOrEmpty()) {
+                    listaClientes.addView(info("Apps com acesso", "nenhum app instalado pediu acesso ao Shizuku"))
+                    return@post
+                }
+                for (pi in apps) {
+                    val ai = pi.applicationInfo ?: continue
+                    val rotulo = try { ai.loadLabel(packageManager).toString() } catch (e: Exception) { pi.packageName }
+                    lateinit var linhaApp: TextView
+                    fun detalheApp() = if (AutorizacoesShizuku.permitido(ai.uid)) "permitido — OK revoga" else "sem acesso — OK permite"
+                    linhaApp = linha(rotulo, detalheApp()) {
+                        try {
+                            if (AutorizacoesShizuku.permitido(ai.uid)) AutorizacoesShizuku.revogar(ai.uid)
+                            else AutorizacoesShizuku.permitir(ai.uid)
+                            linhaApp.detalhe(detalheApp())
+                        } catch (e: Throwable) { linhaApp.detalhe("não consegui mudar: ${e.javaClass.simpleName}") }
+                    }
+                    listaClientes.addView(linhaApp, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) })
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- peças
