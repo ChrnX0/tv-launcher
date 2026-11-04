@@ -3,7 +3,7 @@
 Launcher próprio, leve e escuro para **Chromecast com Google TV** (Android TV 14). Mostra só os apps que você instalou
 e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito, a bolinha do perfil (troca de perfil, Configurações, DNS e Wi-Fi).
 
-- APK: era ~800 KB sem bibliotecas; hoje usa Shizuku e o cliente ADB embutido (libadb-android + conscrypt). O build de 03/11/2026 tinha ~16 MB, quase 5 MB em libs x86 que a TV não usa; agora só entram as libs ARM (tamanho novo ainda não medido).
+- APK: era ~800 KB sem bibliotecas; hoje usa Shizuku e o cliente ADB embutido (libadb-android + conscrypt). O build de 03/11/2026 tinha ~16 MB, ~7 MB em libs de arquiteturas que a TV não usa (x86, x86_64, arm64); agora só entra a armeabi-v7a, a única do Chromecast (tamanho novo ainda não medido).
 - ~53 MB de RAM em uso (PSS) contra ~157 MB do Google TV Home (`launcherx`), medidos na mesma TV.
 
 ## Estrutura
