@@ -20,7 +20,11 @@ class AutorizaShizukuService : AccessibilityService() {
     override fun onUnbind(intent: android.content.Intent?): Boolean { instancia = null; return super.onUnbind(intent) }
     override fun onDestroy() { instancia = null; super.onDestroy() }
 
-    override fun onAccessibilityEvent(evento: AccessibilityEvent?) {}
+    // Só TYPE_WINDOW_STATE_CHANGED (ver autoriza_acessibilidade.xml): poucas por minuto, quando uma tela abre.
+    override fun onAccessibilityEvent(evento: AccessibilityEvent?) {
+        if (evento?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+            Home.janelaApareceu(this, evento.packageName, evento.className)
+    }
 
     /**
      * Teclas do controle: o serviço de acessibilidade vê cada tecla ANTES do app da frente e antes dos botões

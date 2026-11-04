@@ -83,7 +83,11 @@ object Config {
     // NoTouchAccountPickerActivity +387ms", sem crash. Desfazer: tirar daqui E reexibir por adb:
     //   am broadcast -a br.paulo.tvlauncher.OCULTAR --es pacote com.google.android.apps.tv.launcherx --ez oculto false
     //     -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
-    val APPS_OCULTAR = listOf("com.google.android.apps.tv.dreamx", "com.google.android.apps.tv.launcherx")
+    // ATUALIZAÇÃO (04/11/2026, mais tarde): o launcherx foi REATIVADO e saiu desta lista. Desativado ou oculto, ele quebra
+    // o Gemini: a resposta da voz abre launcherx/.gemini.chat.ChatActivity -> ActivityNotFoundException -> "o Google
+    // Assistente está com problema" (logcat do katniss, IntentStarterDelegate). A HOME continua nossa pela preferência
+    // persistente do Device Owner (PrivilegioDO.fixarHome).
+    val APPS_OCULTAR = listOf("com.google.android.apps.tv.dreamx")
     // Permissoes que o launcher se autoconcede pelo Device Owner (ver PrivilegioDO.conceder): permanentes, o usuario nao revoga.
     // So valem as declaradas no manifesto. Evita depender de `pm grant` por adb.
     // GET_ACCOUNTS desde 04/11/2026 (revisão): é "perigosa" (o DO pode fixar) e a foto/inicial do perfil depende dela;

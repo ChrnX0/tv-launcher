@@ -46,6 +46,7 @@ object BotoesControle {
 
     /** Chamado para cada tecla. true = a tecla é nossa (o sistema não a vê). */
     fun tratar(ctx: Context, e: KeyEvent): Boolean {
+        if (e.keyCode == KeyEvent.KEYCODE_HOME && Home.launcherxAtivo(ctx)) return tratarHome(ctx, e)
         val b = botao(e.keyCode) ?: return false
         when (e.action) {
             KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
@@ -71,6 +72,39 @@ object BotoesControle {
                 // recebe só o UP — antes isso abria o app sozinho).
                 if (!listaAberta && apertado == b.tecla) abrirApp(ctx, appDo(ctx, b))
                 apertado = null
+            }
+        }
+        return true
+    }
+
+    private var homeLongo: Runnable? = null
+    private var homeLongoDisparou = false
+    private var homeApertado = false
+
+    /**
+     * Botão HOME com o launcherx do Google ATIVO (04/11/2026). Ele declara a HOME com priority=2 (app de sistema
+     * privilegiado), e no resolvedor do Android a prioridade vence QUALQUER preferência, até a persistente do Device
+     * Owner e o papel de HOME (medido: role HOME = nosso, preferred = nosso, e o HOME abria launcherx/.home.HomeActivity).
+     * Então a tecla é tratada aqui, antes do sistema: aperto curto = a nossa HOME; segurado = o painel do Google
+     * (notificações, Google Home), pelo mesmo pedido que o sistema faz no HOME longo.
+     */
+    private fun tratarHome(ctx: Context, e: KeyEvent): Boolean {
+        when (e.action) {
+            KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
+                homeApertado = true
+                homeLongoDisparou = false
+                homeLongo?.let { principal.removeCallbacks(it) }
+                homeLongo = Runnable {
+                    homeLongoDisparou = true
+                    homeLongo = null
+                    Home.abrirPainelGoogle(ctx)
+                }.also { principal.postDelayed(it, Home.SEGURAR_HOME_MS) }
+            }
+            KeyEvent.ACTION_UP -> {
+                homeLongo?.let { principal.removeCallbacks(it) }
+                homeLongo = null
+                if (homeApertado && !homeLongoDisparou) Home.irParaHome(ctx)
+                homeApertado = false
             }
         }
         return true
