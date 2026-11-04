@@ -1292,6 +1292,7 @@ class MainActivity : Activity() {
         val intent = packageManager.getLeanbackLaunchIntentForPackage(pacote)
             ?: packageManager.getLaunchIntentForPackage(pacote)
             ?: return
+        ShizukuSobDemanda.vaiAbrir(this, pacote)   // se for app cliente do Shizuku, o servidor já começa a subir
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
     }

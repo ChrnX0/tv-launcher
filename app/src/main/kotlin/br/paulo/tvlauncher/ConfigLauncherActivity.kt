@@ -166,22 +166,26 @@ class ConfigLauncherActivity : Activity() {
         secao("Shizuku do launcher")
         lateinit var linhaServidor: TextView
         // Desligado por padrão (04/11/2026, memória): só fica de pé quando alguém liga aqui (e continua ligado no boot).
-        fun detalheServidor() = when {
-            rikka.shizuku.Shizuku.pingBinder() ->
-                "ligado e rodando (uid ${rikka.shizuku.Shizuku.getUid()}, versão ${rikka.shizuku.Shizuku.getVersion()}) — OK desliga"
-            Config.shizukuAtivo(this) -> "ligado, subindo… — OK desliga"
-            else -> "desligado (economiza memória) — OK liga"
+        // 04/11/2026: três modos (ver Config.ModoShizuku). O OK passa ao próximo: sob demanda -> sempre ligado -> desligado.
+        fun detalheServidor(): String {
+            val modo = Config.modoShizuku(this)
+            val agora = if (rikka.shizuku.Shizuku.pingBinder())
+                "rodando (uid ${rikka.shizuku.Shizuku.getUid()}, versão ${rikka.shizuku.Shizuku.getVersion()})" else "parado"
+            val explica = when (modo) {
+                Config.ModoShizuku.SOB_DEMANDA -> "sobe quando um app pede, desce após 5 min sem uso"
+                Config.ModoShizuku.SEMPRE -> "sempre de pé, religa se cair"
+                Config.ModoShizuku.DESLIGADO -> "não sobe"
+            }
+            return "${modo.rotulo} ($explica) · agora: $agora — OK troca o modo"
         }
         linhaServidor = linha("Servidor", detalheServidor()) {
-            if (Config.shizukuAtivo(this)) {
-                ControleShizukuReceiver.desligar(this)
-                linhaServidor.detalhe("desligando…")
-                ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 3_000)
-            } else {
-                ControleShizukuReceiver.ligar(this)   // pela fila do guardião (uma conexão adb por vez)
-                linhaServidor.detalhe("ligando…")
-                ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 15_000)
+            when (Config.modoShizuku(this)) {
+                Config.ModoShizuku.SOB_DEMANDA -> ControleShizukuReceiver.ligar(this)   // pela fila do guardião
+                Config.ModoShizuku.SEMPRE -> ControleShizukuReceiver.desligar(this)
+                Config.ModoShizuku.DESLIGADO -> ControleShizukuReceiver.sobDemanda(this)
             }
+            linhaServidor.detalhe(detalheServidor())
+            ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 10_000)
         }
         adicionar(linhaServidor)
         // Parear a depuração sem fio sem PC (ver PareamentoNaTv): abre as Opções do desenvolvedor com uma janela do
