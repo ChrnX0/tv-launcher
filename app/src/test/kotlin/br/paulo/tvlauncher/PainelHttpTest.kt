@@ -67,7 +67,8 @@ class PainelHttpTest {
     @Test fun contentLengthInvalido() {
         assertEquals(400, codigoDoErro("POST / HTTP/1.1\r\nContent-Length: -1\r\n\r\n"))
         assertEquals(400, codigoDoErro("POST / HTTP/1.1\r\nContent-Length: abc\r\n\r\n"))
-        assertEquals(400, codigoDoErro("POST / HTTP/1.1\r\nContent-Length: 99999999999\r\n\r\n"))
+        // Desde a fase 2 o tamanho é Long (envio de arquivo grande): 99999999999 é válido, mas não cabe na memória.
+        assertEquals(413, codigoDoErro("POST / HTTP/1.1\r\nContent-Length: 99999999999\r\n\r\n"))
     }
 
     @Test fun pedidoMalformado() {
@@ -111,5 +112,46 @@ class PainelHttpTest {
             PainelHttp.escrever(ByteArrayOutputStream(), 200, null, ByteArray(0), mapOf("X" to "a\r\nSet-Cookie: x=1"))
             fail()
         } catch (e: IllegalArgumentException) {}
+    }
+
+    // ---------------------------------------------------------------- fase 2: corpo em fluxo, download
+
+    @Test fun cabecalhosSemLerCorpoEFluxoParaNoTamanho() {
+        val entrada = ByteArrayInputStream("POST /api/arquivos/enviar?nome=a.txt HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nolá!LIXO".toByteArray(Charsets.UTF_8))
+        val r = PainelHttp.lerCabecalhos(entrada)
+        assertEquals(5L, r.tamanho)
+        assertEquals("a.txt", r.consulta["nome"])
+        // "olá!" em UTF-8 tem 5 bytes; o fluxo para ali e não entrega o "LIXO" que vem depois.
+        assertEquals("olá!", String(r.fluxoCorpo().readBytes(), Charsets.UTF_8))
+    }
+
+    @Test fun fluxoCurtoDaErro() {
+        val r = PainelHttp.lerCabecalhos(ByteArrayInputStream("POST / HTTP/1.1\r\nContent-Length: 10\r\n\r\nabc".toByteArray()))
+        try { r.fluxoCorpo().readBytes(); fail() } catch (e: IOException) {}
+    }
+
+    @Test fun contentLengthGrandeCabeEmLong() {
+        val r = PainelHttp.lerCabecalhos(ByteArrayInputStream("POST / HTTP/1.1\r\nContent-Length: 5000000000\r\n\r\n".toByteArray()))
+        assertEquals(5_000_000_000L, r.tamanho)
+        // Mas lerCorpo (memória) recusa com 413.
+        try { r.lerCorpo(4096); fail() } catch (e: ErroHttp) { assertEquals(413, e.codigo) }
+    }
+
+    @Test fun contentLengthEsquisitoOuRepetido() {
+        for (cl in listOf("+5", "-1", "0x10", "", "1".repeat(19))) {
+            try { ler("POST / HTTP/1.1\r\nContent-Length:$cl\r\n\r\n"); fail("aceitou [$cl]") } catch (e: ErroHttp) { assertEquals(400, e.codigo) }
+        }
+        try { ler("POST / HTTP/1.1\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\nab"); fail() } catch (e: ErroHttp) { assertEquals(400, e.codigo) }
+    }
+
+    @Test fun nomeParaBaixarComAcento() {
+        val v = PainelHttp.nomeParaBaixar("Férias \"2026\".mp4")
+        assertEquals("attachment; filename=\"F_rias _2026_.mp4\"; filename*=UTF-8''F%C3%A9rias%20%222026%22.mp4", v)
+        // E passa pela barreira de cabeçalho (só ASCII, sem quebra de linha).
+        PainelHttp.escrever(ByteArrayOutputStream(), 200, null, ByteArray(0), mapOf("Content-Disposition" to v))
+    }
+
+    @Test fun cabecalhoComAcentoCruERecusado() {
+        try { PainelHttp.escrever(ByteArrayOutputStream(), 200, null, ByteArray(0), mapOf("X" to "Férias")); fail() } catch (e: IllegalArgumentException) {}
     }
 }

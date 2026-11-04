@@ -224,7 +224,12 @@ da fase 0: `/mnt/project-files/tv-launcher/painel-no-launcher.md`.
 - Nome "chromecast": a TV usa IP fixo, então só funciona com um registro de DNS local no roteador UniFi UX7 apontando
   para 192.168.1.153; o navegador precisa de `http://chromecast:8080/` (palavra solta vira busca).
 - Testes JVM: `gradlew testReleaseUnitTest` (ou kotlinc + JUnit direto, sem Android).
-- Fases seguintes (não feitas): instalar APK, permissões, arquivos, foto da tela, HTTPS.
+- Fase 2 (04/11/2026, PR #10): todos os apps por padrão; permissões por app (`PainelPermissoes.kt`: perigosas pelo DO
+  `setPermissionGrantState`, acessos especiais por `appops set --uid` no shell próprio via `GuardiaoShizuku.comando`, comando
+  montado de tabela fixa); instalar APK em silêncio (`PainelApps.instalar`, PIN de novo; o próprio launcher é recusado);
+  aba Arquivos (`PainelArquivos.kt`, memória interna menos `Android/`; corpo do envio vai em fluxo direto ao disco, ver
+  `Requisicao.fluxoCorpo`). O acesso a todos os arquivos (MANAGE_EXTERNAL_STORAGE) o launcher se concede pelo shell na 1ª vez.
+- Fases seguintes (não feitas): ficha de cada app (descrição, risco, dependências), foto da tela, controle remoto, HTTPS.
 
 # chromecast-painel — painel de administração (subpasta deste mesmo repo)
 

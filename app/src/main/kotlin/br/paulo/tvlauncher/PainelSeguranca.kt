@@ -253,4 +253,36 @@ object ChecagensPainel {
         }
         return true
     }
+
+    // ------------------------------------------------------------ arquivos (aba Arquivos do painel)
+
+    /** Pastas de topo que o painel não mostra nem deixa mexer: dados de apps (o Android já barra, mas não mostra). */
+    val PASTAS_FECHADAS = setOf("android")
+
+    /**
+     * Um nome de arquivo ou pasta (um pedaço só do caminho). Barra o que permitiria sair da pasta ("..", barra),
+     * caracteres de controle (quebram listagem e cabeçalho) e nomes enormes.
+     */
+    fun nomeArquivoValido(nome: String?): Boolean {
+        if (nome.isNullOrEmpty() || nome.length > 200 || nome == "." || nome == "..") return false
+        if (nome.trim().isEmpty()) return false
+        return nome.none { it == '/' || it == '\\' || it.code < 0x20 || it.code == 0x7f }
+    }
+
+    /**
+     * Caminho relativo à memória interna ("" = a raiz; "Download/Filmes"). Cada pedaço tem de ser um nome válido, e o
+     * primeiro não pode ser uma pasta fechada. A conferência final (o caminho real, com links resolvidos, ficar dentro
+     * da raiz) é feita em PainelArquivos com o sistema de arquivos de verdade.
+     */
+    fun caminhoRelativoValido(rel: String?): Boolean {
+        if (rel == null || rel.length > 1000) return false
+        if (rel.isEmpty()) return true
+        val partes = rel.split('/')
+        if (partes.any { !nomeArquivoValido(it) }) return false
+        return partes[0].lowercase() !in PASTAS_FECHADAS
+    }
+
+    /** [canonico] (caminho real) está dentro de [raiz] (ou é ela)? Comparação por pedaço: "/a/bc" não está em "/a/b". */
+    fun dentroDe(canonico: String, raiz: String): Boolean =
+        canonico == raiz || canonico.startsWith(raiz.trimEnd('/') + "/")
 }
