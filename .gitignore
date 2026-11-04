@@ -2,6 +2,8 @@
 .gradle/
 build/
 app/build/
+# build nativo (CMake) dos modulos do Shizuku embutido
+.cxx/
 
 # Caminho do SDK desta maquina
 local.properties
@@ -23,3 +25,15 @@ perfil-*.png
 externos/
 dist/tela.png
 dist/tela*.png
+
+
+# chromecast-painel (projeto irmão, dentro do mesmo repo agora)
+chromecast-painel/node_modules/
+chromecast-painel/cache/
+
+
+# Screenshots de depuração acumulados (102 arquivos, ~65MB) — nao versionar
+.shots/
+
+# Certificado de VPN - NUNCA deve ir pro repositorio (ver CLAUDE.md)
+app/src/main/res/raw/vpn_cert.pem

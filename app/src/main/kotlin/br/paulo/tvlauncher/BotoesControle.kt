@@ -31,6 +31,7 @@ object BotoesControle {
     private val principal = Handler(Looper.getMainLooper())
     private var abrirLista: Runnable? = null   // o "segurou 3 s" agendado; null = nenhum botão apertado
     private var listaAberta = false             // true = a lista já abriu neste aperto: soltar não abre app
+    private var apertado: Int? = null           // tecla cujo DOWN vimos neste aperto
 
     fun botao(tecla: Int) = BOTOES.firstOrNull { it.tecla == tecla }
 
@@ -45,24 +46,65 @@ object BotoesControle {
 
     /** Chamado para cada tecla. true = a tecla é nossa (o sistema não a vê). */
     fun tratar(ctx: Context, e: KeyEvent): Boolean {
+        if (e.keyCode == KeyEvent.KEYCODE_HOME && Home.launcherxAtivo(ctx)) return tratarHome(ctx, e)
         val b = botao(e.keyCode) ?: return false
         when (e.action) {
             KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
                 // Aperto novo: agenda a lista para daqui a 3 s. Se soltar antes, o agendamento é cancelado.
                 listaAberta = false
                 abrirLista?.let { principal.removeCallbacks(it) }
+                apertado = b.tecla
                 abrirLista = Runnable {
                     listaAberta = true
                     abrirLista = null
-                    ctx.startActivity(Intent(ctx, EscolherAppActivity::class.java)
-                        .putExtra(EscolherAppActivity.EXTRA_TECLA, b.tecla)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                    // try: este código roda no processo da HOME; uma falha aqui não pode derrubar o launcher.
+                    try {
+                        ctx.startActivity(Intent(ctx, EscolherAppActivity::class.java)
+                            .putExtra(EscolherAppActivity.EXTRA_TECLA, b.tecla)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } catch (e: Exception) { Log.w(TAG, "não abriu a lista de apps: $e") }
                 }.also { principal.postDelayed(it, SEGURAR_MS) }
             }
             KeyEvent.ACTION_UP -> {
                 abrirLista?.let { principal.removeCallbacks(it) }
                 abrirLista = null
-                if (!listaAberta) abrirApp(ctx, appDo(ctx, b))
+                // Só abre o app se o DOWN deste aperto passou por aqui (ex.: serviço religado no meio do aperto
+                // recebe só o UP — antes isso abria o app sozinho).
+                if (!listaAberta && apertado == b.tecla) abrirApp(ctx, appDo(ctx, b))
+                apertado = null
+            }
+        }
+        return true
+    }
+
+    private var homeLongo: Runnable? = null
+    private var homeLongoDisparou = false
+    private var homeApertado = false
+
+    /**
+     * Botão HOME com o launcherx do Google ATIVO (04/11/2026). Ele declara a HOME com priority=2 (app de sistema
+     * privilegiado), e no resolvedor do Android a prioridade vence QUALQUER preferência, até a persistente do Device
+     * Owner e o papel de HOME (medido: role HOME = nosso, preferred = nosso, e o HOME abria launcherx/.home.HomeActivity).
+     * Então a tecla é tratada aqui, antes do sistema: aperto curto = a nossa HOME; segurado = o painel do Google
+     * (notificações, Google Home), pelo mesmo pedido que o sistema faz no HOME longo.
+     */
+    private fun tratarHome(ctx: Context, e: KeyEvent): Boolean {
+        when (e.action) {
+            KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
+                homeApertado = true
+                homeLongoDisparou = false
+                homeLongo?.let { principal.removeCallbacks(it) }
+                homeLongo = Runnable {
+                    homeLongoDisparou = true
+                    homeLongo = null
+                    Home.abrirPainelGoogle(ctx)
+                }.also { principal.postDelayed(it, Home.SEGURAR_HOME_MS) }
+            }
+            KeyEvent.ACTION_UP -> {
+                homeLongo?.let { principal.removeCallbacks(it) }
+                homeLongo = null
+                if (homeApertado && !homeLongoDisparou) Home.irParaHome(ctx)
+                homeApertado = false
             }
         }
         return true
@@ -76,6 +118,7 @@ object BotoesControle {
             Log.w(TAG, "app $pacote não encontrado")
             return
         }
-        ctx.startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        try { ctx.startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (e: Exception) { Log.w(TAG, "não abriu $pacote: $e") }
     }
 }

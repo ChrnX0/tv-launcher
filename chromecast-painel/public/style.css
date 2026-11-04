@@ -1,0 +1,88 @@
+:root {
+  --fundo: #121317;
+  --superficie: #1b1d24;
+  --superficie2: #242730;
+  --borda: #333743;
+  --texto: #eceef2;
+  --texto-fraco: #9aa0ad;
+  --acento: #4da3ff;
+  --perigo: #ff5d5d;
+  --ok: #4dd68a;
+}
+* { box-sizing: border-box; }
+/* O atributo "hidden" do HTML tem a mesma especificidade de uma classe; sem isto, qualquer classe que
+   define "display" (botões, o modal) venceria o hidden e o elemento continuaria aparecendo. */
+[hidden] { display: none !important; }
+body {
+  margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--fundo); color: var(--texto); min-height: 100vh;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--borda);
+}
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 18px; margin: 0; }
+section { padding: 24px; max-width: 900px; margin: 0 auto; }
+
+.botao-primario, .botao-secundario {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border-radius: 10px; padding: 10px 16px; font-size: 15px; border: none;
+}
+.botao-primario { background: var(--acento); color: #06101c; font-weight: 600; }
+.botao-secundario { background: var(--superficie2); color: var(--texto); }
+.botao-perigo { background: #3a1e1e; color: var(--perigo); border: 1px solid #5a2a2a; border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+
+.grade-aparelhos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin: 20px 0; }
+.cartao-aparelho {
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 16px;
+  padding: 20px; cursor: pointer; transition: transform .1s, border-color .1s;
+}
+.cartao-aparelho:hover { border-color: var(--acento); transform: translateY(-2px); }
+.cartao-aparelho .nome { font-size: 19px; font-weight: 600; }
+.cartao-aparelho .status { font-size: 13px; margin-top: 6px; color: var(--texto-fraco); }
+.status.online::before { content: "● "; color: var(--ok); }
+.status.offline::before { content: "● "; color: var(--texto-fraco); }
+
+.aviso { color: var(--texto-fraco); padding: 10px 0; }
+
+.abas { display: flex; gap: 8px; border-bottom: 1px solid var(--borda); padding: 0 24px; }
+.aba { background: none; border: none; color: var(--texto-fraco); padding: 14px 6px; font-size: 15px; cursor: pointer; border-bottom: 2px solid transparent; }
+.aba.ativa { color: var(--texto); border-bottom-color: var(--acento); }
+
+.painel-aba { padding: 20px 0; }
+/* Tela ao vivo (04/11/2026): o iframe do ws-scrcpy tem tamanho FIXO de 1328x736 e é encolhido por escala para caber.
+   Motivo: o ws-scrcpy pede ao aparelho um vídeo do tamanho da própria janela; num iframe "100% x 75vh" isso dava
+   720x400, e o codificador do Chromecast embaralha larguras não alinhadas (faixas diagonais na imagem — medido).
+   1328 - 40 (barra de botões) = 1288 -> múltiplo de 16 = 1280; altura 736 -> o vídeo sai 1280x720, que funciona. */
+#caixaTela { position: relative; width: 100%; aspect-ratio: 1328 / 736; overflow: hidden; border: 1px solid var(--borda); border-radius: 12px; background: #000; }
+#iframeTela { position: absolute; top: 0; left: 0; width: 1328px; height: 736px; border: 0; transform-origin: 0 0; }
+.dica-tela { color: var(--texto-suave, #9aa); font-size: 13px; margin-top: 8px; }
+
+.barra-acoes { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+select { background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+
+.lista-apps, .lista-arquivos, .lista-permissoes { display: flex; flex-direction: column; gap: 10px; }
+.linha-app, .linha-arquivo, .linha-permissao {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 16px;
+}
+.linha-app .info, .linha-permissao .info { display: flex; flex-direction: column; gap: 2px; cursor: pointer; flex: 1; }
+.linha-app .pacote { font-size: 12px; color: var(--texto-fraco); }
+.linha-app .acoes, .linha-arquivo .acoes { display: flex; align-items: center; gap: 10px; }
+
+.interruptor { position: relative; width: 46px; height: 26px; }
+.interruptor input { opacity: 0; width: 0; height: 0; }
+.trilho { position: absolute; inset: 0; background: var(--superficie2); border-radius: 999px; cursor: pointer; transition: background .15s; }
+.trilho::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: var(--texto-fraco); border-radius: 50%; transition: transform .15s, background .15s; }
+.interruptor input:checked + .trilho { background: #1d3a2b; }
+.interruptor input:checked + .trilho::before { transform: translateX(20px); background: var(--ok); }
+
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal[hidden] { display: none; }
+.modal-conteudo { background: var(--superficie); border: 1px solid var(--borda); border-radius: 16px; padding: 20px; width: 100%; max-width: 480px; max-height: 80vh; overflow: auto; }
+.modal-cabecalho { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+/* App protegido (o launcher: tela inicial + Device Owner) - sem interruptor nem Remover */
+.protegido { color: var(--texto-suave, #9aa); font-size: 13px; font-style: italic; }

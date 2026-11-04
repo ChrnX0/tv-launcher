@@ -44,6 +44,21 @@ class ConfigLauncherActivity : Activity() {
         trabalho.shutdownNow()
     }
 
+    // ---------------------------------------------------------------- VPN
+    // Desde 04/11/2026 a VPN é o app AdGuard VPN (decisão do Paulo); a VPN própria do launcher (IKEv2, Vpn.kt) foi
+    // aposentada — o servidor da AdGuard recusava a autenticação dela. O launcher só fixa o app como "VPN sempre
+    // ativa" pelo Device Owner (Config.VPN_FIXA, PrivilegioDO.aplicar) e mostra o estado aqui.
+
+    /** Há uma rede VPN de pé agora? */
+    private fun vpnAtiva(): Boolean = try {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true }
+    } catch (e: Exception) { false }
+
+    private fun detalheVpn(): String =
+        (if (vpnAtiva()) "conectada" else "desconectada") + " — app AdGuard VPN, sempre ativa · OK abre o app"
+
     // ---------------------------------------------------------------- tela
 
     private fun montarTela(): View {
@@ -101,7 +116,16 @@ class ConfigLauncherActivity : Activity() {
 
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
-        adicionar(linha("DNS privado", Dns.rotulo(this)) { startActivity(Intent(this, DnsActivity::class.java)) })
+        // Se o DNS fixo caiu e o launcher voltou para o automático (Dns.voltarAoAutomaticoSeQuebrado), avisa aqui.
+        val caiu = Dns.servidorQueCaiu(this)
+        adicionar(linha("DNS privado", Dns.rotulo(this) + (if (caiu != null) " · $caiu não respondeu, voltei para o automático" else "")) {
+            startActivity(Intent(this, DnsActivity::class.java))
+        })
+        adicionar(linha("VPN", detalheVpn()) {
+            val abrir = packageManager.getLeanbackLaunchIntentForPackage(Config.VPN_FIXA)
+                ?: packageManager.getLaunchIntentForPackage(Config.VPN_FIXA)
+            if (abrir != null) startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        })
         lateinit var linhaVelocidade: TextView
         linhaVelocidade = linha("Testar velocidade da internet", "baixa 25 MB e mede") {
             linhaVelocidade.detalhe("Testando…")
@@ -112,30 +136,118 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaVelocidade)
 
+        // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
+        // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
+        if (Config.APPS_OCULTAR.isNotEmpty()) {
+            secao("Apps ocultos")
+            Config.APPS_OCULTAR.forEach { pacote ->
+                val rotulo = try {
+                    packageManager.getApplicationLabel(packageManager.getApplicationInfo(pacote, 0)).toString()
+                } catch (e: Exception) { pacote }
+                lateinit var linhaApp: TextView
+                fun detalheApp() = if (PrivilegioDO.estaOculto(this, pacote)) "oculto — OK mostra" else "visível — OK oculta"
+                linhaApp = linha(rotulo, detalheApp()) {
+                    val ocultoAntes = PrivilegioDO.estaOculto(this, pacote)
+                    if (PrivilegioDO.ocultar(this, pacote, !ocultoAntes)) linhaApp.detalhe(detalheApp())
+                    else linhaApp.detalhe("não consegui mudar (Device Owner inativo?)")
+                }
+                adicionar(linhaApp)
+            }
+        }
+
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         secao("Permissões")
         val dono = PrivilegioDO.somosDonos(this)
         adicionar(info("Device Owner", if (dono) "ativo — controla apps e permissões do sistema" else "não ativo"))
-        if (Privilegio.pronto()) {
-            adicionar(info("Shizuku", "autorizado"))
-        } else {
-            lateinit var linhaShizuku: TextView
-            linhaShizuku = linha("Shizuku: pedir autorização", "ainda não autorizado") {
-                Privilegio.verificar()
-                linhaShizuku.detalhe("pedido enviado — confirme na TV, se aparecer")
-            }
-            adicionar(linhaShizuku)
-        }
         adicionar(info("Permissões fixas concedidas", Config.PERMISSOES_FIXAS.joinToString { it.substringAfterLast('.') }))
+
+        // ---- Shizuku embutido (MARCO S2): estado do servidor e os apps que pediram acesso a ele. OK num app alterna
+        // entre permitido e revogado. A lista é lida do servidor (binder) fora da thread da tela.
+        secao("Shizuku do launcher")
+        lateinit var linhaServidor: TextView
+        // Desligado por padrão (04/11/2026, memória): só fica de pé quando alguém liga aqui (e continua ligado no boot).
+        fun detalheServidor() = when {
+            rikka.shizuku.Shizuku.pingBinder() ->
+                "ligado e rodando (uid ${rikka.shizuku.Shizuku.getUid()}, versão ${rikka.shizuku.Shizuku.getVersion()}) — OK desliga"
+            Config.shizukuAtivo(this) -> "ligado, subindo… — OK desliga"
+            else -> "desligado (economiza memória) — OK liga"
+        }
+        linhaServidor = linha("Servidor", detalheServidor()) {
+            if (Config.shizukuAtivo(this)) {
+                ControleShizukuReceiver.desligar(this)
+                linhaServidor.detalhe("desligando…")
+                ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 3_000)
+            } else {
+                ControleShizukuReceiver.ligar(this)   // pela fila do guardião (uma conexão adb por vez)
+                linhaServidor.detalhe("ligando…")
+                ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 15_000)
+            }
+        }
+        adicionar(linhaServidor)
+        // Parear a depuração sem fio sem PC (ver PareamentoNaTv): abre as Opções do desenvolvedor com uma janela do
+        // launcher por cima, que acha a porta sozinha e recebe o código pelo controle.
+        lateinit var linhaParear: TextView
+        linhaParear = linha("Parear sem PC", if (PareamentoNaTv.podeMostrar(this))
+            "abre a tela de pareamento do Android com um teclado do launcher por cima"
+        else "o serviço de acessibilidade do launcher está desligado") {
+            if (!PareamentoNaTv.comecar(this)) linhaParear.detalhe("o serviço de acessibilidade do launcher está desligado")
+        }
+        adicionar(linhaParear)
+        listaClientes =LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        lista.addView(listaClientes, LinearLayout.LayoutParams(MATCH, WRAP))
+        carregarClientes()
 
         // ---- Diagnóstico: números úteis para saber se algo por trás dos panos está ok, sem precisar do logcat.
         secao("Diagnóstico")
         val versao = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { null }
         adicionar(info("Versão do launcher", versao ?: "desconhecida"))
         adicionar(info("Depuração sem fio", if (Config.DEPURACAO_SEM_FIO_SEMPRE_LIGADA) "mantida ligada pelo launcher" else "como o Android deixar"))
-        adicionar(info("Chave do shell próprio", ShellProprio.impressaoDigital(this)))
+        // Fora da thread da tela (revisão 04/11): na 1ª vez isto GERA a chave RSA-2048 (segundos num ARMv7).
+        val linhaChave = info("Chave do shell próprio", "calculando…")
+        adicionar(linhaChave)
+        trabalho.execute {
+            val fp = try { ShellProprio.impressaoDigital(this) } catch (e: Exception) { "erro: ${e.javaClass.simpleName}" }
+            ui.post { if (!isDestroyed) linhaChave.detalhe(fp) }
+        }
 
         return raiz
+    }
+
+    // ---------------------------------------------------------------- Shizuku: apps com acesso
+
+    private lateinit var listaClientes: LinearLayout
+
+    /** Lê do servidor os apps clientes (fora da thread da tela) e monta uma linha por app. */
+    private fun carregarClientes() {
+        listaClientes.removeAllViews()
+        if (!rikka.shizuku.Shizuku.pingBinder()) return
+        trabalho.execute {
+            val apps = try { AutorizacoesShizuku.clientes() } catch (e: Throwable) {
+                android.util.Log.w(ServidorShizuku.TAG, "lista de clientes falhou: $e"); null
+            }
+            ui.post {
+                if (isDestroyed) return@post
+                listaClientes.removeAllViews()
+                if (apps.isNullOrEmpty()) {
+                    listaClientes.addView(info("Apps com acesso", "nenhum app instalado pediu acesso ao Shizuku"))
+                    return@post
+                }
+                for (pi in apps) {
+                    val ai = pi.applicationInfo ?: continue
+                    val rotulo = try { ai.loadLabel(packageManager).toString() } catch (e: Exception) { pi.packageName }
+                    lateinit var linhaApp: TextView
+                    fun detalheApp() = if (AutorizacoesShizuku.permitido(ai.uid)) "permitido — OK revoga" else "sem acesso — OK permite"
+                    linhaApp = linha(rotulo, detalheApp()) {
+                        try {
+                            if (AutorizacoesShizuku.permitido(ai.uid)) AutorizacoesShizuku.revogar(ai.uid)
+                            else AutorizacoesShizuku.permitir(ai.uid)
+                            linhaApp.detalhe(detalheApp())
+                        } catch (e: Throwable) { linhaApp.detalhe("não consegui mudar: ${e.javaClass.simpleName}") }
+                    }
+                    listaClientes.addView(linhaApp, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) })
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- peças

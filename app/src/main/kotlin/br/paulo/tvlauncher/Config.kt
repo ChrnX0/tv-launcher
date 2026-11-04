@@ -14,6 +14,11 @@ object Config {
     // acima só valem se as duas falharem. A estação de medição (aeroporto) é escolhida sozinha: a mais perto.
     // Para FIXAR uma, ponha o código ICAO aqui (ex.: "SBRP"); "" = automático.
     const val ESTACAO_METAR = ""
+    // Minutos depois do PÔR do sol real (calculado por Astronomia.nascerEPor, não o "is_day" da Open-Meteo) em que
+    // o ícone ainda considera "dia". A Open-Meteo marca noite no instante exato do pôr, sem contar o crepúsculo
+    // civil (a claridade que sobra no céu depois). Flagrado em 03/11/2026 às 18:38: pôr às 18:24, ícone já de lua,
+    // mas a foto da varanda mostrava céu claramente ainda claro. Ajuste este número se ainda trocar cedo/tarde demais.
+    const val MARGEM_CREPUSCULO_MIN = 20
 
     // --- Quais apps aparecem: os instalados por você + estes pacotes de sistema (a Play Store).
     val SEMPRE_MOSTRAR = listOf("com.android.vending")
@@ -40,23 +45,55 @@ object Config {
     // --- App aberto automaticamente quando a TV REINICIA (não quando acorda do standby). "" desliga.
     const val ABRIR_AO_LIGAR = ""   // desligado: o OneStream tem opcao propria de abrir ao reiniciar; ponha o pacote aqui so se quiser que o launcher faca isso
 
-    // --- Shizuku: true = o serviço de acessibilidade aprova SOZINHO qualquer app que pedir acesso (cada um ganha shell).
-    //     false = o diálogo do Shizuku aparece e você decide. Também dá para desligar em Configurações > Acessibilidade.
-    //     Com true, o launcher também RELIGA o serviço sozinho se o Android o desligar (ver Privilegio.religarAcessibilidade).
-    const val SHIZUKU_AUTORIZAR_TUDO = true
+    // --- Serviço de acessibilidade (AutorizaShizukuService, hoje só trata teclas do controle remoto): true = o
+    //     launcher RELIGA o serviço sozinho se o Android o desligar (ver Privilegio.religarAcessibilidade).
+    //     Até 03/11/2026 esta chave também controlava a aprovação automática dos diálogos do Shizuku; esse app
+    //     foi desinstalado e a lógica, removida — o nome ficou de antes, mas a função é só essa religada acima.
+    const val SERVICO_TECLAS_SEMPRE_LIGADO = true
 
     // --- Device Owner (ver PrivilegioDO.kt) ---
     // FIXAR_PROTETOR: o app aponta o screensaver do sistema para o nosso ProtetorTela (aposenta o dreamx, ~59 MB).
     const val FIXAR_PROTETOR = true
     // Shell proprio (ver ShellProprio.kt) MARCO 1: so loga a chave do app e a porta do adb descoberta por mDNS. Diagnostico.
-    const val SHELL_PROPRIO_DIAG = true
+    // false desde 04/11/2026: quem conecta agora e o GuardiaoShizuku; o diagnostico ligava 2 buscas mDNS a cada onCreate
+    // (inclusive na troca de tema) e listava aparelhos de outros (192.168.1.159) no log.
+    const val SHELL_PROPRIO_DIAG = false
+    // Shizuku embutido (MARCO S3, ver GuardiaoShizuku.kt): true = o launcher sobe o servidor do Shizuku sozinho (no boot e
+    // ao abrir) e o religa se cair. false = so sobe por adb (PAREAR) ou pelo OK em Configuracoes > Shizuku do launcher.
+    const val SHIZUKU_AUTOMATICO = true
+    // "Shizuku ativo": o servidor so sobe (e o guardiao so religa) com isto ligado. DESLIGADO por padrao (04/11/2026):
+    // o shizuku_server ocupa ~58 MB de PSS numa TV com o swap quase cheio, e hoje nenhum app usa. Liga/desliga em
+    // Configuracoes > Shizuku do launcher > Servidor (OK) ou pelos intents INICIAR/PARAR (ControleShizukuReceiver).
+    fun shizukuAtivo(ctx: android.content.Context) =
+        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).getBoolean("shizuku_ativo", false)
+    fun marcarShizukuAtivo(ctx: android.content.Context, ativo: Boolean) =
+        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putBoolean("shizuku_ativo", ativo).apply()
+    // VPN_FIXA: app que o Device Owner fixa como "VPN sempre ativa" (sem lockdown: se cair, a TV segue com internet).
+    // 04/11/2026: o app AdGuard VPN, decisão do Paulo — a VPN própria do launcher (IKEv2) foi aposentada.
+    // "" = o launcher não mexe na VPN.
+    const val VPN_FIXA = "com.adguard.vpn"
     // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).
+    // launcherx (04/11/2026): o launcher do Google já estava DESATIVADO (enabled=3), mas continuava "instalado" para os
+    // outros apps. O seletor de contas do GMS (CHOOSE_ACCOUNT -> NoTouchAccountPickerActivity) via o pacote e mandava
+    // para launcherx/.profile.chooser.ProfileChooserActivity -> ActivityNotFoundException -> gms.ui caía (151 crashes
+    // no dropbox). OCULTO, o GMS usa o seletor próprio. Medido na TV, por am start do CHOOSE_ACCOUNT com a tela apagada:
+    // antes, "Caused by: ActivityNotFoundException ... ProfileChooserActivity"; depois, "Displayed ...
+    // NoTouchAccountPickerActivity +387ms", sem crash. Desfazer: tirar daqui E reexibir por adb:
+    //   am broadcast -a br.paulo.tvlauncher.OCULTAR --es pacote com.google.android.apps.tv.launcherx --ez oculto false
+    //     -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+    // ATUALIZAÇÃO (04/11/2026, mais tarde): o launcherx foi REATIVADO e saiu desta lista. Desativado ou oculto, ele quebra
+    // o Gemini: a resposta da voz abre launcherx/.gemini.chat.ChatActivity -> ActivityNotFoundException -> "o Google
+    // Assistente está com problema" (logcat do katniss, IntentStarterDelegate). A HOME continua nossa pela preferência
+    // persistente do Device Owner (PrivilegioDO.fixarHome).
     val APPS_OCULTAR = listOf("com.google.android.apps.tv.dreamx")
     // Permissoes que o launcher se autoconcede pelo Device Owner (ver PrivilegioDO.conceder): permanentes, o usuario nao revoga.
     // So valem as declaradas no manifesto. Evita depender de `pm grant` por adb.
-    val PERMISSOES_FIXAS = listOf("android.permission.READ_CALENDAR", "android.permission.ACCESS_FINE_LOCATION")
+    // GET_ACCOUNTS desde 04/11/2026 (revisão): é "perigosa" (o DO pode fixar) e a foto/inicial do perfil depende dela;
+    // antes só vinha de um `pm grant` por adb, que o sistema pode revogar.
+    val PERMISSOES_FIXAS = listOf("android.permission.READ_CALENDAR", "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.GET_ACCOUNTS")
 
     // --- Depuração sem fio (adb pela rede, usado pelo computador para instalar e testar): true = o launcher a LIGA de novo
     //     sozinho quando a TV reinicia e sempre que abre, se o Android a tiver desligado. Custo: com ela ligada, a TV deixa uma porta de adb

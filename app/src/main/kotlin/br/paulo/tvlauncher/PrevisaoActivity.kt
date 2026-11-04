@@ -172,7 +172,9 @@ class PrevisaoActivity : Activity() {
         return Dados(
             ponto, c.getString("time"),
             c.getDouble("temperature_2m"), c.getDouble("apparent_temperature"), c.getInt("relative_humidity_2m"), c.getInt("weather_code"),
-            c.getDouble("pressure_msl"), c.getDouble("wind_speed_10m"), c.getInt("wind_direction_10m"), c.getInt("is_day") == 1,
+            c.getDouble("pressure_msl"), c.getDouble("wind_speed_10m"), c.getInt("wind_direction_10m"),
+            // Mesma regra da HOME (Astronomia.eDia, com o crepúsculo): antes era o is_day cru da API e as telas discordavam.
+            Astronomia.eDia(System.currentTimeMillis(), ponto.lat, ponto.lon, c.getInt("is_day") == 1),
             lista(h, "time") { a, i -> a.getString(i) }, lista(h, "temperature_2m") { a, i -> a.optDouble(i) },
             lista(h, "precipitation_probability") { a, i -> a.optInt(i, 0) }, lista(h, "weather_code") { a, i -> a.optInt(i, 3) },
             lista(h, "wind_speed_10m") { a, i -> a.optDouble(i) }, lista(h, "visibility") { a, i -> a.optDouble(i) },
