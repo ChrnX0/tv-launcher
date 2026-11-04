@@ -31,6 +31,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val ROTULOS = "br.paulo.tvlauncher.ROTULOS"   // nomes dos apps para o painel (só adb)
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
+        const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -70,6 +71,26 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 resultData = "parando"
             }
             ESTADO -> resultData = estado()
+            // Só pelo adb: define o PIN do painel no navegador e o liga, sem precisar do controle remoto (testes).
+            // Ex.: am broadcast -a br.paulo.tvlauncher.PAINEL_PIN --es pin 123456 -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+            // O "is" barra o receiver dos apps do Shizuku: um intent EXPLÍCITO ignora o filtro de ação do manifest.
+            PAINEL_PIN -> if (this is ControleShizukuAdbReceiver) {
+                val pin = intent.getStringExtra("pin")
+                if (pin == null || !PinSeguro.valido(pin)) {
+                    resultData = "pin inválido (6 a 12 dígitos)"
+                } else {
+                    val pendente = goAsync()   // PBKDF2 demora: fora da thread principal, segurando o broadcast
+                    Thread {
+                        try {
+                            PainelArmazem.definirPin(ctx, pin)
+                            PainelArmazem.definirLigado(ctx, true)
+                            PainelWeb.recomecar(ctx)
+                            Thread.sleep(500)   // a porta abre numa thread à parte
+                            pendente.resultData = "ok ligado=${PainelWeb.ligado()} endereco=${PainelWeb.endereco()}"
+                        } finally { pendente.finish() }
+                    }.start()
+                }
+            }
             // Só chega pelo receiver do adb (o filtro de ROTULOS está só nele): o painel do PC pergunta o nome real
             // dos apps, que o adb não sabe dizer. Resposta: JSON {pacote: nome}.
             ROTULOS -> resultData = try {
