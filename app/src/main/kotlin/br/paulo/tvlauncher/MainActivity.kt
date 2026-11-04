@@ -592,13 +592,29 @@ class MainActivity : Activity() {
     }
 
     private fun preencherApps() {
+        // Carregar os apps (PackageManager + ícone redondo de cada um) roda FORA da thread da tela (04/11/2026: um ANR de
+        // 5 s tinha iconeRedondo na pilha da thread principal, no 1º onResume do processo). Só o desenho volta para ela.
         val t0 = android.os.SystemClock.elapsedRealtime()
-        instalados = carregarApps()
-        val t1 = android.os.SystemClock.elapsedRealtime()
+        filaApps.execute {
+            val todos = carregarApps()   // cacheApps só é tocado nesta fila (uma thread)
+            val t1 = android.os.SystemClock.elapsedRealtime()
+            ui.post {
+                if (isDestroyed) return@post
+                instalados = todos
+                lista = montarEntradas(instalados)
+                desenhar()
+                // Medir para não deixar crescer: a thread da tela também atende as teclas do controle.
+                android.util.Log.i("TvLauncher.Apps", "preencherApps: carregar=${t1 - t0} ms (fora da tela), " +
+                    "desenhar=${android.os.SystemClock.elapsedRealtime() - t1} ms")
+            }
+        }
+    }
+    private val filaApps = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "Apps") }
+
+    /** Só reorganiza (pilhas, ordem, ocultos) com os apps já carregados: síncrono, quem chama lê a [lista] em seguida. */
+    private fun reorganizar() {
         lista = montarEntradas(instalados)
         desenhar()
-        // Roda na thread da tela a cada volta à HOME: medir para não deixar crescer (atrasa as teclas do controle).
-        android.util.Log.i("TvLauncher.Apps", "preencherApps: carregar=${t1 - t0} ms, total=${android.os.SystemClock.elapsedRealtime() - t0} ms")
     }
 
     /** Os cards que aparecem agora: a lista normal, ou (no modo mover) a lista com o card arrastado na posição de teste. */
@@ -928,7 +944,7 @@ class MainActivity : Activity() {
             .setPositiveButton("Remover") { _, _ ->
                 Organizacao.tirarDaPilha(this, app.pacote)
                 fecharPasta()
-                preencherApps()
+                reorganizar()
                 // Se a pilha ainda existe (ficou com 2+ apps), reabre a lista para tirar mais um; senão ela se desfez.
                 val restante = lista.firstOrNull { it is Entrada.Pilha && it.id == pilha.id }
                 if (restante is Entrada.Pilha) {
@@ -1007,7 +1023,7 @@ class MainActivity : Activity() {
     private fun atualizarAposMudanca(foco: String?) {
         fecharPasta()
         if (foco != null) ultimoToken = foco
-        preencherApps()
+        reorganizar()
     }
 
     private fun nomeDe(pacote: String): String = instalados.firstOrNull { it.pacote == pacote }?.nome ?: pacote
@@ -1152,7 +1168,7 @@ class MainActivity : Activity() {
             Organizacao.salvarOrdem(this, listaMovendo().filter { it !is Entrada.Ocultos }.map { it.token })
         }
         terminarMover()
-        preencherApps()
+        reorganizar()
     }
 
     private fun cancelarMover() {
@@ -1180,7 +1196,7 @@ class MainActivity : Activity() {
     private fun restaurarOrdemAutomatica() {
         terminarMover()
         Organizacao.limparOrdem(this)
-        preencherApps()
+        reorganizar()
     }
 
     /** Durante o modo de mover, aparece um guia de teclas na parte de baixo da tela. */
@@ -1296,6 +1312,9 @@ class MainActivity : Activity() {
                     luaVirouIcone -> Lua.chaveIcone(System.currentTimeMillis(), ponto.lat)
                     else -> iconeDoTempo   // (se o codigo diz "nublado" mas esta chovendo, descricaoClima ja devolve a chuva)
                 }
+                // Decodifica e apara o ícone AQUI, fora da thread da tela (04/11/2026: um ANR de 5 s do launcher tinha
+                // IconesClima.aparar na pilha da thread principal). Na tela, bitmap() já acha pronto no cache.
+                if (IconesClima.ehIcone(icone)) IconesClima.bitmap(this, icone)
                 ui.post {
                     pontoAtual = ponto
                     ultimoCodigo = codigo

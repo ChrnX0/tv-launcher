@@ -165,15 +165,23 @@ class ConfigLauncherActivity : Activity() {
         // entre permitido e revogado. A lista é lida do servidor (binder) fora da thread da tela.
         secao("Shizuku do launcher")
         lateinit var linhaServidor: TextView
-        fun detalheServidor() = if (rikka.shizuku.Shizuku.pingBinder())
-            "rodando (uid ${rikka.shizuku.Shizuku.getUid()}, versão ${rikka.shizuku.Shizuku.getVersion()})"
-        else "parado — OK liga"
+        // Desligado por padrão (04/11/2026, memória): só fica de pé quando alguém liga aqui (e continua ligado no boot).
+        fun detalheServidor() = when {
+            rikka.shizuku.Shizuku.pingBinder() ->
+                "ligado e rodando (uid ${rikka.shizuku.Shizuku.getUid()}, versão ${rikka.shizuku.Shizuku.getVersion()}) — OK desliga"
+            Config.shizukuAtivo(this) -> "ligado, subindo… — OK desliga"
+            else -> "desligado (economiza memória) — OK liga"
+        }
         linhaServidor = linha("Servidor", detalheServidor()) {
-            if (rikka.shizuku.Shizuku.pingBinder()) return@linha
-            linhaServidor.detalhe("ligando…")
-            // Pela fila do guardião (uma conexão adb por vez); confere o resultado depois de alguns segundos.
-            GuardiaoShizuku.garantir(this, "Configuracoes")
-            ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 15_000)
+            if (Config.shizukuAtivo(this)) {
+                ControleShizukuReceiver.desligar(this)
+                linhaServidor.detalhe("desligando…")
+                ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 3_000)
+            } else {
+                ControleShizukuReceiver.ligar(this)   // pela fila do guardião (uma conexão adb por vez)
+                linhaServidor.detalhe("ligando…")
+                ui.postDelayed({ if (!isDestroyed) { linhaServidor.detalhe(detalheServidor()); carregarClientes() } }, 15_000)
+            }
         }
         adicionar(linhaServidor)
         // Parear a depuração sem fio sem PC (ver PareamentoNaTv): abre as Opções do desenvolvedor com uma janela do

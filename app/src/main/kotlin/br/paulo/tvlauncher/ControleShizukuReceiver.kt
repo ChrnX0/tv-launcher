@@ -32,6 +32,21 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
+
+        /** Liga o Shizuku (fica ligado, inclusive no boot) e sobe o servidor. Usado pelo INICIAR e pelas Configurações. */
+        fun ligar(ctx: Context) {
+            Config.marcarShizukuAtivo(ctx, true)
+            GuardiaoShizuku.garantir(ctx, "INICIAR")
+        }
+
+        /** Desliga: o guardião para de religar e o servidor é encerrado (Shizuku.exit(), pelo próprio servidor). */
+        fun desligar(ctx: Context) {
+            Config.marcarShizukuAtivo(ctx, false)
+            fila.execute {
+                try { if (Shizuku.pingBinder()) Shizuku.exit() } catch (_: Throwable) {}
+                ServidorShizuku.anotar(ctx, "[controle] desligado: ${estado()}")
+            }
+        }
     }
 
     override fun onReceive(recebido: Context, intent: Intent) {
@@ -39,17 +54,11 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         ServidorShizuku.anotar(ctx, "[controle] ${intent.action}")
         when (intent.action) {
             INICIAR -> {
-                Config.marcarShizukuParado(ctx, false)
-                GuardiaoShizuku.garantir(ctx, "INICIAR")
+                ligar(ctx)
                 resultData = "iniciando"
             }
             PARAR -> {
-                Config.marcarShizukuParado(ctx, true)
-                // Pelo próprio servidor (Shizuku.exit()) quando há binder; ele encerra o processo shizuku_server.
-                fila.execute {
-                    try { if (Shizuku.pingBinder()) Shizuku.exit() } catch (_: Throwable) {}
-                    ServidorShizuku.anotar(ctx, "[controle] PARAR: ${estado()}")
-                }
+                desligar(ctx)
                 resultData = "parando"
             }
             ESTADO -> resultData = estado()
