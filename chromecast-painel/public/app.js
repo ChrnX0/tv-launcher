@@ -60,9 +60,11 @@ function mudarAba(nome) {
   document.getElementById('painelTela').hidden = nome !== 'tela';
   document.getElementById('painelApps').hidden = nome !== 'apps';
   document.getElementById('painelArquivos').hidden = nome !== 'arquivos';
+  document.getElementById('painelBackup').hidden = nome !== 'backup';
   if (nome === 'tela') carregarTela();
   if (nome === 'apps') carregarApps();
   if (nome === 'arquivos') carregarArquivos();
+  if (nome === 'backup') carregarBackups();
 }
 
 // ---------- Tela do aparelho ----------
@@ -242,6 +244,50 @@ document.getElementById('arquivoEnviar').addEventListener('change', async (ev) =
   } catch (e) { status.textContent = 'Não consegui enviar: ' + e.message; }
   finally { ev.target.value = ''; setTimeout(() => (status.hidden = true), 4000); }
 });
+
+// ---------- Backup das configurações do launcher ----------
+function dataBonita(ms) {
+  return ms ? new Date(ms).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '?';
+}
+function mostrarStatusBackup(texto) {
+  const status = document.getElementById('statusBackup');
+  status.hidden = false; status.textContent = texto;
+}
+async function carregarBackups() {
+  const lista = document.getElementById('listaBackups');
+  lista.innerHTML = '<p class="aviso">Carregando...</p>';
+  try {
+    const backups = await chamar('GET', `/api/dispositivos/${aparelhoAtual.id}/backups`);
+    lista.innerHTML = '';
+    if (!backups.length) lista.innerHTML = '<p class="aviso">Nenhum backup ainda. Use "Fazer backup agora".</p>';
+    backups.forEach((b, i) => {
+      const linha = document.createElement('div');
+      linha.className = 'linha-arquivo';
+      linha.innerHTML = `<span>${esc(dataBonita(b.criadoEm))}${i === 0 ? ' (mais recente)' : ''} · ${esc(String(b.chaves ?? '?'))} itens</span>` +
+        '<div class="acoes"><button class="botao-secundario">Restaurar</button></div>';
+      linha.querySelector('button').onclick = async () => {
+        if (!confirm(`Voltar as configurações do launcher para ${dataBonita(b.criadoEm)}? O launcher vai reiniciar na TV.`)) return;
+        mostrarStatusBackup('Restaurando...');
+        try {
+          await chamar('POST', `/api/dispositivos/${aparelhoAtual.id}/backups/${encodeURIComponent(b.nome)}/restaurar`);
+          mostrarStatusBackup('Restaurado. O launcher reiniciou na TV (o estado anterior também foi salvo na lista).');
+          carregarBackups();
+        } catch (e) { mostrarStatusBackup('Não consegui restaurar: ' + e.message); }
+      };
+      lista.appendChild(linha);
+    });
+  } catch (e) {
+    lista.innerHTML = `<p class="aviso">Não consegui listar: ${esc(e.message)}</p>`;
+  }
+}
+document.getElementById('btnBackupAgora').onclick = async () => {
+  mostrarStatusBackup('Fazendo backup...');
+  try {
+    const r = await chamar('POST', `/api/dispositivos/${aparelhoAtual.id}/backups`);
+    mostrarStatusBackup(r.novo ? 'Backup salvo.' : 'Nada mudou desde o último backup.');
+    carregarBackups();
+  } catch (e) { mostrarStatusBackup('Não consegui fazer o backup: ' + e.message); }
+};
 
 // ---------- ligacoes gerais ----------
 document.getElementById('btnVoltar').onclick = voltarParaAparelhos;

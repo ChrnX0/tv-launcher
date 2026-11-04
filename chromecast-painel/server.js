@@ -191,6 +191,81 @@ async function baixarArquivo(endpoint, caminhoRemoto, caminhoLocalDestino) {
     await adb(['-s', endpoint, 'pull', caminhoRemoto, caminhoLocalDestino], { timeoutMs: 120000 });
 }
 
+// ---------- backup das configuracoes do launcher (04/11/2026) ----------
+// O launcher grava as preferencias dele num JSON (comando BACKUP, so por adb; ver BackupConfig.kt no app) e o painel
+// puxa e guarda VERSOES em cache\backups\<aparelho>\. So guarda quando algo mudou. Nada de nuvem nem conta.
+// Restaurar: o painel faz um backup do estado atual, envia a versao escolhida e manda RESTAURAR + REINICIAR.
+const PASTA_BACKUPS = path.join(PASTA_CACHE, 'backups');
+const REMOTO_BACKUP = '/sdcard/Android/data/br.paulo.tvlauncher/files/backup';
+const RECEIVER_LAUNCHER = 'br.paulo.tvlauncher/.ControleShizukuAdbReceiver';
+const MAX_BACKUPS = 60;                         // por aparelho; os mais velhos saem
+const BACKUP_A_CADA_MS = 6 * 60 * 60 * 1000;    // 6 h (e 1 min depois de o painel subir)
+
+function pastaBackups(slug) {
+    const p = path.join(PASTA_BACKUPS, slug);
+    fs.mkdirSync(p, { recursive: true });
+    return p;
+}
+function listarBackups(slug) {
+    const pasta = pastaBackups(slug);
+    return fs.readdirSync(pasta).filter((n) => /^[\w-]+\.json$/.test(n)).sort().reverse().map((nome) => {
+        let chaves = null, criadoEm = null;
+        try { const j = JSON.parse(fs.readFileSync(path.join(pasta, nome), 'utf8')); chaves = contarChaves(j); criadoEm = j.criadoEm; } catch {}
+        return { nome, criadoEm, chaves, tamanho: fs.statSync(path.join(pasta, nome)).size };
+    });
+}
+// Formato 2 (BackupConfig.kt): { versao: 2, pacote, criadoEm, arquivos: { launcher: {...}, despertador: {...}, dns: {...} } }
+function backupValido(j) { return j && j.pacote === 'br.paulo.tvlauncher' && j.versao === 2 && j.arquivos && typeof j.arquivos === 'object'; }
+function contarChaves(j) { return Object.values(j.arquivos || {}).reduce((n, a) => n + Object.keys(a || {}).length, 0); }
+async function comandoLauncher(endpoint, acao) {
+    const saida = await adbShell(endpoint, `am broadcast -a br.paulo.tvlauncher.${acao} -n ${RECEIVER_LAUNCHER}`, { timeoutMs: 15000 });
+    const m = saida.match(/data="([^"]*)"/);
+    return m ? m[1] : saida.trim();
+}
+async function fazerBackup(slug) {
+    const endpoint = endpointDe(slug);
+    const resposta = await comandoLauncher(endpoint, 'BACKUP');
+    if (!resposta.startsWith('ok')) throw new Error('o launcher nao gravou o backup: ' + resposta);
+    const tmp = path.join(os.tmpdir(), `backup-${slug}-${Date.now()}.json`);
+    await adb(['-s', endpoint, 'pull', `${REMOTO_BACKUP}/config.json`, tmp], { timeoutMs: 15000 });
+    const conteudo = fs.readFileSync(tmp, 'utf8');
+    fs.unlinkSync(tmp);
+    const json = JSON.parse(conteudo);
+    if (!backupValido(json)) throw new Error('backup com formato inesperado');
+    const ultimo = listarBackups(slug)[0];
+    if (ultimo) {
+        const anterior = JSON.parse(fs.readFileSync(path.join(pastaBackups(slug), ultimo.nome), 'utf8'));
+        if (JSON.stringify(anterior.arquivos) === JSON.stringify(json.arquivos)) return { novo: false, nome: ultimo.nome };
+    }
+    const nome = new Date(json.criadoEm || Date.now()).toISOString().replace(/[:.]/g, '-') + '.json';
+    fs.writeFileSync(path.join(pastaBackups(slug), nome), conteudo);
+    for (const velho of listarBackups(slug).slice(MAX_BACKUPS)) fs.unlinkSync(path.join(pastaBackups(slug), velho.nome));
+    return { novo: true, nome };
+}
+async function restaurarBackup(slug, nome) {
+    if (!/^[\w-]+\.json$/.test(nome)) throw Object.assign(new Error('Nome de backup invalido'), { status: 400 });
+    const local = path.join(pastaBackups(slug), nome);
+    if (!fs.existsSync(local)) throw Object.assign(new Error('Backup nao encontrado'), { status: 404 });
+    const json = JSON.parse(fs.readFileSync(local, 'utf8'));
+    if (!backupValido(json)) throw new Error('backup com formato inesperado');
+    const endpoint = endpointDe(slug);
+    const antes = await fazerBackup(slug);   // o estado de agora fica guardado: da para desfazer
+    await adb(['-s', endpoint, 'push', local, `${REMOTO_BACKUP}/restaurar.json`], { timeoutMs: 15000 });
+    const resposta = await comandoLauncher(endpoint, 'RESTAURAR');
+    if (!resposta.startsWith('ok')) throw new Error('o launcher nao restaurou: ' + resposta);
+    await comandoLauncher(endpoint, 'REINICIAR');
+    return { resposta, backupDoEstadoAnterior: antes.nome };
+}
+async function backupPeriodico() {
+    for (const ap of listaDispositivosPublica().filter((a) => a.online)) {
+        try {
+            const r = await fazerBackup(ap.id);
+            console.log(`[backup] ${ap.id}: ${r.novo ? 'nova versao ' + r.nome : 'sem mudancas'}`);
+        } catch (e) { console.warn(`[backup] ${ap.id}: ${e.message}`); }
+    }
+}
+setTimeout(() => { backupPeriodico(); setInterval(backupPeriodico, BACKUP_A_CADA_MS); }, 60 * 1000);
+
 // ========================= servidor HTTP =========================
 const app = express();
 app.use(express.json());
@@ -206,6 +281,17 @@ function envolver(fn) {
 
 app.get('/api/dispositivos', envolver(async (req, res) => {
     res.json(await descobrirDispositivos());
+}));
+
+app.get('/api/dispositivos/:id/backups', envolver(async (req, res) => {
+    endpointDe(req.params.id);   // 404 se o aparelho nao existe (e nao cria pasta para slug inventado)
+    res.json(listarBackups(req.params.id));
+}));
+app.post('/api/dispositivos/:id/backups', envolver(async (req, res) => {
+    res.json(await fazerBackup(req.params.id));
+}));
+app.post('/api/dispositivos/:id/backups/:nome/restaurar', envolver(async (req, res) => {
+    res.json(await restaurarBackup(req.params.id, req.params.nome));
 }));
 
 app.get('/api/dispositivos/:id/apps', envolver(async (req, res) => {

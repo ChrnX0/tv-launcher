@@ -237,6 +237,9 @@
                 <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.OCULTAR" />
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
+                <!-- Backup das configuracoes para o painel do PC (BackupConfig.kt). So neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.BACKUP" />
+                <action android:name="br.paulo.tvlauncher.RESTAURAR" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama

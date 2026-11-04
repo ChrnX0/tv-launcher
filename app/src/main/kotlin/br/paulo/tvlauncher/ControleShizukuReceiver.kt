@@ -31,6 +31,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val ROTULOS = "br.paulo.tvlauncher.ROTULOS"   // nomes dos apps para o painel (só adb)
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
+        const val BACKUP = "br.paulo.tvlauncher.BACKUP"         // grava as configurações em files/backup (só adb)
+        const val RESTAURAR = "br.paulo.tvlauncher.RESTAURAR"   // aplica files/backup/restaurar.json (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -90,6 +92,9 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }, 500)
             }
+            // Só pelo adb: backup/restauração das configurações para o painel do PC (ver BackupConfig.kt).
+            BACKUP -> resultData = BackupConfig.exportar(ctx)
+            RESTAURAR -> resultData = BackupConfig.importar(ctx)
         }
     }
 }
