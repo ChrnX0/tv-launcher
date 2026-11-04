@@ -5,6 +5,7 @@ import android.util.Log
 import io.github.muntashirakon.adb.AdbStream
 import rikka.shizuku.Shizuku
 import java.io.File
+import java.lang.reflect.Field
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
@@ -87,11 +88,12 @@ object ServidorShizuku {
      * o fluxo SEM ter mandado nada (ex.: `pidof` de um processo que não existe) — isso é fim de saída, não erro.
      * Medido em 04/11/2026: `pidof shizuku_server` vazio dava "Stream closed." com readText().
      */
-    fun lerAteOFim(fluxo: AdbStream): String {
+    fun lerAteOFim(ctx: Context, fluxo: AdbStream): String {
         val ent = fluxo.openInputStream()
         val buf = java.io.ByteArrayOutputStream()
         val b = ByteArray(4096)
         while (true) {
+            if (fimPendente(ctx, fluxo)) { Log.i(TAG, "fim do fluxo pelo pendingClose (o read() da lib ficaria esperando)"); break }
             val n = try { ent.read(b) } catch (e: java.io.IOException) {
                 if (fluxo.isClosed) -1 else throw e
             }
@@ -99,6 +101,41 @@ object ServidorShizuku {
             buf.write(b, 0, n)
         }
         return buf.toString(Charsets.UTF_8.name())
+    }
+
+    /*
+     * Corrida da libadb-android 3.1.1 (medida em 04/11/2026; era o atraso de 20 s no 1º comando): se o CLSE do adbd chega
+     * com um WRTE ainda na fila, AdbStream.notifyClose(true) só marca mPendingClose, sem fechar. Depois que a fila esvazia,
+     * o read() da lib entra em wait() enquanto !mIsClosed e nunca olha o mPendingClose: dorme até o vigia fechar o fluxo.
+     * Por isso olhamos o mPendingClose antes de cada read(). Se a reflexão falhar (campo renomeado numa versão nova da lib),
+     * usamos o read() normal e o vigia de 20 s continua sendo a rede de segurança.
+     */
+    private class CamposFluxo(val pendente: Field, val fila: Field, val buffer: Field)
+
+    private val campos: CamposFluxo? by lazy {
+        try {
+            fun campo(nome: String) = AdbStream::class.java.getDeclaredField(nome).apply { isAccessible = true }
+            CamposFluxo(campo("mPendingClose"), campo("mReadQueue"), campo("mReadBuffer"))
+        } catch (e: Throwable) {
+            Log.w(TAG, "reflexao do AdbStream indisponivel: ${e.javaClass.simpleName}: ${e.message}")
+            null
+        }
+    }
+    private val avisouSemCampos = AtomicBoolean(false)
+
+    /** true se o adbd já mandou CLSE e não resta nada para ler (o read() da lib ficaria esperando para sempre). */
+    private fun fimPendente(ctx: Context, fluxo: AdbStream): Boolean {
+        val c = campos
+        if (c == null) {
+            if (avisouSemCampos.compareAndSet(false, true)) anotar(ctx, "aviso: sem reflexao do AdbStream; fim de fluxo so pelo read()/vigia")
+            return false
+        }
+        return try {
+            if (!c.pendente.getBoolean(fluxo)) return false
+            val fila = c.fila.get(fluxo) as java.util.Queue<*>
+            val vazia = synchronized(fila) { fila.isEmpty() }   // o read() da lib usa o mesmo monitor
+            vazia && !(c.buffer.get(fluxo) as java.nio.ByteBuffer).hasRemaining()
+        } catch (_: Throwable) { false }
     }
 
     /**
@@ -117,10 +154,13 @@ object ServidorShizuku {
         }
         return try {
             if (!m.isConnected && !m.autoConnect(ctx, 15_000)) return null
+            val inicio = android.os.SystemClock.elapsedRealtime()
             val fluxo = m.openStream("shell:$cmd").also { fluxoRef.set(it) }
-            try { fluxo.openOutputStream().close() } catch (_: Exception) {}   // fim do stdin
-            val saida = lerAteOFim(fluxo).trim()
+            // Na libadb 3.1.1 isto só faz flush (não manda CLSE nem fecha o stdin do comando); fica por inofensivo.
+            try { fluxo.openOutputStream().close() } catch (_: Exception) {}
+            val saida = lerAteOFim(ctx, fluxo).trim()
             try { fluxo.close() } catch (_: Exception) {}
+            Log.i(TAG, "comando '$cmd' em ${android.os.SystemClock.elapsedRealtime() - inicio} ms (sem o autoConnect)")
             saida
         } catch (e: Throwable) {
             anotar(ctx, "falhou '$cmd': ${e.javaClass.simpleName}: ${e.message}")
