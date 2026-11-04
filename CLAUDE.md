@@ -255,6 +255,12 @@ abrir de novo pelo painel resolve.
   Antes: bugs corrigidos (`hidden`, nome de arquivo com espaço).
 - **Auto-start do painel** — feito (04/11/2026): `chromecast-painel/start.ps1` + `start.vbs`, cópia em
   `shell:startup\chromecast-painel.vbs`. Não sobe duas vezes (confere a porta 9000). Log em `cache\painel.log`.
+- **Backup das configurações do launcher** — feito (04/11/2026), aba "Backup". O launcher grava as preferências
+  `launcher`, `despertador` e `dns` num JSON (comando adb `br.paulo.tvlauncher.BACKUP`, `BackupConfig.kt`) em
+  `/sdcard/Android/data/br.paulo.tvlauncher/files/backup/`; o painel puxa a cada 6 h (e 1 min depois de subir),
+  guarda versões em `cache\backups\<aparelho>\` só quando mudou (até 60). Restaurar: salva o estado atual, envia
+  `restaurar.json`, `RESTAURAR` + `REINICIAR`. As chaves do adb NÃO entram. Testado com uma chave de teste: entrou e
+  saiu de novo.
 - **Acesso por nome** (digitar "chromecast" no navegador em vez de `localhost:9000`) —
   não investigado. Provável caminho: mDNS/hosts local; precisa checar viabilidade.
 

@@ -25,6 +25,7 @@
       <button class="aba ativa" data-aba="tela">Tela</button>
       <button class="aba" data-aba="apps">Aplicativos</button>
       <button class="aba" data-aba="arquivos">Arquivos</button>
+      <button class="aba" data-aba="backup">Backup</button>
     </nav>
 
     <div id="painelTela" class="painel-aba">
@@ -54,6 +55,18 @@
       </div>
       <p id="statusArquivo" class="aviso" hidden></p>
       <div id="listaArquivos" class="lista-arquivos"></div>
+    </div>
+
+    <!-- Backup das configurações do launcher (ordem dos apps, pilhas, ocultos, alarmes, tema, botões...).
+         O painel guarda versões neste PC sozinho a cada 6 h; aqui dá para fazer um agora ou voltar a uma versão. -->
+    <div id="painelBackup" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <button id="btnBackupAgora" class="botao-primario">Fazer backup agora</button>
+      </div>
+      <p class="aviso">As configurações do launcher são salvas neste computador sozinhas, a cada 6 horas, só quando mudam.
+        Restaurar volta a TV para a versão escolhida (antes, o estado atual também é salvo, para dar para desfazer).</p>
+      <p id="statusBackup" class="aviso" hidden></p>
+      <div id="listaBackups" class="lista-arquivos"></div>
     </div>
   </section>
 
