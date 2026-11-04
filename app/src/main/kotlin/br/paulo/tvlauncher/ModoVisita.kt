@@ -25,7 +25,7 @@ object ModoVisita {
     }
 
     /** Pacotes que somem da HOME enquanto o modo visita está ligado. */
-    fun apps(ctx: Context): Set<String> =
+    fun apps(ctx: Context): MutableSet<String> =
         HashSet(prefs(ctx).getStringSet(APPS, emptySet()) ?: emptySet())   // cópia: o Android proíbe mexer no original
 
     fun escondeNaVisita(ctx: Context, pacote: String): Boolean = pacote in apps(ctx)
