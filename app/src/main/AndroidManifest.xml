@@ -119,6 +119,14 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/autoriza_acessibilidade" />
         </service>
+        <!-- Lista para escolher o app dos botões Netflix/YouTube do controle (segurar 3 s, ver BotoesControle).
+             Tinha sumido do manifest no commit df3d9c0; sem ela, segurar o botão derrubava a HOME
+             (ActivityNotFoundException no processo do launcher). Devolvida em 04/11/2026. -->
+        <activity
+            android:name=".EscolherAppActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:label="Escolher app do botão" />
         <!-- Tela de DNS privado (aberta pelo chip do rodapé) -->
         <activity
             android:name=".DnsActivity"
