@@ -105,10 +105,12 @@ setInterval(() => {
 function mudarAba(nome) {
   for (const b of document.querySelectorAll('.aba')) b.classList.toggle('ativa', b.dataset.aba === nome);
   $('abaApps').hidden = nome !== 'apps';
+  $('abaArquivos').hidden = nome !== 'arquivos';
   $('abaBackup').hidden = nome !== 'backup';
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
+  if (nome === 'arquivos') abrirPasta(pastaAtual);
 }
 for (const b of document.querySelectorAll('.aba')) b.addEventListener('click', () => mudarAba(b.dataset.aba));
 
@@ -133,6 +135,7 @@ function confirmar(titulo, texto, rotuloOk, fazer) {
     $('pinModal').hidden = true;
     $('pinModal').value = '';
     mostrar($('erroModal'), '');
+    mostrar($('progressoModal'), '');
     $('btnOkModal').disabled = false;
     $('btnCancelarModal').disabled = false;
     $('modal').hidden = false;
@@ -212,7 +215,12 @@ async function carregarApps() {
 }
 
 $('busca').addEventListener('input', desenharApps);
-$('mostrarSistema').addEventListener('change', desenharApps);
+// "apps do sistema" vem marcado (todos os apps) e o navegador lembra a escolha.
+try { if (localStorage.getItem('mostrarSistema') === '0') $('mostrarSistema').checked = false; } catch (e) { /* sem armazenamento */ }
+$('mostrarSistema').addEventListener('change', () => {
+  try { localStorage.setItem('mostrarSistema', $('mostrarSistema').checked ? '1' : '0'); } catch (e) { /* tanto faz */ }
+  desenharApps();
+});
 
 /** Sem "apps do sistema": só os instalados por você, os que têm tela de abrir e os ocultos (para poder reexibir). */
 function visivelNaLista(a) {
@@ -234,6 +242,8 @@ function desenharApps() {
   const filtrados = apps.filter((a) => visivelNaLista(a) &&
     (!termo || a.nome.toLowerCase().includes(termo) || a.pacote.toLowerCase().includes(termo)));
   mostrar($('statusApps'), filtrados.length ? '' : 'Nenhum app.');
+  const sistema = apps.filter((a) => a.sistema).length;
+  $('contagemApps').textContent = `${filtrados.length} de ${apps.length} apps na TV (${apps.length - sistema} instalados por você, ${sistema} do sistema)`;
   for (const a of filtrados) lista.appendChild(linhaApp(a));
 }
 
@@ -266,6 +276,11 @@ function linhaApp(a) {
 
   const acoes = document.createElement('div');
   acoes.className = 'acoes';
+  const bp = document.createElement('button');
+  bp.className = 'botao-secundario';
+  bp.textContent = 'Permissões';
+  bp.addEventListener('click', () => abrirPermissoes(a));
+  acoes.appendChild(bp);
   if (a.protegido) {
     const p = document.createElement('span');
     p.className = 'protegido';
@@ -407,6 +422,331 @@ async function carregarRegistro() {
     const p = document.createElement('p'); p.className = 'erro'; p.textContent = e.message; lista.appendChild(p);
   }
 }
+
+// ---------- envio com progresso (instalar APK e aba Arquivos) ----------
+
+/**
+ * Manda um arquivo inteiro como corpo do POST, mostrando o progresso. fetch() não informa o progresso do envio,
+ * por isso XMLHttpRequest. O arquivo vai cru (sem multipart): o launcher grava direto no disco.
+ */
+function enviarComProgresso(url, arquivo, aoProgresso) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open('POST', url);
+    x.setRequestHeader('X-Painel', '1');
+    x.setRequestHeader('Content-Type', 'application/octet-stream');
+    x.upload.onprogress = (ev) => { if (ev.lengthComputable && aoProgresso) aoProgresso(ev.loaded / ev.total); };
+    x.onload = () => {
+      let dados = {};
+      try { dados = JSON.parse(x.responseText); } catch (e) { /* sem corpo */ }
+      if (x.status === 401) { mostrarEntrar('Sessão expirada: entre de novo.'); reject(new Error('Sessão expirada.')); return; }
+      if (x.status === 403 && dados.precisaPin) { reject(new PrecisaPin(dados.erro)); return; }
+      if (x.status < 200 || x.status >= 300) { const e = new Error(dados.erro || `Falha (${x.status})`); e.dados = dados; reject(e); return; }
+      resolve(dados);
+    };
+    // A TV fecha a conexão quando recusa no meio (sem espaço, nome repetido) ou quando a rede cai.
+    x.onerror = () => reject(new Error('A conexão com a TV caiu no meio do envio (rede, ou a TV recusou o arquivo).'));
+    x.send(arquivo);
+  });
+}
+
+/** A sessão já tem o PIN confirmado nos últimos 5 min? Senão, pede ANTES de mandar um arquivo grande à toa. */
+async function exigirPinRecente() {
+  await atualizarEstado();
+  if (!ultimoEstado.elevada) throw new PrecisaPin('confirme o PIN');
+}
+
+function tamanhoLegivel(b) {
+  if (b < 1024) return b + ' B';
+  const u = ['KB', 'MB', 'GB', 'TB'];
+  let i = -1;
+  do { b /= 1024; i++; } while (b >= 1024 && i < u.length - 1);
+  return b.toLocaleString('pt-BR', { maximumFractionDigits: b < 10 ? 1 : 0 }) + ' ' + u[i];
+}
+
+// ---------- instalar APK ----------
+
+$('arquivoApk').addEventListener('change', async (ev) => {
+  const arquivo = ev.target.files[0];
+  ev.target.value = '';
+  if (!arquivo) return;
+  if (!/\.apk$/i.test(arquivo.name)) { mostrar($('statusApps'), 'Escolha um arquivo .apk (.apks e .xapk ainda não são aceitos).'); return; }
+  const emUso = await tvEmUso();
+  const r = await confirmar('Instalar ' + arquivo.name + '?',
+    `Instala (ou atualiza) o app na TV, sem pedir confirmação lá (${tamanhoLegivel(arquivo.size)}). ` +
+    'Só instale APK de fonte confiável: o app pode pedir permissões.' +
+    (emUso ? ` Atenção: a TV está em uso agora (${emUso}); atualizar um app que está aberto fecha ele.` : ''),
+    'Instalar', async () => {
+      await exigirPinRecente();
+      return enviarComProgresso('/api/apps/instalar?nome=' + encodeURIComponent(arquivo.name), arquivo, (f) =>
+        mostrar($('progressoModal'), f < 1 ? `Enviando… ${Math.round(f * 100)}%` : 'Instalando na TV…'));
+    });
+  if (!r) return;
+  mostrar($('statusApps'), `${r.nome} ${r.versao} instalado.`);
+  carregarApps().then(() => mostrar($('statusApps'), `${r.nome} ${r.versao} instalado.`));
+});
+
+// ---------- permissões ----------
+
+let permAtual = 0;   // resposta atrasada de um app aberto antes não sobrescreve o atual
+
+function fecharPermissoes() { permAtual++; $('modalPerm').hidden = true; }
+$('btnFecharPerm').addEventListener('click', fecharPermissoes);
+
+async function abrirPermissoes(a) {
+  const meu = ++permAtual;
+  $('tituloPerm').textContent = 'Permissões: ' + a.nome;
+  $('avisoPerm').textContent = 'Carregando…';
+  mostrar($('statusPerm'), '');
+  $('listaPerm').replaceChildren();
+  $('modalPerm').hidden = false;
+  try {
+    const p = await chamar('GET', '/api/apps/' + encodeURIComponent(a.pacote) + '/permissoes');
+    if (meu !== permAtual) return;
+    desenharPermissoes(a, p);
+  } catch (e) {
+    if (meu === permAtual) $('avisoPerm').textContent = e.message;
+  }
+}
+
+function linhaPerm(rotulo, nome, direita) {
+  const l = document.createElement('div');
+  l.className = 'linha-perm';
+  const info = document.createElement('div');
+  info.className = 'info';
+  const n = document.createElement('span'); n.className = 'nome'; n.textContent = rotulo;
+  const t = document.createElement('span'); t.className = 'pacote'; t.textContent = nome;
+  info.append(n, t);
+  l.append(info, direita);
+  return l;
+}
+
+function estadoTexto(sim, textoSim, textoNao) {
+  const s = document.createElement('span');
+  s.className = sim ? 'estado-sim' : 'estado-nao';
+  s.textContent = sim ? textoSim : textoNao;
+  return s;
+}
+
+/** Uma caixa de escolha que, ao mudar, chama a TV; se der errado, volta ao valor de antes e mostra o motivo. */
+function escolha(opcoes, valor, aoMudar, travada) {
+  const sel = document.createElement('select');
+  for (const [v, t] of opcoes) { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); }
+  sel.value = valor;
+  sel.disabled = !!travada;
+  let anterior = valor;
+  sel.addEventListener('change', async () => {
+    sel.disabled = true;
+    mostrar($('statusPerm'), 'Aplicando…');
+    try {
+      await aoMudar(sel.value);
+      anterior = sel.value;
+      mostrar($('statusPerm'), 'Feito.');
+    } catch (e) {
+      sel.value = anterior;
+      mostrar($('statusPerm'), e.message);
+    } finally {
+      sel.disabled = false;
+    }
+  });
+  return sel;
+}
+
+function desenharPermissoes(a, p) {
+  const lista = $('listaPerm');
+  lista.replaceChildren();
+  const base = '/api/apps/' + encodeURIComponent(a.pacote);
+  $('avisoPerm').textContent = p.podeMudar
+    ? 'Negar uma permissão fecha o app se ele estiver aberto. "O app pede" devolve a decisão para quem estiver na TV.'
+    : 'Este app é protegido: o sistema ou o launcher dependem dele. As permissões aparecem só para consulta.';
+
+  const titulo = (t) => { const h = document.createElement('h3'); h.textContent = t; lista.appendChild(h); };
+
+  titulo(`Permissões que se trocam (${p.perigosas.length})`);
+  if (!p.perigosas.length) { const x = document.createElement('p'); x.className = 'aviso'; x.textContent = 'Nenhuma: este app não pede localização, microfone, câmera, contatos etc.'; lista.appendChild(x); }
+  for (const perm of p.perigosas) {
+    const direita = document.createElement('div');
+    direita.className = 'acoes';
+    const est = estadoTexto(perm.concedida, 'concedida', 'negada');
+    const sel = escolha([['padrao', 'O app pede'], ['conceder', 'Sempre permitir'], ['negar', 'Sempre negar']], perm.politica,
+      async (v) => {
+        await chamar('POST', base + '/permissao', { permissao: perm.nome, acao: v });
+        // "O app pede" não muda o que já estava concedido; "sempre" muda.
+        if (v === 'conceder') { est.className = 'estado-sim'; est.textContent = 'concedida'; }
+        if (v === 'negar') { est.className = 'estado-nao'; est.textContent = 'negada'; }
+      }, !p.podeMudar);
+    direita.append(est, sel);
+    lista.appendChild(linhaPerm(perm.rotulo, perm.nome, direita));
+  }
+
+  if (p.especiais.length) {
+    titulo(`Acessos especiais (${p.especiais.length})`);
+    for (const esp of p.especiais) {
+      const direita = document.createElement('div');
+      direita.className = 'acoes';
+      const est = estadoTexto(esp.estado === 'permitido', 'permitido', esp.estado === 'desconhecido' ? '?' : 'negado');
+      const sel = escolha([['padrao', 'Padrão'], ['permitir', 'Permitir'], ['negar', 'Negar']],
+        esp.padrao ? 'padrao' : (esp.estado === 'permitido' ? 'permitir' : 'negar'),
+        async (v) => {
+          await chamar('POST', base + '/especial', { op: esp.op, acao: v });
+          if (v !== 'padrao') { const s = v === 'permitir'; est.className = s ? 'estado-sim' : 'estado-nao'; est.textContent = s ? 'permitido' : 'negado'; }
+        }, !p.podeMudar);
+      direita.append(est, sel);
+      lista.appendChild(linhaPerm(esp.rotulo, esp.op, direita));
+    }
+  }
+
+  if (p.outras.length) {
+    const d = document.createElement('details');
+    const s = document.createElement('summary');
+    s.textContent = `Outras ${p.outras.length} permissões (o Android concede na instalação; só consulta)`;
+    d.appendChild(s);
+    for (const o of p.outras) d.appendChild(linhaPerm(o.rotulo, o.nome, estadoTexto(o.concedida, 'concedida', 'não concedida')));
+    lista.appendChild(d);
+  }
+}
+
+// ---------- arquivos ----------
+
+let pastaAtual = '';
+let itensPasta = [];
+let livreBytes = 0;
+let pastaPedido = 0;
+
+function juntar(pasta, nome) { return pasta ? pasta + '/' + nome : nome; }
+
+async function abrirPasta(caminho) {
+  const meu = ++pastaPedido;
+  mostrar($('statusArquivos'), 'Carregando…');
+  try {
+    const r = await chamar('GET', '/api/arquivos?caminho=' + encodeURIComponent(caminho));
+    if (meu !== pastaPedido) return;
+    pastaAtual = r.caminho;
+    itensPasta = r.itens;
+    livreBytes = r.livre;
+    desenharTrilha();
+    desenharArquivos(r);
+  } catch (e) {
+    if (meu !== pastaPedido) return;
+    mostrar($('statusArquivos'), e.message);
+    // Pasta sumiu (apagada na TV): volta para a raiz na próxima vez.
+    if (e.dados === undefined || /não existe/.test(e.message)) pastaAtual = '';
+  }
+}
+
+function desenharTrilha() {
+  const t = $('trilha');
+  t.replaceChildren();
+  const partes = pastaAtual ? pastaAtual.split('/') : [];
+  const pedacos = [['Memória interna', '']];
+  partes.forEach((p, i) => pedacos.push([p, partes.slice(0, i + 1).join('/')]));
+  pedacos.forEach(([nome, caminho], i) => {
+    if (i > 0) { const sep = document.createElement('span'); sep.textContent = '›'; t.appendChild(sep); }
+    if (i === pedacos.length - 1) {
+      const s = document.createElement('span'); s.className = 'atual'; s.textContent = nome; t.appendChild(s);
+    } else {
+      const b = document.createElement('button'); b.textContent = nome; b.addEventListener('click', () => abrirPasta(caminho)); t.appendChild(b);
+    }
+  });
+}
+
+function desenharArquivos(r) {
+  const lista = $('listaArquivos');
+  lista.replaceChildren();
+  $('espacoArquivos').textContent = `Livre na TV: ${tamanhoLegivel(r.livre)} de ${tamanhoLegivel(r.total)}`;
+  mostrar($('statusArquivos'), !r.itens.length ? 'Pasta vazia.' : (r.cortado ? 'Pasta grande: mostrando os 2000 primeiros.' : ''));
+  for (const it of r.itens) {
+    const linha = document.createElement('div');
+    linha.className = 'linha-app linha-arquivo';
+    const tipo = document.createElement('span');
+    tipo.className = 'tipo';
+    tipo.textContent = it.pasta ? '📁' : '📄';
+    const info = document.createElement('div');
+    info.className = 'info';
+    const nome = document.createElement('span');
+    nome.className = 'nome' + (it.pasta ? ' pasta' : '');
+    nome.textContent = it.nome;
+    if (it.pasta) nome.addEventListener('click', () => abrirPasta(juntar(pastaAtual, it.nome)));
+    const det = document.createElement('span');
+    det.className = 'pacote';
+    det.textContent = (it.pasta ? 'pasta' : tamanhoLegivel(it.tamanho)) + ' · ' + new Date(it.modificado).toLocaleString('pt-BR');
+    info.append(nome, det);
+    const acoes = document.createElement('div');
+    acoes.className = 'acoes';
+    if (!it.pasta) {
+      // Link comum: o navegador baixa direto da TV (com barra de progresso dele), sem passar o arquivo pela memória.
+      const a = document.createElement('a');
+      a.className = 'botao-secundario';
+      a.textContent = 'Baixar';
+      a.href = '/api/arquivos/baixar?caminho=' + encodeURIComponent(juntar(pastaAtual, it.nome));
+      a.setAttribute('download', it.nome);
+      acoes.appendChild(a);
+    }
+    const apagar = document.createElement('button');
+    apagar.className = 'botao-perigo';
+    apagar.textContent = 'Apagar';
+    apagar.addEventListener('click', () => apagarItem(it));
+    acoes.appendChild(apagar);
+    linha.append(tipo, info, acoes);
+    lista.appendChild(linha);
+  }
+}
+
+async function apagarItem(it) {
+  const caminho = juntar(pastaAtual, it.nome);
+  const ok = await confirmar('Apagar ' + it.nome + '?',
+    it.pasta ? 'Apaga a pasta e TUDO o que está dentro dela, na TV. Não tem volta.' : 'Apaga o arquivo da TV. Não tem volta.',
+    'Apagar', () => chamar('POST', '/api/arquivos/apagar', { caminho }));
+  if (ok) abrirPasta(pastaAtual);
+}
+
+$('formPasta').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const nome = $('nomePasta').value.trim();
+  if (!nome) return;
+  if (/[\/\\]/.test(nome) || nome === '.' || nome === '..') { mostrar($('statusArquivos'), 'Nome de pasta inválido.'); return; }
+  try {
+    await chamar('POST', '/api/arquivos/pasta', { pasta: pastaAtual, nome });
+    $('nomePasta').value = '';
+    abrirPasta(pastaAtual);
+  } catch (e) {
+    mostrar($('statusArquivos'), e.message);
+  }
+});
+
+$('arquivosEnviar').addEventListener('change', async (ev) => {
+  const arquivos = Array.from(ev.target.files);
+  ev.target.value = '';
+  if (!arquivos.length) return;
+  const total = arquivos.reduce((s, f) => s + f.size, 0);
+  const status = $('statusArquivos');
+  if (total > livreBytes) { mostrar(status, `Não cabe: são ${tamanhoLegivel(total)} e a TV tem ${tamanhoLegivel(livreBytes)} livres.`); return; }
+  const destino = pastaAtual;
+  const existentes = new Set(itensPasta.map((i) => i.nome));
+  const repetidos = arquivos.filter((f) => existentes.has(f.name));
+  let substituir = false;
+  if (repetidos.length) {
+    substituir = await confirmar('Substituir?',
+      `Já existe(m) na pasta: ${repetidos.map((f) => f.name).join(', ')}. Substituir pelos novos?`, 'Substituir', async () => true);
+    if (!substituir) return;
+  }
+  let feitos = 0;
+  for (const [i, f] of arquivos.entries()) {
+    const url = '/api/arquivos/enviar?pasta=' + encodeURIComponent(destino) + '&nome=' + encodeURIComponent(f.name) +
+      (substituir && existentes.has(f.name) ? '&substituir=1' : '');
+    try {
+      await enviarComProgresso(url, f, (p) =>
+        mostrar(status, `Enviando ${i + 1} de ${arquivos.length}: ${f.name} — ${Math.round(p * 100)}%`));
+      feitos++;
+    } catch (e) {
+      mostrar(status, `${f.name}: ${e.message}`);
+      if (pastaAtual === destino) await abrirPasta(destino);
+      return;
+    }
+  }
+  await abrirPasta(destino);
+  mostrar(status, `${feitos} arquivo(s) enviado(s).`);
+});
 
 // ---------- início ----------
 

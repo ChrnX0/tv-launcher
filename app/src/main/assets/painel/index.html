@@ -34,6 +34,7 @@
     </header>
     <nav class="abas">
       <button class="aba ativa" data-aba="apps">Aplicativos</button>
+      <button class="aba" data-aba="arquivos">Arquivos</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -41,10 +42,30 @@
     <section id="abaApps" class="painel-aba">
       <div class="barra-acoes">
         <input id="busca" type="search" placeholder="Procurar app" aria-label="Procurar app">
-        <label class="marcar"><input id="mostrarSistema" type="checkbox"> apps do sistema</label>
+        <label class="marcar"><input id="mostrarSistema" type="checkbox" checked> apps do sistema</label>
+        <label class="botao-primario" for="arquivoApk">Instalar APK…</label>
+        <input type="file" id="arquivoApk" accept=".apk,application/vnd.android.package-archive" hidden>
       </div>
+      <p id="contagemApps" class="aviso-curto"></p>
       <p id="statusApps" class="aviso" hidden></p>
       <div id="listaApps" class="lista-apps"></div>
+    </section>
+
+    <section id="abaArquivos" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <nav id="trilha" class="trilha" aria-label="Pasta atual"></nav>
+      </div>
+      <div class="barra-acoes">
+        <label class="botao-primario" for="arquivosEnviar">Enviar arquivos…</label>
+        <input type="file" id="arquivosEnviar" multiple hidden>
+        <form id="formPasta" class="form-pasta" autocomplete="off">
+          <input id="nomePasta" type="text" maxlength="200" placeholder="Nova pasta" aria-label="Nome da nova pasta">
+          <button type="submit" class="botao-secundario">Criar</button>
+        </form>
+      </div>
+      <p id="espacoArquivos" class="aviso-curto"></p>
+      <p id="statusArquivos" class="aviso" hidden></p>
+      <div id="listaArquivos" class="lista-apps"></div>
     </section>
 
     <section id="abaBackup" class="painel-aba" hidden>
@@ -76,12 +97,26 @@
       <p id="textoModal" class="aviso"></p>
       <input id="pinModal" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
              autocomplete="off" aria-label="PIN" placeholder="PIN" hidden>
+      <p id="progressoModal" class="aviso-ok" hidden></p>
       <p id="erroModal" class="erro" hidden></p>
       <div class="botoes-modal">
         <button type="button" id="btnCancelarModal" class="botao-secundario">Cancelar</button>
         <button type="submit" id="btnOkModal" class="botao-perigo">Confirmar</button>
       </div>
     </form>
+  </div>
+
+  <!-- Permissões de um app -->
+  <div id="modalPerm" class="modal" hidden>
+    <div class="modal-conteudo modal-largo">
+      <div class="cabeca-modal">
+        <h2 id="tituloPerm"></h2>
+        <button type="button" id="btnFecharPerm" class="botao-secundario">Fechar</button>
+      </div>
+      <p id="avisoPerm" class="aviso"></p>
+      <p id="statusPerm" class="aviso" hidden></p>
+      <div id="listaPerm" class="lista-perm"></div>
+    </div>
   </div>
 
   <script src="app.js"></script>

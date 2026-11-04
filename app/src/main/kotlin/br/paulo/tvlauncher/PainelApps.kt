@@ -203,6 +203,77 @@ object PainelApps {
         }
     }
 
+    // ---------------------------------------------------------------- instalar
+
+    const val LIMITE_APK = 1L shl 30   // 1 GB: nenhum APK de TV chega perto; acima disso é engano de arquivo
+
+    /** Resultado de [instalar]: [motivo] null = instalou. */
+    class Instalado(val pacote: String?, val nome: String?, val versao: String?, val motivo: String?)
+
+    /**
+     * Instala o APK que chega em [entrada] ([tamanho] bytes), em silêncio (Device Owner). Primeiro grava num arquivo
+     * temporário para LER o APK antes de instalar: pacote, nome e versão vão para o registro, e o próprio launcher
+     * é recusado (atualizar o launcher por aqui mataria o painel no meio; isso fica com o build3.ps1). Depois manda
+     * para o PackageInstaller e espera o resultado de verdade, como no [desinstalar]. Bloqueia: fora da tela.
+     */
+    fun instalar(ctx: Context, entrada: java.io.InputStream, tamanho: Long): Instalado {
+        if (tamanho <= 0 || tamanho > LIMITE_APK) return Instalado(null, null, null, "tamanho de APK inválido")
+        if (!PrivilegioDO.somosDonos(ctx)) return Instalado(null, null, null, "o launcher não é mais o dono do aparelho (Device Owner)")
+        if (ctx.cacheDir.usableSpace < tamanho * 2 + (200L shl 20)) return Instalado(null, null, null, "falta espaço na TV para instalar")
+        // Nome único: duas instalações ao mesmo tempo (duas abas) não escrevem no mesmo arquivo.
+        val tmp = java.io.File.createTempFile("painel-instalar", ".apk", ctx.cacheDir)
+        try {
+            java.io.FileOutputStream(tmp).use { saida -> entrada.copyTo(saida, 64 * 1024); saida.fd.sync() }
+            if (tmp.length() != tamanho) return Instalado(null, null, null, "o arquivo chegou incompleto")
+            val pm = ctx.packageManager
+            val info = pm.getPackageArchiveInfo(tmp.path, 0)
+                ?: return Instalado(null, null, null, "não é um APK que o Android entenda (arquivos .apks/.xapk, com várias partes, ainda não são aceitos)")
+            val pacote = info.packageName
+            info.applicationInfo?.let { it.sourceDir = tmp.path; it.publicSourceDir = tmp.path }
+            val nome = try { info.applicationInfo?.loadLabel(pm)?.toString() } catch (e: Exception) { null } ?: pacote
+            val versao = info.versionName ?: ""
+            if (pacote == ctx.packageName) return Instalado(pacote, nome, versao, "o próprio launcher não se atualiza pelo painel (use o build3.ps1 no PC)")
+
+            val instalador = pm.packageInstaller
+            val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+                setAppPackageName(pacote)
+                setSize(tamanho)
+            }
+            val sessaoId = instalador.createSession(params)
+            val id = proximoId.getAndIncrement()
+            val espera = Espera()
+            esperas[id] = espera
+            try {
+                instalador.openSession(sessaoId).use { sessao ->
+                    sessao.openWrite("base.apk", 0, tamanho).use { saida ->
+                        java.io.FileInputStream(tmp).use { it.copyTo(saida, 64 * 1024) }
+                        sessao.fsync(saida)
+                    }
+                    val intent = Intent(ctx, ResultadoDesinstalarReceiver::class.java).setAction(ACAO_RESULTADO).putExtra("id", id)
+                    val pi = PendingIntent.getBroadcast(ctx, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
+                    sessao.commit(pi.intentSender)
+                }
+                if (!espera.pronto.await(120, TimeUnit.SECONDS)) return Instalado(pacote, nome, versao, "o Android não respondeu em 2 min")
+                val motivo = when (espera.status) {
+                    PackageInstaller.STATUS_SUCCESS -> null
+                    PackageInstaller.STATUS_PENDING_USER_ACTION -> "o Android pediu confirmação na TV (o launcher deixou de ser Device Owner?)"
+                    PackageInstaller.STATUS_FAILURE_CONFLICT -> "já existe uma versão deste app com outra assinatura (desinstale a antiga antes)"
+                    PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> "o APK não é compatível com esta TV (ex.: feito só para 64 bits)"
+                    PackageInstaller.STATUS_FAILURE_STORAGE -> "falta espaço na TV"
+                    else -> "o Android recusou: ${espera.mensagem ?: "status ${espera.status}"}"
+                }
+                return Instalado(pacote, nome, versao, motivo)
+            } finally {
+                esperas.remove(id)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "instalar falhou: $e")
+            return Instalado(null, null, null, "erro: ${e.javaClass.simpleName}")
+        } finally {
+            tmp.delete()
+        }
+    }
+
     internal fun resultado(id: Int, status: Int, mensagem: String?) {
         val e = esperas[id] ?: return
         e.status = status; e.mensagem = mensagem
@@ -238,7 +309,7 @@ object PainelApps {
     }
 }
 
-/** Recebe o resultado do PackageInstaller.uninstall (ver PainelApps.desinstalar). Não exportado: só o nosso PendingIntent chega. */
+/** Recebe o resultado do PackageInstaller (desinstalar e instalar, ver PainelApps). Não exportado: só o nosso PendingIntent chega. */
 class ResultadoDesinstalarReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != PainelApps.ACAO_RESULTADO) return
