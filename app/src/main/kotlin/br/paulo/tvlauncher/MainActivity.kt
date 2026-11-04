@@ -502,6 +502,9 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- apps, pilhas e ocultos
 
+    /** pacote -> (APK|activity, Item). Vive enquanto o processo da HOME viver (sobrevive à troca de tema). */
+    private companion object { val cacheApps = HashMap<String, Pair<String, Item>>() }
+
     /** Todos os apps de TV instalados, sem ordem e sem tirar os ocultos (quem organiza é montarEntradas). */
     private fun carregarApps(): List<Item> {
         val pm = packageManager
@@ -514,9 +517,17 @@ class MainActivity : Activity() {
             // FLAG_SYSTEM == 0 significa "instalado por você". Os de sistema só entram se estiverem em SEMPRE_MOSTRAR.
             val instaladoPorVoce = (ri.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
             if (!instaladoPorVoce && pkg !in Config.SEMPRE_MOSTRAR) continue
-            val banner = ri.activityInfo.loadBanner(pm)
-            itens[pkg] = Item(pkg, ri.loadLabel(pm).toString(), banner ?: ri.loadIcon(pm), banner != null, iconeRedondo(ri.loadIcon(pm)))
+            // Cache por APK (04/11/2026): isto roda na thread da tela a cada volta à HOME, e o serviço de teclas do
+            // controle divide essa thread — medido 107-260 ms só aqui. O caminho do APK muda quando o app é
+            // atualizado, então serve de chave: app igual = reaproveita nome e ícone já carregados.
+            // (Antes também carregava o banner, que nada usava, e o ícone duas vezes.)
+            val chave = ri.activityInfo.applicationInfo.sourceDir + "|" + ri.activityInfo.name
+            itens[pkg] = cacheApps[pkg]?.takeIf { it.first == chave }?.second ?: run {
+                val icone = ri.loadIcon(pm)
+                Item(pkg, ri.loadLabel(pm).toString(), icone, false, iconeRedondo(icone)).also { cacheApps[pkg] = chave to it }
+            }
         }
+        cacheApps.keys.retainAll(itens.keys)   // app desinstalado sai do cache
         return itens.values.toList()
     }
 
@@ -575,9 +586,13 @@ class MainActivity : Activity() {
     }
 
     private fun preencherApps() {
+        val t0 = android.os.SystemClock.elapsedRealtime()
         instalados = carregarApps()
+        val t1 = android.os.SystemClock.elapsedRealtime()
         lista = montarEntradas(instalados)
         desenhar()
+        // Roda na thread da tela a cada volta à HOME: medir para não deixar crescer (atrasa as teclas do controle).
+        android.util.Log.i("TvLauncher.Apps", "preencherApps: carregar=${t1 - t0} ms, total=${android.os.SystemClock.elapsedRealtime() - t0} ms")
     }
 
     /** Os cards que aparecem agora: a lista normal, ou (no modo mover) a lista com o card arrastado na posição de teste. */
