@@ -105,6 +105,10 @@ object Privilegio {
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
                     principal.postDelayed({ religarDepuracaoSemFio(app) }, 3000)
+                    // VPN (AdGuard): se no boot ela subiu antes do Wi-Fi e desistiu, empurra de novo (ver PrivilegioDO).
+                    // 2 min de espera, não menos: medido em 04/11/2026 que com 20 s o empurrão pegava o AdGuard no meio da
+                    // reconexão dele e a CANCELAVA ("UserCanceledVpnProfileCreation"). Só age se ainda não houver VPN.
+                    principal.postDelayed({ Thread { PrivilegioDO.reforcarVpn(app) }.start() }, 120_000)
                 }
             }
         )

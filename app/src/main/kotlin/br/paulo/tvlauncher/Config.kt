@@ -67,6 +67,10 @@ object Config {
         ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).getBoolean("shizuku_parado", false)
     fun marcarShizukuParado(ctx: android.content.Context, parado: Boolean) =
         ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putBoolean("shizuku_parado", parado).apply()
+    // VPN_FIXA: app que o Device Owner fixa como "VPN sempre ativa" (sem lockdown: se cair, a TV segue com internet).
+    // 04/11/2026: o app AdGuard VPN, decisão do Paulo — a VPN própria do launcher (IKEv2) foi aposentada.
+    // "" = o launcher não mexe na VPN.
+    const val VPN_FIXA = "com.adguard.vpn"
     // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).

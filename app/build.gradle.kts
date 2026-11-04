@@ -1,16 +1,11 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
 
-// local.properties (fora do git): lido aqui, FORA do bloco android { } — lá dentro "java" é a extensão java do Gradle,
-// não o pacote java.util, e o nome não resolve.
-val localProps = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
-}
+// 04/11/2026: o build não lê mais o local.properties (além do sdk.dir, que o Gradle lê sozinho). As credenciais da
+// VPN própria (vpn.* ali dentro) iam em texto puro para o APK via BuildConfig; com a troca para o app AdGuard VPN
+// elas saíram do build. O local.properties do Paulo continua como está.
 
 android {
     namespace = "br.paulo.tvlauncher"
@@ -29,21 +24,10 @@ android {
         // 04/11/2026). Sem isto o conscrypt entrava em 4 ABIs: ~7 MB de libs que a TV nunca carrega (medido no dist/).
         // Se um dia instalar numa TV de 64 bits, acrescente "arm64-v8a" aqui.
         ndk { abiFilters += listOf("armeabi-v7a") }
-
-        // Credenciais da VPN (AdGuard, IPsec/IKEv2): lidas do local.properties, que está no .gitignore — nunca vão
-        // para o GitHub. Viram constantes em BuildConfig (classe gerada no build). Vazias = VPN não configurada.
-        // Provisório: quando o painel web existir, elas passam a ser digitadas por lá e guardadas no aparelho.
-        fun campo(chave: String) = "\"" + localProps.getProperty(chave, "").replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-        buildConfigField("String", "VPN_SERVIDOR", campo("vpn.servidor"))
-        // "ID do servidor remoto" do painel AdGuard: é a identidade IKE do Builder(serverAddr, identity) do Android
-        // (verifiquei no javadoc do AOSP) — NÃO é o usuário do EAP, que é outro campo (setAuthUsernamePassword).
-        buildConfigField("String", "VPN_ID_REMOTO", campo("vpn.idremoto"))
-        buildConfigField("String", "VPN_USUARIO", campo("vpn.usuario"))
-        buildConfigField("String", "VPN_SENHA", campo("vpn.senha"))
     }
 
     buildFeatures {
-        buildConfig = true   // gera a classe BuildConfig com os campos acima
+        buildConfig = true   // gera a classe BuildConfig (sem campos próprios desde que a VPN própria saiu)
     }
 
     // Extrai as .so para a pasta lib/arm do app instalado (como o app Shizuku original faz). Necessário porque o

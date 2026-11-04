@@ -34,6 +34,8 @@ object PrivilegioDO {
                 // nao consegue revogar. E o "nunca perder privilegios", pelo caminho permanente — nao depende de adb nem Shizuku.
                 Config.PERMISSOES_FIXAS.forEach { conceder(ctx, ctx.packageName, it) }
                 if (Config.OTIMIZAR_MEMORIA) Config.APPS_OCULTAR.forEach { ocultar(ctx, it, true) }
+                // VPN sempre ativa = app AdGuard VPN (04/11/2026). Vazio = o launcher não mexe na VPN.
+                if (Config.VPN_FIXA.isNotEmpty()) vpnSempreAtiva(ctx, Config.VPN_FIXA)
             }
         }
     }
@@ -98,16 +100,49 @@ object PrivilegioDO {
      * sozinho, inclusive depois de reiniciar. [ligada] = false tira. lockdown = false: se a VPN cair, a internet continua
      * funcionando sem ela (com true, a TV ficaria sem internet até a VPN voltar — ruim numa TV que os pais usam).
      */
-    fun vpnSempreAtiva(ctx: Context, ligada: Boolean): Boolean = try {
+    /**
+     * Fixa [pacote] como "VPN sempre ativa" (null = nenhuma). Idempotente: só grava se mudou. lockdown = false de
+     * propósito: se o app da VPN cair, a TV continua com internet (sem VPN) em vez de ficar sem rede nenhuma.
+     * Desde 04/11/2026 é o app AdGuard VPN (Config.VPN_FIXA); antes era a VPN própria do launcher, aposentada.
+     */
+    fun vpnSempreAtiva(ctx: Context, pacote: String?): Boolean = try {
         if (!somosDonos(ctx)) false
         else {
-            dpm(ctx).setAlwaysOnVpnPackage(admin(ctx), if (ligada) ctx.packageName else null, false)
-            Log.i(TAG, "VPN sempre ativa => $ligada")
+            val atual = dpm(ctx).getAlwaysOnVpnPackage(admin(ctx))
+            if (atual != pacote) {
+                dpm(ctx).setAlwaysOnVpnPackage(admin(ctx), pacote, false)
+                Log.i(TAG, "VPN sempre ativa: $atual => $pacote")
+            }
             true
         }
     } catch (e: Exception) {
-        Log.w(TAG, "vpnSempreAtiva falhou: $e"); false
+        Log.w(TAG, "vpnSempreAtiva($pacote) falhou: $e"); false
     }
+
+    /**
+     * Empurrão na VPN sempre ativa: se o app fixado ([Config.VPN_FIXA]) não está com túnel de pé, tira e põe de novo o
+     * "sempre ativa" — o Android então reinicia o serviço de VPN do app.
+     *
+     * Por quê (medido em 04/11/2026): no boot o sistema inicia o AdGuard VPN ANTES de o Wi-Fi estar pronto; ele termina
+     * "Disconnected cause=ConnectionLost" e não tenta de novo — a TV fica sem VPN até alguém abrir o app. Já quando o
+     * "sempre ativa" é (re)aplicado com a rede de pé, ele conecta na hora. Chamado quando o Wi-Fi conecta
+     * (Privilegio.vigiarDepuracaoSemFio) e no relógio do guardião. Não faz nada se já há VPN de pé.
+     */
+    fun reforcarVpn(ctx: Context) {
+        val pacote = Config.VPN_FIXA
+        if (pacote.isEmpty() || !somosDonos(ctx) || vpnDePe(ctx)) return
+        try {
+            dpm(ctx).setAlwaysOnVpnPackage(admin(ctx), null, false)
+            dpm(ctx).setAlwaysOnVpnPackage(admin(ctx), pacote, false)
+            Log.i(TAG, "VPN sem túnel: 'sempre ativa' reaplicado para $pacote")
+        } catch (e: Exception) { Log.w(TAG, "reforcarVpn falhou: $e") }
+    }
+
+    private fun vpnDePe(ctx: Context): Boolean = try {
+        val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true }
+    } catch (e: Exception) { true }   // na dúvida, não mexe
 
     fun estaOculto(ctx: Context, pacote: String): Boolean = try {
         somosDonos(ctx) && dpm(ctx).isApplicationHidden(admin(ctx), pacote)
