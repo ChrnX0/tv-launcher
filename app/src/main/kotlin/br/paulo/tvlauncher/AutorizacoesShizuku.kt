@@ -18,13 +18,16 @@ object AutorizacoesShizuku {
     private const val FLAG_DENIED = 1 shl 2
     private const val MASK_PERMISSION = FLAG_ALLOWED or FLAG_DENIED
 
-    /** Apps instalados que declaram a permissão do Shizuku (os "clientes"), em todos os usuários. */
+    /**
+     * Apps instalados que declaram a permissão do Shizuku (os "clientes") no usuário Android ATUAL. Com -1 (todos os
+     * usuários) o mesmo app aparecia duas vezes na tela de Configurações — uma para o usuário 11 (parado) desta TV.
+     */
     fun clientes(): List<PackageInfo> {
         val data = Parcel.obtain()
         val reply = Parcel.obtain()
         return try {
             data.writeInterfaceToken("moe.shizuku.server.IShizukuService")
-            data.writeInt(-1)   // -1 = todos os usuários
+            data.writeInt(android.os.Process.myUid() / 100000)   // id do usuário atual (uid = usuário*100000 + app)
             Shizuku.getBinder()!!.transact(ServerConstants.BINDER_TRANSACTION_getApplications, data, reply, 0)
             reply.readException()
             @Suppress("UNCHECKED_CAST")

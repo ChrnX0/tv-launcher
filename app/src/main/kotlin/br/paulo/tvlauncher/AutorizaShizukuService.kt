@@ -11,6 +11,15 @@ import android.view.accessibility.AccessibilityEvent
  * para o Device Owner para a maior parte do que precisava, ver [PrivilegioDO]) e esse código foi removido.
  */
 class AutorizaShizukuService : AccessibilityService() {
+    companion object {
+        /** O serviço ligado, para quem precisa de uma janela de acessibilidade (ver PareamentoNaTv). null = desligado. */
+        @Volatile var instancia: AutorizaShizukuService? = null
+    }
+
+    override fun onServiceConnected() { super.onServiceConnected(); instancia = this }
+    override fun onUnbind(intent: android.content.Intent?): Boolean { instancia = null; return super.onUnbind(intent) }
+    override fun onDestroy() { instancia = null; super.onDestroy() }
+
     override fun onAccessibilityEvent(evento: AccessibilityEvent?) {}
 
     /**

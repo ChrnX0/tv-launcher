@@ -61,6 +61,12 @@ object Config {
     // Shizuku embutido (MARCO S3, ver GuardiaoShizuku.kt): true = o launcher sobe o servidor do Shizuku sozinho (no boot e
     // ao abrir) e o religa se cair. false = so sobe por adb (PAREAR) ou pelo OK em Configuracoes > Shizuku do launcher.
     const val SHIZUKU_AUTOMATICO = true
+    // "Parado pelo usuario": quem mandou PARAR (intent br.paulo.tvlauncher.shizuku.PARAR) nao quer o guardiao religando.
+    // Fica guardado ate alguem mandar INICIAR. Ver ControleShizukuReceiver.
+    fun shizukuParadoPeloUsuario(ctx: android.content.Context) =
+        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).getBoolean("shizuku_parado", false)
+    fun marcarShizukuParado(ctx: android.content.Context, parado: Boolean) =
+        ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putBoolean("shizuku_parado", parado).apply()
     // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).

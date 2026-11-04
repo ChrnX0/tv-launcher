@@ -1,0 +1,60 @@
+package br.paulo.tvlauncher
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import rikka.shizuku.Shizuku
+import java.util.concurrent.Executors
+
+/**
+ * Comandos de automação do Shizuku embutido (item 5, como os "start/stop intents" do fork thedjchi, para Tasker,
+ * MacroDroid, Automate…):
+ *
+ *   br.paulo.tvlauncher.shizuku.INICIAR  — sobe o servidor (e limpa um PARAR anterior)
+ *   br.paulo.tvlauncher.shizuku.PARAR    — derruba o servidor e impede o guardião de religar até um INICIAR
+ *   br.paulo.tvlauncher.shizuku.ESTADO   — responde "rodando uid=2000 versao=13" ou "parado" (resultData do broadcast)
+ *
+ * Quem pode mandar: o adb/sistema, e apps que tenham a permissão do Shizuku do launcher (API_V23 — a mesma que um
+ * app cliente pede; o Android mostra o pedido ao usuário). Ver android:permission no manifest.
+ *
+ * São DOIS receivers com o mesmo código, porque um receiver só aceita UMA permissão no manifest:
+ *  - [ControleShizukuReceiver] exige a API_V23 (apps de automação autorizados);
+ *  - [ControleShizukuAdbReceiver] exige DUMP (só o adb/sistema têm).
+ *
+ * Teste por adb:  am broadcast -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver -a br.paulo.tvlauncher.shizuku.ESTADO
+ */
+open class ControleShizukuReceiver : BroadcastReceiver() {
+    companion object {
+        const val INICIAR = "br.paulo.tvlauncher.shizuku.INICIAR"
+        const val PARAR = "br.paulo.tvlauncher.shizuku.PARAR"
+        const val ESTADO = "br.paulo.tvlauncher.shizuku.ESTADO"
+        private val fila = Executors.newSingleThreadExecutor()
+
+        fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
+    }
+
+    override fun onReceive(recebido: Context, intent: Intent) {
+        val ctx = recebido.applicationContext
+        ServidorShizuku.anotar(ctx, "[controle] ${intent.action}")
+        when (intent.action) {
+            INICIAR -> {
+                Config.marcarShizukuParado(ctx, false)
+                GuardiaoShizuku.garantir(ctx, "INICIAR")
+                resultData = "iniciando"
+            }
+            PARAR -> {
+                Config.marcarShizukuParado(ctx, true)
+                // Pelo próprio servidor (Shizuku.exit()) quando há binder; ele encerra o processo shizuku_server.
+                fila.execute {
+                    try { if (Shizuku.pingBinder()) Shizuku.exit() } catch (_: Throwable) {}
+                    ServidorShizuku.anotar(ctx, "[controle] PARAR: ${estado()}")
+                }
+                resultData = "parando"
+            }
+            ESTADO -> resultData = estado()
+        }
+    }
+}
+
+/** O mesmo controle, para o adb (permission=DUMP no manifest). */
+class ControleShizukuAdbReceiver : ControleShizukuReceiver()
