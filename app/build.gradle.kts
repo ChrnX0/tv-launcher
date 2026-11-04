@@ -17,8 +17,12 @@ android {
         applicationId = "br.paulo.tvlauncher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        // 04/11/2026: a atualização automática (GitHub Releases) precisa de um versionCode que sempre cresce, senão o
+        // Android recusa a instalação ("downgrade"). Usamos os minutos desde 01/01/2026 na hora do build, no PC e no
+        // GitHub: todo build novo é maior que qualquer um mais antigo, de qualquer branch. Antes era sempre 1.
+        // Cabe num Int por uns 4 mil anos.
+        versionCode = ((System.currentTimeMillis() - 1_767_225_600_000L) / 60_000L).toInt()
+        versionName = "0.2"
 
         // So a arquitetura do Chromecast: `getprop ro.product.cpu.abilist` na TV = armeabi-v7a,armeabi (32 bits, lido em
         // 04/11/2026). Sem isto o conscrypt entrava em 4 ABIs: ~7 MB de libs que a TV nunca carrega (medido no dist/).
@@ -42,6 +46,23 @@ android {
         resources { excludes += "org/bouncycastle/pqc/crypto/picnic/**" }
     }
 
+    // Chave de assinatura do release (04/11/2026). Se a variável ASSINATURA_ARQUIVO apontar para um keystore (no GitHub
+    // ela vem do segredo ASSINATURA_KEYSTORE_B64), assina com ele. Senão, usa a chave debug desta máquina, como sempre.
+    // A TV do Paulo está assinada com a chave debug do Dell: o segredo do GitHub TEM que ser esse mesmo arquivo
+    // (%USERPROFILE%\.android\debug.keystore). Chave diferente = o Android recusa a atualização, e desinstalar para
+    // trocar perde o Device Owner.
+    val keystoreDoAmbiente = System.getenv("ASSINATURA_ARQUIVO")?.takeIf { it.isNotBlank() }
+    signingConfigs {
+        create("release") {
+            if (keystoreDoAmbiente != null) {
+                storeFile = file(keystoreDoAmbiente)
+                storePassword = System.getenv("ASSINATURA_SENHA") ?: "android"           // padrão do keystore debug
+                keyAlias = System.getenv("ASSINATURA_ALIAS") ?: "androiddebugkey"
+                keyPassword = System.getenv("ASSINATURA_SENHA_CHAVE") ?: storePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             // Release encolhe o APK e remove código não usado. Assina com a chave debug só para instalar via adb.
@@ -50,7 +71,7 @@ android {
             // proguard-rules.pro (04/11/2026): mantém o servidor do Shizuku, a libadb, o conscrypt e o sun-security, que são
             // achados por nome (app_process, reflexão, JNI). Sem elas o release quebrava o shell próprio e o Shizuku.
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (keystoreDoAmbiente != null) "release" else "debug")
         }
     }
 
