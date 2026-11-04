@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Chromecast</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Painel servido pelo próprio launcher (PainelWeb.kt). Sem script inline: a CSP do servidor proíbe. -->
+
+  <!-- Entrar com o PIN -->
+  <section id="telaEntrar" class="entrar" hidden>
+    <form id="formEntrar" class="cartao-entrar" autocomplete="off">
+      <h1>Chromecast</h1>
+      <p class="aviso">Digite o PIN definido nas Configurações do launcher, na TV.</p>
+      <input id="campoPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+             autocomplete="off" aria-label="PIN" placeholder="PIN" required>
+      <button type="submit" class="botao-primario" id="btnEntrar">Entrar</button>
+      <p id="erroEntrar" class="erro" hidden></p>
+    </form>
+  </section>
+
+  <!-- Painel -->
+  <div id="telaPainel" hidden>
+    <header>
+      <div>
+        <h1 id="nomeAparelho">Chromecast</h1>
+        <p id="naTela" class="aviso-curto"></p>
+      </div>
+      <button id="btnSair" class="botao-secundario">Sair</button>
+    </header>
+    <nav class="abas">
+      <button class="aba ativa" data-aba="apps">Aplicativos</button>
+      <button class="aba" data-aba="backup">Backup</button>
+      <button class="aba" data-aba="registro">Acessos</button>
+    </nav>
+
+    <section id="abaApps" class="painel-aba">
+      <div class="barra-acoes">
+        <input id="busca" type="search" placeholder="Procurar app" aria-label="Procurar app">
+        <label class="marcar"><input id="mostrarSistema" type="checkbox"> apps do sistema</label>
+      </div>
+      <p id="statusApps" class="aviso" hidden></p>
+      <div id="listaApps" class="lista-apps"></div>
+    </section>
+
+    <section id="abaBackup" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Baixar backup</h2>
+        <p class="aviso">Ordem dos apps, tema, alarmes, DNS e as demais configurações do launcher, num arquivo JSON. O PIN não vai junto.</p>
+        <a class="botao-primario" href="/api/backup" download>Baixar agora</a>
+      </div>
+      <div class="cartao">
+        <h2>Restaurar</h2>
+        <p class="aviso">Substitui as configurações da TV pelas do arquivo e reinicia o launcher. O estado de antes fica guardado:
+          <a href="/api/backup/anterior" download>baixar o de antes da última restauração</a>.</p>
+        <label class="botao-secundario" for="arquivoBackup">Escolher arquivo…</label>
+        <input type="file" id="arquivoBackup" accept=".json,application/json" hidden>
+        <p id="statusBackup" class="aviso" hidden></p>
+      </div>
+    </section>
+
+    <section id="abaRegistro" class="painel-aba" hidden>
+      <div id="listaRegistro" class="lista-registro"></div>
+    </section>
+  </div>
+
+  <!-- Confirmar uma ação sem volta: texto + (se preciso) o PIN de novo -->
+  <div id="modal" class="modal" hidden>
+    <form id="formModal" class="modal-conteudo" autocomplete="off">
+      <h2 id="tituloModal"></h2>
+      <p id="textoModal" class="aviso"></p>
+      <input id="pinModal" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+             autocomplete="off" aria-label="PIN" placeholder="PIN" hidden>
+      <p id="erroModal" class="erro" hidden></p>
+      <div class="botoes-modal">
+        <button type="button" id="btnCancelarModal" class="botao-secundario">Cancelar</button>
+        <button type="submit" id="btnOkModal" class="botao-perigo">Confirmar</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

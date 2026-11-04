@@ -1,0 +1,378 @@
+package br.paulo.tvlauncher
+
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
+import android.provider.Settings
+import android.util.Log
+import android.widget.Toast
+import org.json.JSONObject
+import java.io.IOException
+import java.net.Inet4Address
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.NetworkInterface
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+
+/**
+ * Painel no navegador SERVIDO PELO PRÓPRIO LAUNCHER (04/11/2026), sem PC: em qualquer celular ou computador da casa,
+ * abrir http://<IP da TV>:8080/ (ou http://chromecast:8080/ com o nome cadastrado no roteador), digitar o PIN
+ * definido nas Configurações do launcher e administrar a TV. Plano completo: painel-no-launcher.md.
+ *
+ * Fase 1 (esta): entrar com PIN, lista de apps com ícone, ocultar/reexibir, desinstalar e backup (baixar/restaurar).
+ *
+ * Custo: com o painel DESLIGADO (o padrão), nenhum socket nem thread; [ajustar] só lê uma preferência. Ligado e
+ * parado, uma thread presa no accept() e nada mais (sem timer, sem alarme). Atendendo, até 3 threads de prioridade
+ * baixa, que morrem depois de 30 s sem trabalho.
+ *
+ * Segurança (seção 3 do plano), na ordem em que cada requisição passa:
+ *  1. A conexão tem de chegar pela rede local (Wi-Fi/cabo), não pela VPN, de um endereço privado.
+ *  2. O Host tem de ser um nome nosso (barra DNS rebinding). Em POST, Origin = o próprio painel e o cabeçalho
+ *     X-Painel (barra CSRF).
+ *  3. Fora a página e o login, tudo exige sessão (cookie HttpOnly, SameSite=Strict).
+ *  4. Desinstalar e restaurar backup exigem o PIN redigitado nos últimos 5 min.
+ *  5. PIN errado: bloqueio crescente e, com 20 erros, o painel se desliga (só volta pelas Configurações da TV).
+ *  Não existe rota de shell genérico: cada ação é uma função fixa, e o pacote é validado antes de tudo.
+ */
+object PainelWeb {
+    private const val TAG = "TvLauncher.Painel"
+    const val COOKIE = "painel_sessao"
+    private const val LIMITE_CORPO = 4 * 1024   // login e ações: corpo pequeno
+    private const val TEMPO_LEITURA_MS = 15_000
+
+    @Volatile private var servidor: ServerSocket? = null
+    private lateinit var app: Context
+
+    val sessoes = Sessoes({ System.currentTimeMillis() })
+    private var tentativas: ControleTentativas? = null
+    private val travaPin = Any()   // um PBKDF2 por vez: muitas tentativas juntas não derrubam a CPU da TV
+
+    /** Até 3 threads atendendo e até 24 conexões esperando; além disso a conexão é recusada (503). */
+    private val pool by lazy {
+        ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS, ArrayBlockingQueue(24)) { r ->
+            Thread({ Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "Painel-atende")
+        }.apply { allowCoreThreadTimeOut(true) }
+    }
+
+    @Volatile private var iniciando = false
+
+    fun ligado(): Boolean = servidor?.isClosed == false
+
+    /** Liga ou desliga conforme as preferências (ver PainelArmazem.podeLigar). Barato e idempotente: chamar à vontade. */
+    @Synchronized fun ajustar(ctx: Context) {
+        app = ctx.applicationContext
+        val deve = PainelArmazem.podeLigar(app)
+        if (deve && !ligado() && !iniciando) iniciar() else if (!deve && (ligado() || iniciando)) parar()
+    }
+
+    private fun controle(): ControleTentativas = tentativas ?: ControleTentativas(
+        { System.currentTimeMillis() }, PainelArmazem.falhas(app),
+    ) { PainelArmazem.definirFalhas(app, it) }.also { tentativas = it }
+
+    /** Chamado pelas Configurações quando o PIN muda ou o painel é religado: derruba as sessões e zera os erros. */
+    @Synchronized fun recomecar(ctx: Context) {
+        app = ctx.applicationContext
+        sessoes.encerrarTodas()
+        tentativas?.zerar()
+        ajustar(ctx)
+    }
+
+    /** Abre a porta numa thread própria (abrir socket na thread da tela é proibido no Android) e fica no accept(). */
+    private fun iniciar() {
+        iniciando = true
+        Thread({
+            val s = ServerSocket()
+            try {
+                s.reuseAddress = true   // religar logo depois de desligar não dá "endereço em uso"
+                // 0.0.0.0 (só IPv4): a checagem da conexão (redeLocal) decide quem pode falar.
+                s.bind(InetSocketAddress(InetAddress.getByAddress(byteArrayOf(0, 0, 0, 0)), Config.PAINEL_PORTA), 16)
+            } catch (e: IOException) {
+                Log.w(TAG, "não consegui abrir a porta ${Config.PAINEL_PORTA}: $e")
+                try { s.close() } catch (_: IOException) {}
+                iniciando = false
+                return@Thread
+            }
+            synchronized(this) {
+                // Desligaram enquanto abria? Então fecha já.
+                if (!iniciando) { try { s.close() } catch (_: IOException) {}; return@Thread }
+                servidor = s
+                iniciando = false
+            }
+            Log.i(TAG, "painel ligado na porta ${Config.PAINEL_PORTA}")
+            aceitar(s)
+        }, "Painel-aceita").apply { priority = Thread.MIN_PRIORITY; isDaemon = true }.start()
+    }
+
+    @Synchronized private fun parar() {
+        iniciando = false
+        try { servidor?.close() } catch (_: IOException) {}
+        servidor = null
+        sessoes.encerrarTodas()
+        Log.i(TAG, "painel desligado")
+    }
+
+    private fun aceitar(s: ServerSocket) {
+        while (!s.isClosed) {
+            val c = try { s.accept() } catch (e: IOException) { break }   // close() acorda o accept com exceção
+            if (!redeLocal(c)) { fechar(c); continue }
+            try {
+                pool.execute { atender(c) }
+            } catch (e: RejectedExecutionException) {
+                fechar(c)   // fila cheia: alguém está martelando o painel
+            }
+        }
+    }
+
+    private fun fechar(c: Socket) = try { c.close() } catch (_: IOException) {}
+
+    // ---------------------------------------------------------------- de onde vem a conexão
+
+    @Volatile private var ipsCache: Pair<Long, Set<String>> = 0L to emptySet()
+
+    /**
+     * Os IPv4 da TV na rede de casa: interfaces ligadas, menos loopback e túneis de VPN (tun/ppp/ipsec).
+     * Recalculado no máximo a cada 30 s (o IP só muda se o roteador mudar).
+     */
+    fun ipsDaRede(): Set<String> {
+        val (quando, ips) = ipsCache
+        if (System.currentTimeMillis() - quando < 30_000 && ips.isNotEmpty()) return ips
+        val novos = HashSet<String>()
+        try {
+            for (ni in NetworkInterface.getNetworkInterfaces() ?: return emptySet()) {
+                if (!ni.isUp || ni.isLoopback || ni.isVirtual) continue
+                val nome = ni.name.lowercase()
+                if (nome.startsWith("tun") || nome.startsWith("ppp") || nome.startsWith("ipsec")) continue
+                for (a in ni.inetAddresses) if (a is Inet4Address && a.isSiteLocalAddress) novos.add(a.hostAddress ?: continue)
+            }
+        } catch (e: Exception) { Log.w(TAG, "ipsDaRede: $e") }
+        ipsCache = System.currentTimeMillis() to novos
+        return novos
+    }
+
+    /** O endereço para digitar no navegador (o primeiro IP da rede), ou null sem rede. */
+    fun endereco(): String? = ipsDaRede().minOrNull()?.let { "http://$it:${Config.PAINEL_PORTA}/" }
+
+    /**
+     * A conexão chegou num IP nosso da rede de casa (não no da VPN) e veio de um endereço privado (192.168.x, 10.x,
+     * 172.16-31.x)? Isso recusa tudo o que vier pela VPN e qualquer coisa de fora da casa.
+     */
+    private fun redeLocal(c: Socket): Boolean {
+        val local = c.localAddress as? Inet4Address ?: return false
+        val remoto = c.inetAddress as? Inet4Address ?: return false
+        return local.hostAddress in ipsDaRede() && remoto.isSiteLocalAddress && !remoto.isLoopbackAddress
+    }
+
+    private fun nomesPermitidos(): Set<String> = ipsDaRede() + Config.PAINEL_NOMES
+
+    // ---------------------------------------------------------------- atender uma requisição
+
+    private class Resposta(val codigo: Int, val tipo: String?, val corpo: ByteArray, val extras: Map<String, String> = emptyMap())
+
+    private fun json(codigo: Int, o: JSONObject, extras: Map<String, String> = emptyMap()) =
+        Resposta(codigo, "application/json; charset=utf-8", o.toString().toByteArray(), extras)
+
+    private fun erro(codigo: Int, mensagem: String, extra: JSONObject.() -> Unit = {}) =
+        json(codigo, JSONObject().put("erro", mensagem).apply(extra))
+
+    private fun atender(c: Socket) {
+        val ip = c.inetAddress.hostAddress ?: "?"
+        try {
+            c.soTimeout = TEMPO_LEITURA_MS
+            val entrada = c.getInputStream().buffered(8192)
+            val saida = c.getOutputStream().buffered(16 * 1024)
+            val resposta = try {
+                // Só a restauração de backup aceita corpo grande; o limite é decidido antes de ler o corpo.
+                val req = PainelHttp.ler(entrada, BackupConfig.LIMITE_BYTES)
+                if (req.corpo.size > LIMITE_CORPO && req.caminho != "/api/backup/restaurar") erro(413, "corpo grande demais")
+                else rotear(req, ip)
+            } catch (e: ErroHttp) {
+                erro(e.codigo, e.message ?: "pedido inválido")
+            }
+            PainelHttp.escrever(saida, resposta.codigo, resposta.tipo, resposta.corpo, resposta.extras)
+        } catch (e: IOException) {
+            // conexão caiu ou demorou demais: nada a responder
+        } catch (e: Exception) {
+            Log.w(TAG, "erro atendendo $ip: $e")
+        } finally {
+            fechar(c)
+        }
+    }
+
+    private fun rotear(req: Requisicao, ip: String): Resposta {
+        val host = req.cabecalho("host")
+        if (!ChecagensPainel.hostPermitido(host, nomesPermitidos(), Config.PAINEL_PORTA)) return erro(421, "nome desconhecido")
+        if (req.metodo == "POST") {
+            if (!ChecagensPainel.origemPermitida(req.cabecalho("origin"), host) || req.cabecalho("x-painel") != "1")
+                return erro(403, "pedido de fora do painel")
+        } else if (req.metodo != "GET") {
+            return erro(405, "método não suportado")
+        }
+
+        // Página e arquivos dela: livres (a página de login é ela mesma).
+        if (req.metodo == "GET") estatico(req.caminho)?.let { return it }
+
+        val token = PainelHttp.cookie(req.cabecalho("cookie"), COOKIE)
+        when (req.caminho) {
+            "/api/estado" -> return estado(token)
+            "/api/entrar" -> if (req.metodo == "POST") return entrar(req, ip)
+            "/api/sair" -> if (req.metodo == "POST") { sessoes.encerrar(token); return json(200, JSONObject().put("ok", true), cookieApagado()) }
+        }
+        if (!req.caminho.startsWith("/api/")) return erro(404, "não existe")
+        if (!sessoes.valida(token)) return erro(401, "entre com o PIN")
+
+        when (req.caminho) {
+            "/api/confirmar" -> if (req.metodo == "POST") return confirmar(req, token, ip)
+            "/api/apps" -> if (req.metodo == "GET") return json(200, JSONObject().put("apps", PainelApps.listar(app)))
+            "/api/backup" -> if (req.metodo == "GET") {
+                PainelArmazem.registrar(app, ip, "baixar backup", "ok")
+                return Resposta(200, "application/json; charset=utf-8", BackupConfig.exportar(app).toByteArray(),
+                    mapOf("Content-Disposition" to "attachment; filename=\"launcher-backup.json\""))
+            }
+            "/api/backup/anterior" -> if (req.metodo == "GET") {
+                val f = BackupConfig.arquivoAnterior(app)
+                if (!f.exists()) return erro(404, "nenhuma restauração feita ainda")
+                return Resposta(200, "application/json; charset=utf-8", f.readBytes(),
+                    mapOf("Content-Disposition" to "attachment; filename=\"launcher-antes-de-restaurar.json\""))
+            }
+            "/api/backup/restaurar" -> if (req.metodo == "POST") return restaurar(req, token, ip)
+            "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
+        }
+
+        // /api/apps/<pacote>/<ação>
+        val partes = req.caminho.removePrefix("/api/apps/").split('/')
+        if (req.caminho.startsWith("/api/apps/") && partes.size == 2) {
+            val pacote = partes[0]
+            if (!ChecagensPainel.pacoteValido(pacote)) return erro(400, "pacote inválido")
+            when (partes[1]) {
+                "icone" -> if (req.metodo == "GET") return icone(req, pacote)
+                "ocultar" -> if (req.metodo == "POST") return ocultar(req, pacote, ip)
+                "desinstalar" -> if (req.metodo == "POST") return desinstalar(pacote, token, ip)
+            }
+        }
+        return erro(404, "não existe")
+    }
+
+    // ---------------------------------------------------------------- página
+
+    private val TIPOS = mapOf(
+        "/" to ("index.html" to "text/html; charset=utf-8"),
+        "/app.js" to ("app.js" to "text/javascript; charset=utf-8"),
+        "/style.css" to ("style.css" to "text/css; charset=utf-8"),
+    )
+
+    private fun estatico(caminho: String): Resposta? {
+        val (arquivo, tipo) = TIPOS[caminho] ?: return null
+        val bytes = app.assets.open("painel/$arquivo").use { it.readBytes() }
+        return Resposta(200, tipo, bytes)
+    }
+
+    // ---------------------------------------------------------------- login
+
+    private fun cookieSessao(token: String) = mapOf("Set-Cookie" to "$COOKIE=$token; Path=/; HttpOnly; SameSite=Strict")
+    private fun cookieApagado() = mapOf("Set-Cookie" to "$COOKIE=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
+
+    private fun estado(token: String?): Resposta {
+        val logado = sessoes.valida(token)
+        val o = JSONObject().put("logado", logado)
+        if (logado) {
+            o.put("aparelho", Settings.Global.getString(app.contentResolver, "device_name") ?: "TV")
+            o.put("naTela", PainelApps.naTela(app))
+            o.put("elevada", sessoes.elevada(token))
+        }
+        return json(200, o)
+    }
+
+    /**
+     * Confere o PIN com o contador global. Devolve null se acertou, ou a resposta de erro pronta (PIN errado,
+     * bloqueado, painel desligado por excesso de erros).
+     */
+    private fun conferirPin(req: Requisicao, ip: String, acao: String): Resposta? {
+        val pin = try { JSONObject(req.corpoTexto()).optString("pin") } catch (e: Exception) { "" }
+        val ctl = controle()
+        synchronized(travaPin) {
+            val espera = ctl.esperaMs()
+            if (espera > 0) return erro(429, "muitas tentativas erradas; espere ${(espera + 999) / 1000} s") { put("esperarSeg", (espera + 999) / 1000) }
+            if (PainelArmazem.conferirPin(app, pin)) { ctl.registrarSucesso(); return null }
+            PainelArmazem.registrar(app, ip, acao, "PIN errado")
+            return when (val r = ctl.registrarFalha()) {
+                is ControleTentativas.Resultado.Errou -> erro(401, "PIN errado") { put("restantes", r.restantes) }
+                is ControleTentativas.Resultado.Bloqueou -> erro(429, "PIN errado; bloqueado por ${r.ms / 60_000} min") { put("esperarSeg", r.ms / 1000) }
+                ControleTentativas.Resultado.Desligar -> { desligarPorErros(ip); erro(403, "PIN errado demais: o painel foi desligado. Religue nas Configurações do launcher, na TV.") }
+            }
+        }
+    }
+
+    private fun desligarPorErros(ip: String) {
+        PainelArmazem.definirDesligadoPorErros(app, true)
+        PainelArmazem.registrar(app, ip, "painel", "desligado por PIN errado demais")
+        Log.w(TAG, "PIN errado ${ControleTentativas.LIMITE_DESLIGAR} vezes: painel desligado")
+        // Fecha a porta logo depois de responder (a conexão atual continua aberta até a resposta sair).
+        Handler(Looper.getMainLooper()).post {
+            ajustar(app)
+            try { Toast.makeText(app, "Painel no navegador desligado: PIN errado muitas vezes", Toast.LENGTH_LONG).show() } catch (_: Exception) {}
+        }
+    }
+
+    private fun entrar(req: Requisicao, ip: String): Resposta {
+        conferirPin(req, ip, "entrar")?.let { return it }
+        val token = sessoes.criar()
+        PainelArmazem.registrar(app, ip, "entrar", "ok")
+        return json(200, JSONObject().put("ok", true), cookieSessao(token))
+    }
+
+    /** PIN redigitado para uma ação sem volta: a sessão fica "elevada" por 5 min. */
+    private fun confirmar(req: Requisicao, token: String?, ip: String): Resposta {
+        conferirPin(req, ip, "confirmar PIN")?.let { return it }
+        sessoes.elevar(token)
+        return json(200, JSONObject().put("ok", true))
+    }
+
+    private fun precisaPin() = erro(403, "confirme o PIN") { put("precisaPin", true) }
+
+    // ---------------------------------------------------------------- apps
+
+    private fun icone(req: Requisicao, pacote: String): Resposta {
+        val (png, etiqueta) = PainelApps.icone(app, pacote) ?: return erro(404, "app não encontrado")
+        // O ícone pode ficar no cache do navegador (privado, 1 dia); a etiqueta muda quando o app atualiza.
+        val extras = mapOf("Cache-Control" to "private, max-age=86400", "ETag" to etiqueta)
+        if (req.cabecalho("if-none-match") == etiqueta) return Resposta(304, null, ByteArray(0), extras)
+        return Resposta(200, "image/png", png, extras)
+    }
+
+    private fun ocultar(req: Requisicao, pacote: String, ip: String): Resposta {
+        val oculto = try { JSONObject(req.corpoTexto()).getBoolean("oculto") } catch (e: Exception) { return erro(400, "falta \"oculto\"") }
+        val motivo = PainelApps.ocultar(app, pacote, oculto)
+        PainelArmazem.registrar(app, ip, (if (oculto) "ocultar " else "reexibir ") + pacote, motivo ?: "ok")
+        return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    private fun desinstalar(pacote: String, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        val motivo = PainelApps.desinstalar(app, pacote)
+        PainelArmazem.registrar(app, ip, "desinstalar $pacote", motivo ?: "ok")
+        return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    // ---------------------------------------------------------------- backup
+
+    private fun restaurar(req: Requisicao, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        val n = try {
+            BackupConfig.importar(app, req.corpoTexto())
+        } catch (e: IllegalArgumentException) {
+            PainelArmazem.registrar(app, ip, "restaurar backup", "recusado: ${e.message}")
+            return erro(400, "backup recusado: ${e.message}")
+        }
+        PainelArmazem.registrar(app, ip, "restaurar backup", "ok, $n chaves")
+        // Reinicia o launcher depois de a resposta sair (várias telas leem as preferências só ao abrir). É o mesmo
+        // jeito do REINICIAR do adb: o sistema sobe a HOME de novo e o painel volta junto (as sessões caem).
+        Handler(Looper.getMainLooper()).postDelayed({ Process.killProcess(Process.myPid()) }, 1500)
+        return json(200, JSONObject().put("ok", true).put("chaves", n).put("reiniciando", true))
+    }
+}

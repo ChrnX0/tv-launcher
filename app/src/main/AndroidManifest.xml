@@ -36,6 +36,14 @@
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
 
+    <!-- Painel no navegador (PainelWeb.kt, 04/11/2026). QUERY_ALL_PACKAGES: listar TODOS os apps (ser Device Owner não
+         dá visibilidade de pacotes no Android 11+). REQUEST_DELETE_PACKAGES: exigida pelo PackageInstaller.uninstall;
+         como somos Device Owner, a desinstalação sai sem pedir confirmação na TV. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
     <!-- Shizuku EMBUTIDO (MARCO S1): o launcher é o "gerente" do Shizuku. Estas são as permissões que o app Shizuku
          original declarava (fork thedjchi, manager/src/main/AndroidManifest.xml). Os apps clientes pedem a API_V23;
          quem decide se libera é o launcher (tela de permissão, MARCO S2). Não usamos a API_V23 nós mesmos: o servidor
@@ -257,6 +265,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Resultado da desinstalação pedida pelo painel no navegador (PainelApps.desinstalar). Não exportado: só o
+             PendingIntent do próprio launcher chega aqui. -->
+        <receiver
+            android:name=".ResultadoDesinstalarReceiver"
+            android:exported="false" />
 
         <!-- Device owner (ver AdminReceiver.kt). Exportado porque o sistema precisa chamá-lo; só o sistema tem BIND_DEVICE_ADMIN. -->
         <receiver
