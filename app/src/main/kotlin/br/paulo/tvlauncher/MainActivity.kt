@@ -208,6 +208,9 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         rede.shutdownNow()
+        // Cada recreate() (troca de tema) cria uma Activity nova com a sua própria fila: sem isto a thread "Apps"
+        // da Activity velha ficava viva para sempre. shutdown (não Now): deixa terminar uma carga em curso.
+        filaApps.shutdown()
         super.onDestroy()
     }
 
@@ -556,7 +559,8 @@ class MainActivity : Activity() {
             for (item in itens) pilhaDe[item.pacote] = pilha
         }
 
-        val usados = if (Config.ORDENAR_POR_USO_RECENTE) Uso.ultimoUso(this) else emptyMap()
+        // Lido fora da tela por preencherApps (queryAndAggregateUsageStats de 14 dias é caro); aqui só se usa o mapa.
+        val usados = ultimoUso
         val manual = Organizacao.ordem(this).withIndex().associate { it.value to it.index }
         // Os apps de uma pilha usam o token da pilha na ordem manual; a pilha aparece onde está o seu 1º app.
         fun tokenDe(i: Item): String = pilhaDe[i.pacote]?.token ?: i.pacote
@@ -597,10 +601,13 @@ class MainActivity : Activity() {
         val t0 = android.os.SystemClock.elapsedRealtime()
         filaApps.execute {
             val todos = carregarApps()   // cacheApps só é tocado nesta fila (uma thread)
+            // Uso recente também aqui fora (04/11/2026): antes rodava dentro de montarEntradas, na thread da tela.
+            val uso = if (Config.ORDENAR_POR_USO_RECENTE) Uso.ultimoUso(this) else emptyMap()
             val t1 = android.os.SystemClock.elapsedRealtime()
             ui.post {
                 if (isDestroyed) return@post
                 instalados = todos
+                ultimoUso = uso   // reorganizar() reaproveita este mapa até a próxima volta à HOME
                 lista = montarEntradas(instalados)
                 desenhar()
                 // Medir para não deixar crescer: a thread da tela também atende as teclas do controle.
@@ -610,6 +617,8 @@ class MainActivity : Activity() {
         }
     }
     private val filaApps = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "Apps") }
+    /** pacote -> último uso (ms), lido por preencherApps na filaApps. Só lido/escrito na thread da tela. */
+    private var ultimoUso: Map<String, Long> = emptyMap()
 
     /** Só reorganiza (pilhas, ordem, ocultos) com os apps já carregados: síncrono, quem chama lê a [lista] em seguida. */
     private fun reorganizar() {
