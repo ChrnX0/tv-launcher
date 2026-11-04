@@ -23,6 +23,11 @@ android {
         versionCode = 1
         versionName = "0.1"
 
+        // So a arquitetura do Chromecast: `getprop ro.product.cpu.abilist` na TV = armeabi-v7a,armeabi (32 bits, lido em
+        // 04/11/2026). Sem isto o conscrypt entrava em 4 ABIs: ~7 MB de libs que a TV nunca carrega (medido no dist/).
+        // Se um dia instalar numa TV de 64 bits, acrescente "arm64-v8a" aqui.
+        ndk { abiFilters += listOf("armeabi-v7a") }
+
         // Credenciais da VPN (AdGuard, IPsec/IKEv2): lidas do local.properties, que está no .gitignore — nunca vão
         // para o GitHub. Viram constantes em BuildConfig (classe gerada no build). Vazias = VPN não configurada.
         // Provisório: quando o painel web existir, elas passam a ser digitadas por lá e guardadas no aparelho.
