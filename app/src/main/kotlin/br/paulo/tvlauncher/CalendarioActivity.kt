@@ -117,11 +117,30 @@ class CalendarioActivity : Activity() {
         }
     }
 
+    // A consulta à agenda (contentResolver.query) roda FORA da thread da tela (revisão de 04/11/2026): na thread da
+    // tela ela atrasava também as teclas do controle (o serviço de teclas divide o processo e a thread com o launcher).
+    private val trabalho = java.util.concurrent.Executors.newSingleThreadExecutor()
+
     private fun desenhar() {
-        val eventosMes = eventos(inicioDoMes(mes), fimDoMes(mes))
-        desenharMes(eventosMes)
-        val agora = System.currentTimeMillis()
-        val proximos = eventos(agora, agora + 30L * 86_400_000)
+        val m = mes.clone() as Calendar
+        trabalho.execute {
+            val eventosMes = eventos(inicioDoMes(m), fimDoMes(m))
+            val agora = System.currentTimeMillis()
+            val proximos = eventos(agora, agora + 30L * 86_400_000)
+            ui.post { if (!isDestroyed) { desenharMes(eventosMes); desenharProximos(proximos) } }
+        }
+    }
+
+    /** Só a grade do mês (◀ ▶): consulta em segundo plano, desenha quando chegar. */
+    private fun desenharSoMes() {
+        val m = mes.clone() as Calendar
+        trabalho.execute {
+            val ev = eventos(inicioDoMes(m), fimDoMes(m))
+            ui.post { if (!isDestroyed && m.get(Calendar.MONTH) == mes.get(Calendar.MONTH) && m.get(Calendar.YEAR) == mes.get(Calendar.YEAR)) desenharMes(ev) }
+        }
+    }
+
+    private fun desenharProximos(proximos: List<Evento>) {
         listaEventos.removeAllViews()
         aviso.text = when {
             checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED ->
@@ -164,7 +183,14 @@ class CalendarioActivity : Activity() {
         val c = (mes.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, 1) }
         repeat(c.get(Calendar.DAY_OF_WEEK) - 1) { grade.addView(celula("", textoSuave, false, false, lado)) }   // vazios antes do dia 1
         val hoje = Calendar.getInstance()
-        val diasComEvento = eventosMes.map { Calendar.getInstance().apply { timeInMillis = it.inicio }.get(Calendar.DAY_OF_MONTH) }.toSet()
+        // Todos os dias que o evento cobre, não só o 1º (revisão de 04/11/2026: viagem de 3 dias marcava só a ida).
+        val iniMes = inicioDoMes(mes); val fimMes = fimDoMes(mes)
+        val diasComEvento = HashSet<Int>()
+        for (e in eventosMes) {
+            val dia = Calendar.getInstance().apply { timeInMillis = maxOf(e.inicio, iniMes) }
+            val ultimo = minOf(maxOf(e.fim - 1, e.inicio), fimMes - 1)
+            while (dia.timeInMillis <= ultimo) { diasComEvento.add(dia.get(Calendar.DAY_OF_MONTH)); dia.add(Calendar.DAY_OF_MONTH, 1) }
+        }
         for (d in 1..c.getActualMaximum(Calendar.DAY_OF_MONTH)) {
             val eHoje = hoje.get(Calendar.YEAR) == c.get(Calendar.YEAR) && hoje.get(Calendar.DAY_OF_YEAR) == c.get(Calendar.DAY_OF_YEAR)
             grade.addView(celula(d.toString(), if (eHoje) Color.BLACK else textoClaro, eHoje, d in diasComEvento, lado))
@@ -198,7 +224,8 @@ class CalendarioActivity : Activity() {
                 uri,
                 arrayOf(CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
                     CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.DISPLAY_COLOR),
-                "${CalendarContract.Calendars.ACCOUNT_NAME} = ? AND ${CalendarContract.Instances.VISIBLE} = 1",
+                // + ACCOUNT_TYPE (revisão 04/11): o mesmo e-mail pode existir em outro tipo de conta (ex.: Exchange).
+                "${CalendarContract.Calendars.ACCOUNT_NAME} = ? AND ${CalendarContract.Calendars.ACCOUNT_TYPE} = 'com.google' AND ${CalendarContract.Instances.VISIBLE} = 1",
                 arrayOf(nome), "${CalendarContract.Instances.BEGIN} ASC"
             )?.use { c ->
                 while (c.moveToNext()) {
@@ -230,14 +257,15 @@ class CalendarioActivity : Activity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT -> { mes.add(Calendar.MONTH, -1); desenharMes(eventos(inicioDoMes(mes), fimDoMes(mes))); return true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> { mes.add(Calendar.MONTH, 1); desenharMes(eventos(inicioDoMes(mes), fimDoMes(mes))); return true }
+            KeyEvent.KEYCODE_DPAD_LEFT -> { mes.add(Calendar.MONTH, -1); desenharSoMes(); return true }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> { mes.add(Calendar.MONTH, 1); desenharSoMes(); return true }
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onDestroy() {
         ui.removeCallbacksAndMessages(null)
+        trabalho.shutdownNow()
         super.onDestroy()
     }
 

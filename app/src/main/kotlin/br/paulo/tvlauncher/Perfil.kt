@@ -57,21 +57,42 @@ object Perfil {
     /** "fulano@gmail.com" -> "fulano". */
     fun usuario(conta: String): String = conta.substringBefore('@')
 
+    /**
+     * Cache dos avatares já desenhados (04/11/2026): o onResume da HOME redesenhava a bolinha toda vez — decodificar a
+     * foto, recortar e escalar na thread da tela. A chave inclui o caminho e a data da foto, então trocar a foto por
+     * adb (ou trocar de conta) gera chave nova e redesenha. Poucas contas na TV: o mapa fica pequeno.
+     * Quem recebe o Bitmap não pode dar recycle() nele (hoje ninguém dá).
+     */
+    private val cacheAvatar = HashMap<String, Bitmap>()
+
+    @Synchronized
     fun avatar(contexto: Context, lado: Int, conta: String? = ativa(contexto)): Bitmap {
         if (conta != null) {
             val primeira = conta == contas(contexto).firstOrNull()
-            carregarFoto(contexto, lado, conta, primeira)?.let { return it }
+            val arquivo = acharFoto(contexto, conta, primeira)
+            if (arquivo != null) {
+                val chave = "$conta|$lado|${arquivo.path}|${arquivo.lastModified()}"
+                cacheAvatar[chave]?.let { return it }
+                carregarFoto(arquivo, lado)?.let { foto ->
+                    cacheAvatar.keys.removeAll { it.startsWith("$conta|$lado|") }   // a versão velha desta foto
+                    cacheAvatar[chave] = foto
+                    return foto
+                }
+            }
         }
         val inicial = conta?.firstOrNull()?.uppercaseChar()?.toString() ?: ""
-        return desenharInicial(inicial, lado)
+        return cacheAvatar.getOrPut("inicial|$inicial|$lado") { desenharInicial(inicial, lado) }
     }
 
-    private fun carregarFoto(contexto: Context, lado: Int, conta: String, primeira: Boolean): Bitmap? {
+    private fun acharFoto(contexto: Context, conta: String, primeira: Boolean): File? {
         val pasta = contexto.getExternalFilesDir(null) ?: return null
         val base = "perfil-" + usuario(conta).lowercase()
         val nomes = mutableListOf("$base.jpg", "$base.jpeg", "$base.png")
         if (primeira) nomes += listOf("perfil.jpg", "perfil.jpeg", "perfil.png")   // nome antigo
-        val arquivo = nomes.map { File(pasta, it) }.firstOrNull { it.exists() } ?: return null
+        return nomes.map { File(pasta, it) }.firstOrNull { it.exists() }
+    }
+
+    private fun carregarFoto(arquivo: File, lado: Int): Bitmap? {
         return try {
             // 1º lê só o tamanho; 2º decodifica já reduzido (poupa RAM numa foto grande).
             val limites = BitmapFactory.Options().apply { inJustDecodeBounds = true }
