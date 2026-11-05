@@ -297,6 +297,8 @@
                 <action android:name="br.paulo.tvlauncher.TESTE_ERRO" />
                 <!-- Rotinas por horário: listar e rodar uma agora (05/11/2026). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.ROTINA" />
+                <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.DEBLOAT" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama

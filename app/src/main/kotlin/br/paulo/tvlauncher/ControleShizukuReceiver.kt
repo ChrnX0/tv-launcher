@@ -37,6 +37,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val ERROS = "br.paulo.tvlauncher.ERROS"           // listar o registro local de erros (só adb)
         const val TESTE_ERRO = "br.paulo.tvlauncher.TESTE_ERRO" // gravar um erro de teste no registro (só adb)
         const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
+        const val DEBLOAT = "br.paulo.tvlauncher.DEBLOAT"       // candidatos da limpeza e o estado deles (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -161,6 +162,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 else resultData = Rotinas.paraJson(Rotinas.listar(ctx)) + " proxima=" + (Rotinas.proxima(ctx)?.let { "${it.first.id}@${it.second}" } ?: "nenhuma") +
                     " semTecla=${Rotinas.minutosSemTecla()}min"
             }
+            // Só pelo adb (05/11/2026): para testar candidatos da limpeza (Debloat.kt) antes de liberá-los na TV.
+            DEBLOAT -> resultData = Debloat.relatorio(ctx)
         }
     }
 }
