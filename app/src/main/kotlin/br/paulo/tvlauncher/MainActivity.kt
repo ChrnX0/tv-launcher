@@ -1495,15 +1495,9 @@ class MainActivity : Activity() {
         val arrays = modelos.mapNotNull { h.optJSONArray("precipitation_probability_$it") }
         if (arrays.isEmpty()) throw IllegalStateException("sem modelos")
         val datas = (0 until tempo.length()).map { tempo.getString(it) }
-        val mediana = (0 until tempo.length()).map { i ->
-            val vals = arrays.mapNotNull { a -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null }.sorted()
-            when {
-                vals.isEmpty() -> 0
-                vals.size % 2 == 1 -> vals[vals.size / 2]
-                else -> (vals[vals.size / 2 - 1] + vals[vals.size / 2]) / 2
-            }
-        }
-        datas to mediana
+        // A mesma conta do aviso de chuva (AvisoChuva.mediana), para a HOME e o aviso nunca discordarem.
+        val porModelo = arrays.map { a -> (0 until tempo.length()).map { i -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null } }
+        datas to AvisoChuva.mediana(porModelo)
     } catch (e: Exception) {
         Log.w("TvLauncher.Local", "chuva multi-modelo falhou: $e")
         null

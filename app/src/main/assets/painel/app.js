@@ -890,6 +890,21 @@ $('formTexto').addEventListener('submit', async (ev) => {
   } catch (e) { mostrar($('statusControle'), e.message); }
 });
 
+$('formRecado').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const texto = $('campoRecado').value.trim();
+  if (!texto) { mostrar($('statusControle'), 'Escreva o recado.'); return; }
+  try {
+    const r = await chamar('POST', '/api/recado', {
+      texto, segundos: Number($('duracaoRecado').value), som: $('somRecado').checked });
+    $('campoRecado').value = '';
+    mostrar($('statusControle'), r.situacao === 'guardado'
+      ? 'A tela da TV está apagada: o recado aparece quando ela ligar.'
+      : 'Recado na tela da TV.');
+    setTimeout(atualizarFoto, 600);   // a foto mostra o recado
+  } catch (e) { mostrar($('statusControle'), e.message); }
+});
+
 $('btnReiniciarTv').addEventListener('click', async () => {
   const emUso = await tvEmUso();
   const ok = await confirmar('Reiniciar a TV?', 'A TV desliga e liga de novo (cerca de 1 min). O painel volta sozinho depois.' +

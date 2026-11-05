@@ -266,6 +266,9 @@
                 <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.OCULTAR" />
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
+                <!-- Recado na tela e aviso de chuva (teste). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.RECADO" />
+                <action android:name="br.paulo.tvlauncher.CHUVA" />
                 <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />
             </intent-filter>
