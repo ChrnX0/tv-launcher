@@ -399,13 +399,6 @@ object PainelWeb {
                 "POST" -> return mudarClima(req, ip)
             }
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
-            // IA na nuvem (bloco 6, PedidoIa.kt). Ligar a IA não tem rota: só pelas Configurações, na TV.
-            "/api/ia" -> if (req.metodo == "GET") return iaEstado()
-            "/api/ia/chave" -> if (req.metodo == "POST") return iaChave(req, token, ip)
-            "/api/ia/modelo" -> if (req.metodo == "POST") return iaModelo(req, ip)
-            "/api/ia/provedor" -> if (req.metodo == "POST") return iaProvedor(req, ip)
-            "/api/ia/pedir" -> if (req.metodo == "POST") return iaPedir(req, ip)
-            "/api/ia/pedido" -> if (req.metodo == "GET") return PedidoIa.estado(req.consulta["id"])?.let { json(200, it.json()) } ?: erro(404, "pedido não encontrado")
             "/api/roteador" -> if (req.metodo == "GET") return json(200, roteadorEstado())
             "/api/roteador/config" -> if (req.metodo == "POST") return roteadorConfig(req, ip)
             "/api/roteador/certificado" -> if (req.metodo == "POST") return roteadorCertificado(ip)
@@ -653,86 +646,6 @@ object PainelWeb {
         val n = PainelArquivos.apagar(app, caminho)
         PainelArmazem.registrar(app, ip, "apagar ${caminho.take(120)}", "ok, $n item(ns)")
         return json(200, JSONObject().put("ok", true).put("apagados", n))
-    }
-
-    // ---------------------------------------------------------------- bloco 6: IA na nuvem
-
-    /** Estado da IA: provedor ativo e, para cada provedor, se tem chave (só os 4 últimos caracteres) e o modelo. */
-    private fun iaEstado(): Resposta {
-        val ativo = IaArmazem.provedor(app)
-        val lista = JSONArray()
-        for (p in ComandosIa.Provedor.values()) lista.put(JSONObject()
-            .put("id", p.id).put("nome", p.nome).put("modeloPadrao", p.modeloPadrao)
-            .put("chave", IaArmazem.finalDaChave(app, p) ?: JSONObject.NULL)   // nunca a chave
-            .put("modelo", IaArmazem.modelo(app, p)))
-        return json(200, JSONObject()
-            .put("ligada", IaArmazem.ligada(app))
-            .put("provedor", ativo.id)
-            .put("chave", IaArmazem.finalDaChave(app, ativo) ?: JSONObject.NULL)
-            .put("modelo", IaArmazem.modelo(app, ativo))
-            .put("provedores", lista))
-    }
-
-    /** O provedor pedido no corpo ("provedor"), ou o ativo se não vier. Null = id desconhecido. */
-    private fun provedorDo(o: JSONObject): ComandosIa.Provedor? {
-        val id = o.optString("provedor")
-        return if (id.isEmpty()) IaArmazem.provedor(app) else ComandosIa.Provedor.porId(id)
-    }
-
-    /**
-     * Cadastrar ou apagar a chave exige o PIN redigitado (quem trocar a chave escolhe para onde vão os pedidos).
-     * Provedor: o do corpo; sem ele, detectado pelo começo da chave (sk-ant-, sk-, pplx-, AQ./AIza); sem detecção, o ativo.
-     * Se o provedor ativo ainda não tem chave, o ativo passa a ser este (colar a 1ª chave já deixa pronto).
-     */
-    private fun iaChave(req: Requisicao, token: String?, ip: String): Resposta {
-        if (!sessoes.elevada(token)) return precisaPin()
-        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
-        if (o.optBoolean("apagar")) {
-            val p = provedorDo(o) ?: return erro(400, "provedor desconhecido")
-            IaArmazem.definirChave(app, null, p)
-            PainelArmazem.registrar(app, ip, "IA: apagar chave ${p.id}", "ok")
-            return json(200, JSONObject().put("ok", true))
-        }
-        val chave = ComandosIa.limparChave(o.optString("chave"))
-        val p = (if (o.optString("provedor").isEmpty()) ComandosIa.Provedor.detectar(chave) else null)
-            ?: provedorDo(o) ?: return erro(400, "provedor desconhecido")
-        // A mensagem diz o formato esperado e o tamanho recebido, nunca a chave.
-        if (!ComandosIa.chaveValida(chave)) return erro(400, "isso não parece uma chave de API (esperado de 20 a 300 letras, " +
-            "números, . - _, sem espaço; recebi ${chave.length} caracteres)")
-        if (!IaArmazem.definirChave(app, chave, p)) return erro(500, "não consegui guardar a chave na TV")
-        if (!IaArmazem.temChave(app)) IaArmazem.definirProvedor(app, p)
-        // Aviso, não bloqueio: o formato das chaves muda (ex.: Google "AQ."); a 1ª chamada é o teste real.
-        val det = ComandosIa.Provedor.detectar(chave)
-        val aviso = if (det != null && det != p) "a chave parece ser do ${det.nome}, mas foi guardada no ${p.nome}" else null
-        PainelArmazem.registrar(app, ip, "IA: cadastrar chave ${p.id} ${IaArmazem.finalDaChave(app, p)}", "ok")
-        return json(200, JSONObject().put("ok", true).put("provedor", p.id).put("chave", IaArmazem.finalDaChave(app, p))
-            .put("aviso", aviso ?: JSONObject.NULL))
-    }
-
-    private fun iaModelo(req: Requisicao, ip: String): Resposta {
-        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
-        val p = provedorDo(o) ?: return erro(400, "provedor desconhecido")
-        val m = o.optString("modelo").trim()
-        if (!IaArmazem.definirModelo(app, m, p)) return erro(400, "nome de modelo inválido")
-        PainelArmazem.registrar(app, ip, "IA: modelo ${p.id} $m", "ok")
-        return json(200, JSONObject().put("ok", true).put("modelo", m))
-    }
-
-    /** Trocar o provedor ativo. Sem PIN de novo: só escolhe entre chaves que o dono já cadastrou com PIN. */
-    private fun iaProvedor(req: Requisicao, ip: String): Resposta {
-        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
-        val p = ComandosIa.Provedor.porId(o.optString("provedor")) ?: return erro(400, "provedor desconhecido")
-        IaArmazem.definirProvedor(app, p)
-        PainelArmazem.registrar(app, ip, "IA: provedor ${p.id}", "ok")
-        return json(200, JSONObject().put("ok", true).put("provedor", p.id).put("temChave", IaArmazem.temChave(app, p)))
-    }
-
-    private fun iaPedir(req: Requisicao, ip: String): Resposta {
-        val frase = corpoJson(req)?.optString("frase") ?: return erro(400, "JSON inválido")
-        val p = PedidoIa.pedir(app, frase, ip)
-        // A frase não vai para o registro (pode ser pessoal); só o tamanho.
-        PainelArmazem.registrar(app, ip, "IA: pedido de ${p.frase.length} caractere(s)", if (p.situacao == PedidoIa.Situacao.ERRO) p.mensagem else "enviado")
-        return if (p.situacao == PedidoIa.Situacao.ERRO) erro(409, p.mensagem) else json(200, p.json())
     }
 
     // ---------------------------------------------------------------- bloco C: tela, controle, ações de app
