@@ -321,6 +321,17 @@ object PainelWeb {
             "/api/tela/tecla" -> if (req.metodo == "POST") return tecla(req)
             "/api/tela/texto" -> if (req.metodo == "POST") return texto(req, ip)
             "/api/tv/reiniciar" -> if (req.metodo == "POST") return reiniciarTv(token, ip)
+            "/api/rede/historico" -> if (req.metodo == "GET")
+                return json(200, HistoricoRede.json(app, req.consulta["horas"]?.toIntOrNull() ?: 24))
+            "/api/tv/autodesligar" -> when (req.metodo) {
+                "GET" -> return autoDesligar()
+                "POST" -> {
+                    val min = corpoJson(req)?.optInt("minutos", -1) ?: return erro(400, "JSON inválido")
+                    if (!AutoDesligar.definir(app, min)) return erro(400, "opção inválida")
+                    PainelArmazem.registrar(app, ip, "desligar sozinha: " + (if (min == 0) "nunca" else "$min min"), "ok")
+                    return autoDesligar()
+                }
+            }
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
             // IA na nuvem (bloco 6, PedidoIa.kt). Ligar a IA não tem rota: só pelas Configurações, na TV.
             "/api/ia" -> if (req.metodo == "GET") return iaEstado()
@@ -627,6 +638,11 @@ object PainelWeb {
         PainelArmazem.registrar(app, ip, "digitar ${t.length} caractere(s)", motivo ?: "ok")
         return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
     }
+
+    private fun autoDesligar() = json(200, JSONObject()
+        .put("minutos", AutoDesligar.minutos(app))
+        .put("opcoes", org.json.JSONArray(AutoDesligar.OPCOES))
+        .put("ultimoDesligamento", AutoDesligar.ultimoDesligamento))
 
     private fun reiniciarTv(token: String?, ip: String): Resposta {
         if (!sessoes.elevada(token)) return precisaPin()

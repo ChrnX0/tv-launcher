@@ -188,11 +188,37 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Timer (ver Timer.kt): atende o "criar timer" do Android que o Gemini manda ("Ok Google, timer de 10 minutos").
+             Nesta TV o outro que atende é um stub de fábrica com prioridade -1, então o nosso vence sem perguntar. -->
+        <activity
+            android:name=".TimerActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SET_TIMER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <!-- Previsão do tempo em tela cheia (abre no OK do clima, no topo) -->
         <activity
             android:name=".PrevisaoActivity"
             android:exported="false"
             android:label="Previsão" />
+        <!-- "Bom dia": como o Boletim do Tempo, mas fala antes a saudação e a hora e, depois, a agenda de hoje
+             ("Ok Google, abrir Bom dia"). É também o que o despertador abre ao apertar Parar (ver AlarmeTocandoActivity). -->
+        <activity-alias
+            android:name=".BomDia"
+            android:exported="true"
+            android:label="Bom dia"
+            android:targetActivity=".PrevisaoActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- "Boletim do Tempo": um segundo "app" no menu da TV que abre a previsão e a lê em voz alta.
              Existe para o Google Assistant abrir por voz ("Ok Google, abrir Boletim do Tempo"). O launcher não o mostra na linha de apps. -->
         <activity-alias
@@ -206,6 +232,73 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <!-- Atalhos de voz (ver AtalhoVozActivity): cada alias é um "app" com nome falável, para o Gemini abrir
+             ("Ok Google, abrir Desligar em 30 minutos"). A tela não desenha nada: faz o comando e fecha. -->
+        <activity
+            android:name=".AtalhoVozActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity-alias
+            android:name=".VozDesligar30"
+            android:exported="true"
+            android:label="Desligar em 30 minutos"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozDesligar60"
+            android:exported="true"
+            android:label="Desligar em 1 hora"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozNaoDesligar"
+            android:exported="true"
+            android:label="Não desligar a TV"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozDiagnostico"
+            android:exported="true"
+            android:label="Diagnóstico da TV"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozAgenda"
+            android:exported="true"
+            android:label="Minha agenda"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <!-- Os dois alarmes do "desligar em X min" (aviso 1 min antes e a hora de apagar). Só o próprio app chama. -->
+        <receiver
+            android:name=".DesligamentoReceiver"
+            android:exported="false" />
         <!-- Agenda do perfil ativo (abre no OK da data do topo) -->
         <activity
             android:name=".CalendarioActivity"
@@ -273,6 +366,8 @@
                 <!-- IA na nuvem: testar a confirmação sem chave e ver o estado (só adb, ver PedidoIa). -->
                 <action android:name="br.paulo.tvlauncher.IA_TESTE" />
                 <action android:name="br.paulo.tvlauncher.IA_ESTADO" />
+                <!-- Desligar sozinha: ver/definir/testar o aviso (testes). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.AUTO_DESLIGAR" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama
