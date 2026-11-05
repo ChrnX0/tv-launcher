@@ -65,7 +65,7 @@ class MainActivity : Activity() {
             val daFrente: Item get() = itens[frente]
             val titulo: String get() = itens.joinToString(" + ") { it.nome }
         }
-        class Ocultos(val itens: List<Item>) : Entrada(TOKEN_OCULTOS, "Ocultos (${itens.size})")
+        class Ocultos(val itens: List<Item>, nome: String) : Entrada(TOKEN_OCULTOS, nome)
     }
 
     private val ui = Handler(Looper.getMainLooper())          // roda código na thread da tela
@@ -283,8 +283,8 @@ class MainActivity : Activity() {
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
         }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
         blocoHora.addView(TextClock(this).apply {
-            format12Hour = "EEEE, d 'de' MMMM"
-            format24Hour = "EEEE, d 'de' MMMM"
+            format12Hour = getString(R.string.fmt_data_longa)
+            format24Hour = getString(R.string.fmt_data_longa)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             maxLines = 1   // "segunda-feira, 2 de novembro" quebrava em 2 linhas: encolhe a letra até caber (mín. 12 sp)
             setAutoSizeTextTypeUniformWithConfiguration(12, 16, 1, TypedValue.COMPLEX_UNIT_SP)
@@ -489,7 +489,7 @@ class MainActivity : Activity() {
             }
         }
         return FrameLayout(this).apply {
-            contentDescription = "Perfil"
+            contentDescription = getString(R.string.home_perfil)
             isFocusable = true
             isClickable = true
             setPadding(dp(3), dp(3), dp(3), dp(3))
@@ -543,7 +543,7 @@ class MainActivity : Activity() {
             }
         }
     }.apply {
-        contentDescription = "Painel do Google"
+        contentDescription = getString(R.string.home_painel_google)
         isFocusable = true
         isClickable = true
         background = anel(false)
@@ -599,10 +599,10 @@ class MainActivity : Activity() {
     /** Modo visita: o OK na bolinha pergunta se é para sair. O foco começa em "Continuar", para não sair sem querer. */
     private fun perguntarSairDaVisita() {
         val dialogo = AlertDialog.Builder(this)
-            .setTitle("Modo visita ligado")
-            .setMessage("O perfil, a agenda e os apps escolhidos estão escondidos. Sair do modo visita?")
-            .setNegativeButton("Continuar", null)
-            .setPositiveButton("Sair") { _, _ ->
+            .setTitle(getString(R.string.home_visita_titulo))
+            .setMessage(getString(R.string.home_visita_msg))
+            .setNegativeButton(getString(R.string.home_continuar), null)
+            .setPositiveButton(getString(R.string.home_sair)) { _, _ ->
                 ModoVisita.definir(this, false)
                 atualizarFotoPerfil()
                 reorganizar()   // os apps já estão carregados: só refaz a linha
@@ -716,7 +716,7 @@ class MainActivity : Activity() {
             }
         }
         val escondidos = todos.filter { it.pacote in ocultos }.sortedBy { it.nome.lowercase() }
-        if (escondidos.isNotEmpty() && !naVisita) entradas.add(Entrada.Ocultos(escondidos))
+        if (escondidos.isNotEmpty() && !naVisita) entradas.add(Entrada.Ocultos(escondidos, getString(R.string.home_ocultos, escondidos.size)))
         return entradas
     }
 
@@ -1068,7 +1068,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             addView(texto(24f, Color.WHITE, fonteLeve).apply {
-                text = if (ehOcultos) "Apps ocultos" else "Qual app sai do grupo?"
+                text = if (ehOcultos) getString(R.string.cfg_sec_ocultos) else getString(R.string.home_qual_sai)
                 gravity = Gravity.CENTER
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
@@ -1076,8 +1076,8 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             addView(barra, LinearLayout.LayoutParams(MATCH, WRAP))
             addView(texto(13f, textoSuave).apply {
-                text = if (ehOcultos) "OK abre  ·  segure OK para mostrar na tela inicial  ·  Voltar fecha"
-                       else "OK escolhe o app a remover  ·  Voltar fecha"
+                text = if (ehOcultos) getString(R.string.home_ocultos_dica)
+                       else getString(R.string.home_remover_dica)
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(MATCH, WRAP))
         }
@@ -1107,10 +1107,10 @@ class MainActivity : Activity() {
     /** Pergunta antes de tirar [app] da [pilha]. O foco começa em "Cancelar": confirmar exige escolher "Remover". */
     private fun confirmarRemocao(app: Item, pilha: Entrada.Pilha) {
         val dialogo = AlertDialog.Builder(this)
-            .setTitle("Remover ${app.nome} do grupo?")
-            .setMessage("Ele volta a ser um card solto.")
-            .setNegativeButton("Cancelar", null)
-            .setPositiveButton("Remover") { _, _ ->
+            .setTitle(getString(R.string.home_remover_titulo, app.nome))
+            .setMessage(getString(R.string.home_remover_msg))
+            .setNegativeButton(getString(R.string.comum_cancelar), null)
+            .setPositiveButton(getString(R.string.home_remover)) { _, _ ->
                 Organizacao.tirarDaPilha(this, app.pacote)
                 fecharPasta()
                 reorganizar()
@@ -1173,11 +1173,11 @@ class MainActivity : Activity() {
         val opcoes = mutableListOf<Opcao>()
         if (pastaToken == TOKEN_OCULTOS) {
             titulo = nomeDe(token)
-            opcoes += Opcao("Mostrar na tela inicial") { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
+            opcoes += Opcao(getString(R.string.home_mostrar)) { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
         } else if (pastaToken == null && entrada is Entrada.Pilha) {
             titulo = entrada.titulo
-            opcoes += Opcao("Mover") { iniciarMover(token, porSegurar = false) }
-            opcoes += Opcao("Remover cards do grupo") { abrirPasta(entrada, remover = true) }
+            opcoes += Opcao(getString(R.string.home_mover)) { iniciarMover(token, porSegurar = false) }
+            opcoes += Opcao(getString(R.string.home_remover_cards)) { abrirPasta(entrada, remover = true) }
         } else {
             return
         }
@@ -1381,10 +1381,10 @@ class MainActivity : Activity() {
         }
         val alvo = alvoDeEmpilhar()
         txtDica.text = when {
-            alvo is Entrada.Pilha -> "OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
-            alvo != null -> "OK forma a pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
-            arrastado is Entrada.App -> "◀ ▶ mover · OK confirma · Voltar cancela · ▲ ocultar · ▼ ordem automática"
-            else -> "◀ ▶ mover · OK confirma · Voltar cancela · ▼ ordem automática"
+            alvo is Entrada.Pilha -> getString(R.string.home_mover_pilha)
+            alvo != null -> getString(R.string.home_mover_forma)
+            arrastado is Entrada.App -> getString(R.string.home_mover_app)
+            else -> getString(R.string.home_mover_dica)
         }
         txtDica.visibility = View.VISIBLE
     }
@@ -1474,9 +1474,9 @@ class MainActivity : Activity() {
                     if (p >= 40) { primeira = i; picoChuva = p; break }
                 }
                 val textoLinha = when {
-                    chovendoAgora -> "Chovendo agora"
-                    primeira == 0 -> "$descricao - Chuva $picoChuva% neste momento"
-                    primeira > 0 -> "$descricao - Chuva $picoChuva% em $primeira h"
+                    chovendoAgora -> getString(R.string.home_chovendo)
+                    primeira == 0 -> getString(R.string.home_chuva_agora, descricao, picoChuva)
+                    primeira > 0 -> getString(R.string.home_chuva_em, descricao, picoChuva, primeira)
                     else -> descricao
                 }
                 // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol

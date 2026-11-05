@@ -32,7 +32,7 @@ object Rede {
         val ms = latenciaMs()
 
         val temSinal = dbm in -126..-1
-        val nome = nomeDaRede(info?.ssid) ?: if (temSinal) "Wi-Fi" else "Rede"
+        val nome = nomeDaRede(info?.ssid) ?: if (temSinal) "Wi-Fi" else txt(R.string.cfg_sec_rede)
 
         val nivelSinal = when {
             !temSinal -> 0

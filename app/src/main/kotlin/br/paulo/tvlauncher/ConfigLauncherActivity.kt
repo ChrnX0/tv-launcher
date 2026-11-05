@@ -85,8 +85,8 @@ class ConfigLauncherActivity : Activity() {
     } catch (e: Exception) { false }
 
     private fun detalheVpn(): String =
-        if (Config.VPN_FIXA.isEmpty()) (if (vpnAtiva()) "conectada" else "nenhuma") + " — o launcher não fixa VPN"
-        else (if (vpnAtiva()) "conectada" else "desconectada") + " — app AdGuard VPN, sempre ativa · OK abre o app"
+        if (Config.VPN_FIXA.isEmpty()) (if (vpnAtiva()) getString(R.string.cfg_vpn_conectada) else getString(R.string.cfg_vpn_nenhuma)) + getString(R.string.cfg_vpn_nao_fixa)
+        else (if (vpnAtiva()) getString(R.string.cfg_vpn_conectada) else getString(R.string.cfg_vpn_desconectada)) + getString(R.string.cfg_vpn_adguard)
 
     // ---------------------------------------------------------------- tela
 
@@ -96,7 +96,7 @@ class ConfigLauncherActivity : Activity() {
             background = resources.getDrawable(R.drawable.fundo, theme)
             setPadding(dp(96), dp(48), dp(96), dp(32))
         }
-        raiz.addView(texto(36f, textoClaro, fonteLeve).apply { text = "Configurações do launcher" })
+        raiz.addView(texto(36f, textoClaro, fonteLeve).apply { text = getString(R.string.cfg_titulo) })
 
         val lista = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -117,7 +117,7 @@ class ConfigLauncherActivity : Activity() {
         })
 
         // ---- Diagnóstico de 1 botão (04/11/2026): a 1ª linha, para ser o OK mais rápido quando "o app parou".
-        val linhaDiagnostico = linha("Diagnosticar a TV", "internet, DNS, VPN e por que um app parou — tudo de uma vez") {
+        val linhaDiagnostico = linha(getString(R.string.cfg_diag), getString(R.string.cfg_diag_det)) {
             startActivity(Intent(this, DiagnosticoActivity::class.java))
         }
         adicionar(linhaDiagnostico)
@@ -125,37 +125,37 @@ class ConfigLauncherActivity : Activity() {
         linhaDiagnostico.post { linhaDiagnostico.requestFocus() }
 
         // ---- Aparência: o mesmo "trocar tema" que já existia no popup, só realocado para cá.
-        secao("Aparência")
+        secao(getString(R.string.cfg_sec_aparencia))
         lateinit var linhaTema: TextView
-        linhaTema = linha("Tema: ${Tema.atual(this).nome}", "muda para o próximo visual") {
+        linhaTema = linha(getString(R.string.cfg_tema, Tema.atual(this).nome), getString(R.string.cfg_tema_det)) {
             Tema.proximo(this)
-            linhaTema.text = "Tema: ${Tema.atual(this).nome}"
+            linhaTema.text = getString(R.string.cfg_tema, Tema.atual(this).nome)
             // A MainActivity só relê o tema no onCreate: ela mesma percebe a troca e se recria ao voltar (ver onResume lá).
         }
         adicionar(linhaTema)
         // Pilhas automáticas (05/11/2026, Organizacao.agruparPorCategoria): a HOME relê ao voltar (preencherApps no onResume).
         lateinit var linhaPilhas: TextView
-        fun detalhePilhas() = if (Organizacao.pilhasAutomaticas(this)) "ligadas: apps soltos juntam pela categoria (vídeo, música, jogo…) · OK desliga"
-            else "desligadas · OK liga (as pilhas que você montou continuam)"
-        linhaPilhas = linha("Pilhas automáticas", detalhePilhas()) {
+        fun detalhePilhas() = if (Organizacao.pilhasAutomaticas(this)) getString(R.string.cfg_pilhas_on)
+            else getString(R.string.cfg_pilhas_off)
+        linhaPilhas = linha(getString(R.string.cfg_pilhas), detalhePilhas()) {
             Organizacao.definirPilhasAutomaticas(this, !Organizacao.pilhasAutomaticas(this))
             linhaPilhas.detalhe(detalhePilhas())
         }
         adicionar(linhaPilhas)
 
         // ---- Descanso de tela: OK passa para a próxima opção da lista (mesmo jeito do tema), e grava na hora.
-        secao("Descanso de tela")
+        secao(getString(R.string.cfg_sec_descanso))
         val opcoes = listOf(60_000, 5 * 60_000, 10 * 60_000, 15 * 60_000, 30 * 60_000, Int.MAX_VALUE)
-        fun rotuloTempo(ms: Int) = if (ms == Int.MAX_VALUE) "Nunca" else "${ms / 60_000} min"
+        fun rotuloTempo(ms: Int) = if (ms == Int.MAX_VALUE) getString(R.string.cfg_nunca) else getString(R.string.cfg_min, ms / 60_000)
         lateinit var linhaDescanso: TextView
-        linhaDescanso = linha("Iniciar após: ${rotuloTempo(PrivilegioDO.tempoDescanso(this))}", "OK muda o tempo parado até o protetor aparecer") {
+        linhaDescanso = linha(getString(R.string.cfg_iniciar_apos, rotuloTempo(PrivilegioDO.tempoDescanso(this))), getString(R.string.cfg_descanso_det)) {
             val atual = PrivilegioDO.tempoDescanso(this)
             // Próxima opção depois da atual; se o valor atual não estiver na lista (mudado por fora), começa da primeira.
             val proximo = opcoes[(opcoes.indexOf(atual) + 1) % opcoes.size]
             if (PrivilegioDO.definirTempoDescanso(this, proximo)) {
-                linhaDescanso.montarLinha("Iniciar após: ${rotuloTempo(proximo)}", "OK muda o tempo parado até o protetor aparecer")
+                linhaDescanso.montarLinha(getString(R.string.cfg_iniciar_apos, rotuloTempo(proximo)), getString(R.string.cfg_descanso_det))
             } else {
-                linhaDescanso.detalhe("não consegui gravar (Device Owner inativo?)")
+                linhaDescanso.detalhe(getString(R.string.cfg_nao_gravou_do))
             }
         }
         adicionar(linhaDescanso)
@@ -174,19 +174,19 @@ class ConfigLauncherActivity : Activity() {
 
         // ---- Modo visita (ModoVisita.kt): esconde perfil, agenda e os apps marcados abaixo, até desligar.
         // Na HOME, com o modo ligado, o OK na bolinha do perfil oferece "Sair" (o popup não abre).
-        secao("Modo visita")
+        secao(getString(R.string.cfg_visita))
         lateinit var linhaVisita: TextView
         fun detalheVisita() = if (ModoVisita.ativo(this))
-            "ligado — perfil, agenda e os apps marcados abaixo estão escondidos · OK desliga"
-        else "desligado — OK esconde o perfil, a agenda e os apps marcados abaixo"
-        linhaVisita = linha("Modo visita", detalheVisita()) {
+            getString(R.string.cfg_visita_on)
+        else getString(R.string.cfg_visita_off)
+        linhaVisita = linha(getString(R.string.cfg_visita), detalheVisita()) {
             ModoVisita.definir(this, !ModoVisita.ativo(this))
             linhaVisita.detalhe(detalheVisita())
             // A HOME relê o modo no onResume (bolinha e apps), então não precisa avisar nada a ela.
         }
         adicionar(linhaVisita)
         // Rotinas por horário (05/11/2026): ligar, abrir um app ou desligar sozinha (ver Rotinas.kt).
-        adicionar(linha("Rotinas", "ligar, abrir um app ou desligar a TV num horário") {
+        adicionar(linha(getString(R.string.cfg_rotinas), getString(R.string.cfg_rotinas_det)) {
             startActivity(Intent(this, RotinasActivity::class.java))
         })
         val listaVisita = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -194,20 +194,20 @@ class ConfigLauncherActivity : Activity() {
         carregarAppsDaVisita(listaVisita)
 
         // ---- Atualização (Atualizador.kt): o launcher confere o GitHub a cada 6 h e instala sozinho com a tela apagada.
-        secao("Atualização")
+        secao(getString(R.string.cfg_sec_atualizacao))
         lateinit var linhaAtualiza: TextView
-        linhaAtualiza = linha("Procurar versão nova", "versão ${versaoInstalada()} · ${Atualizador.estado(this)} · OK procura agora") {
-            linhaAtualiza.detalhe("procurando no GitHub…")
+        linhaAtualiza = linha(getString(R.string.cfg_atualizar), getString(R.string.cfg_atualizar_det, versaoInstalada().toString(), Atualizador.estado(this))) {
+            linhaAtualiza.detalhe(getString(R.string.cfg_procurando))
             // OK = a pessoa pediu: instala na hora se houver (o launcher reinicia sozinho no fim).
             Atualizador.verificar(this, instalar = true) { r -> runOnUiThread { linhaAtualiza.detalhe(r) } }
         }
         adicionar(linhaAtualiza)
 
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
-        secao("Rede")
+        secao(getString(R.string.cfg_sec_rede))
         // Se o DNS fixo caiu e o launcher voltou para o automático (Dns.voltarAoAutomaticoSeQuebrado), avisa aqui.
         val caiu = Dns.servidorQueCaiu(this)
-        adicionar(linha("DNS privado", Dns.rotulo(this) + (if (caiu != null) " · $caiu não respondeu, voltei para o automático" else "")) {
+        adicionar(linha(getString(R.string.cfg_dns), Dns.rotulo(this) + (if (caiu != null) getString(R.string.cfg_dns_caiu, caiu) else "")) {
             startActivity(Intent(this, DnsActivity::class.java))
         })
         adicionar(linha("VPN", detalheVpn()) {
@@ -217,8 +217,8 @@ class ConfigLauncherActivity : Activity() {
             if (abrir != null) startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         })
         lateinit var linhaVelocidade: TextView
-        linhaVelocidade = linha("Testar velocidade da internet", "baixa 25 MB e mede") {
-            linhaVelocidade.detalhe("Testando…")
+        linhaVelocidade = linha(getString(R.string.cfg_velocidade), getString(R.string.cfg_velocidade_det)) {
+            linhaVelocidade.detalhe(getString(R.string.cfg_testando))
             trabalho.execute {
                 val r = Velocidade.medir()
                 ui.post { if (!isDestroyed) linhaVelocidade.detalhe(r) }
@@ -242,17 +242,17 @@ class ConfigLauncherActivity : Activity() {
         // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
         // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
         if (Config.APPS_OCULTAR.isNotEmpty()) {
-            secao("Apps ocultos")
+            secao(getString(R.string.cfg_sec_ocultos))
             Config.APPS_OCULTAR.forEach { pacote ->
                 val rotulo = try {
                     packageManager.getApplicationLabel(packageManager.getApplicationInfo(pacote, 0)).toString()
                 } catch (e: Exception) { pacote }
                 lateinit var linhaApp: TextView
-                fun detalheApp() = if (PrivilegioDO.estaOculto(this, pacote)) "oculto — OK mostra" else "visível — OK oculta"
+                fun detalheApp() = if (PrivilegioDO.estaOculto(this, pacote)) getString(R.string.cfg_oculto) else getString(R.string.cfg_visivel)
                 linhaApp = linha(rotulo, detalheApp()) {
                     val ocultoAntes = PrivilegioDO.estaOculto(this, pacote)
                     if (PrivilegioDO.ocultar(this, pacote, !ocultoAntes)) linhaApp.detalhe(detalheApp())
-                    else linhaApp.detalhe("não consegui mudar (Device Owner inativo?)")
+                    else linhaApp.detalhe(getString(R.string.cfg_nao_mudou_do))
                 }
                 adicionar(linhaApp)
             }
@@ -370,36 +370,36 @@ class ConfigLauncherActivity : Activity() {
 
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         // Modo sem Device Owner (Recursos.kt): cada poder com ligado/faltando; OK num que falta tenta ligar sem PC.
-        secao("O que está ligado — " + Recursos.resumo(this))
+        secao(getString(R.string.cfg_sec_ligado, Recursos.resumo(this)))
         for (r in Recursos.listar(this)) {
-            val detalhe = if (r.ativo) "ligado" else r.sem + when (r.pedir) {
-                null -> " · só com computador (adb)"
-                else -> " · OK tenta ligar"
+            val detalhe = if (r.ativo) getString(R.string.cfg_ligado) else r.sem + when (r.pedir) {
+                null -> getString(R.string.cfg_so_pc)
+                else -> getString(R.string.cfg_tenta_ligar)
             }
             adicionar(if (r.ativo || r.pedir == null) info((if (r.ativo) "✓ " else "✗ ") + r.nome, detalhe)
                 else linha("✗ " + r.nome, detalhe) { ligarRecurso(r) })
         }
         if (PrivilegioDO.somosDonos(this))
-            adicionar(info("Permissões fixas concedidas", Config.PERMISSOES_FIXAS.joinToString { it.substringAfterLast('.') }))
+            adicionar(info(getString(R.string.cfg_perm_fixas), Config.PERMISSOES_FIXAS.joinToString { it.substringAfterLast('.') }))
 
         // ---- Shizuku embutido (MARCO S2): estado do servidor e os apps que pediram acesso a ele. OK num app alterna
         // entre permitido e revogado. A lista é lida do servidor (binder) fora da thread da tela.
-        secao("Shizuku do launcher")
+        secao(getString(R.string.cfg_sec_shizuku))
         lateinit var linhaServidor: TextView
         // Desligado por padrão (04/11/2026, memória): só fica de pé quando alguém liga aqui (e continua ligado no boot).
         // 04/11/2026: três modos (ver Config.ModoShizuku). O OK passa ao próximo: sob demanda -> sempre ligado -> desligado.
         fun detalheServidor(): String {
             val modo = Config.modoShizuku(this)
             val agora = if (rikka.shizuku.Shizuku.pingBinder())
-                "rodando (uid ${rikka.shizuku.Shizuku.getUid()}, versão ${rikka.shizuku.Shizuku.getVersion()})" else "parado"
+                getString(R.string.cfg_shz_rodando, rikka.shizuku.Shizuku.getUid(), rikka.shizuku.Shizuku.getVersion()) else getString(R.string.cfg_shz_parado)
             val explica = when (modo) {
-                Config.ModoShizuku.SOB_DEMANDA -> "sobe quando um app pede, desce após 5 min sem uso"
-                Config.ModoShizuku.SEMPRE -> "sempre de pé, religa se cair"
-                Config.ModoShizuku.DESLIGADO -> "não sobe"
+                Config.ModoShizuku.SOB_DEMANDA -> getString(R.string.cfg_shz_sob)
+                Config.ModoShizuku.SEMPRE -> getString(R.string.cfg_shz_sempre)
+                Config.ModoShizuku.DESLIGADO -> getString(R.string.cfg_shz_desligado)
             }
-            return "${modo.rotulo} ($explica) · agora: $agora — OK troca o modo"
+            return getString(R.string.cfg_shz_det, modo.rotulo, explica, agora)
         }
-        linhaServidor = linha("Servidor", detalheServidor()) {
+        linhaServidor = linha(getString(R.string.cfg_servidor), detalheServidor()) {
             when (Config.modoShizuku(this)) {
                 Config.ModoShizuku.SOB_DEMANDA -> ControleShizukuReceiver.ligar(this)   // pela fila do guardião
                 Config.ModoShizuku.SEMPRE -> ControleShizukuReceiver.desligar(this)
@@ -412,10 +412,10 @@ class ConfigLauncherActivity : Activity() {
         // Parear a depuração sem fio sem PC (ver PareamentoNaTv): abre as Opções do desenvolvedor com uma janela do
         // launcher por cima, que acha a porta sozinha e recebe o código pelo controle.
         lateinit var linhaParear: TextView
-        linhaParear = linha("Parear sem PC", if (PareamentoNaTv.podeMostrar(this))
-            "abre a tela de pareamento do Android com um teclado do launcher por cima"
-        else "o serviço de acessibilidade do launcher está desligado") {
-            if (!PareamentoNaTv.comecar(this)) linhaParear.detalhe("o serviço de acessibilidade do launcher está desligado")
+        linhaParear = linha(getString(R.string.cfg_parear), if (PareamentoNaTv.podeMostrar(this))
+            getString(R.string.cfg_parear_det)
+        else getString(R.string.cfg_acess_off)) {
+            if (!PareamentoNaTv.comecar(this)) linhaParear.detalhe(getString(R.string.cfg_acess_off))
         }
         adicionar(linhaParear)
         listaClientes =LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -423,19 +423,19 @@ class ConfigLauncherActivity : Activity() {
         carregarClientes()
 
         // ---- Diagnóstico: números úteis para saber se algo por trás dos panos está ok, sem precisar do logcat.
-        secao("Diagnóstico")
+        secao(getString(R.string.cfg_sec_diagnostico))
         val versao = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { null }
-        adicionar(info("Versão do launcher", versao ?: "desconhecida"))
-        adicionar(info("Depuração sem fio", if (Config.DEPURACAO_SEM_FIO_SEMPRE_LIGADA) "mantida ligada pelo launcher" else "como o Android deixar"))
+        adicionar(info(getString(R.string.cfg_versao), versao ?: getString(R.string.cfg_desconhecida)))
+        adicionar(info(getString(R.string.cfg_depuracao), if (Config.DEPURACAO_SEM_FIO_SEMPRE_LIGADA) getString(R.string.cfg_depuracao_on) else getString(R.string.cfg_depuracao_android)))
         // Fora da thread da tela (revisão 04/11): na 1ª vez isto GERA a chave RSA-2048 (segundos num ARMv7).
-        val linhaChave = info("Chave do shell próprio", "calculando…")
+        val linhaChave = info(getString(R.string.cfg_chave), getString(R.string.cfg_calculando))
         adicionar(linhaChave)
         trabalho.execute {
-            val fp = try { ShellProprio.impressaoDigital(this) } catch (e: Exception) { "erro: ${e.javaClass.simpleName}" }
+            val fp = try { ShellProprio.impressaoDigital(this) } catch (e: Exception) { getString(R.string.cfg_erro, e.javaClass.simpleName) }
             ui.post { if (!isDestroyed) linhaChave.detalhe(fp) }
         }
         // Licenças (05/11/2026): o texto fica em assets/licencas.txt, o mesmo que o repositório mostra.
-        adicionar(linha("Licenças e créditos", "código, fontes, ícones e dados de terceiros usados aqui") {
+        adicionar(linha(getString(R.string.cfg_licencas), getString(R.string.cfg_licencas_det)) {
             startActivity(Intent(this, LicencasActivity::class.java))
         })
 
@@ -472,7 +472,7 @@ class ConfigLauncherActivity : Activity() {
                 for ((pacote, rotulo) in apps) {
                     lateinit var linhaApp: TextView
                     fun detalheApp() = if (ModoVisita.escondeNaVisita(this, pacote))
-                        "some no modo visita — OK mantém" else "aparece no modo visita — OK esconde"
+                        getString(R.string.cfg_some_visita) else getString(R.string.cfg_aparece_visita)
                     linhaApp = linha(rotulo, detalheApp()) {
                         ModoVisita.alternar(this, pacote)
                         linhaApp.detalhe(detalheApp())
@@ -499,20 +499,20 @@ class ConfigLauncherActivity : Activity() {
                 if (isDestroyed) return@post
                 listaClientes.removeAllViews()
                 if (apps.isNullOrEmpty()) {
-                    listaClientes.addView(info("Apps com acesso", "nenhum app instalado pediu acesso ao Shizuku"))
+                    listaClientes.addView(info(getString(R.string.cfg_apps_acesso), getString(R.string.cfg_nenhum_pediu)))
                     return@post
                 }
                 for (pi in apps) {
                     val ai = pi.applicationInfo ?: continue
                     val rotulo = try { ai.loadLabel(packageManager).toString() } catch (e: Exception) { pi.packageName }
                     lateinit var linhaApp: TextView
-                    fun detalheApp() = if (AutorizacoesShizuku.permitido(ai.uid)) "permitido — OK revoga" else "sem acesso — OK permite"
+                    fun detalheApp() = if (AutorizacoesShizuku.permitido(ai.uid)) getString(R.string.cfg_permitido) else getString(R.string.cfg_sem_acesso)
                     linhaApp = linha(rotulo, detalheApp()) {
                         try {
                             if (AutorizacoesShizuku.permitido(ai.uid)) AutorizacoesShizuku.revogar(ai.uid)
                             else AutorizacoesShizuku.permitir(ai.uid)
                             linhaApp.detalhe(detalheApp())
-                        } catch (e: Throwable) { linhaApp.detalhe("não consegui mudar: ${e.javaClass.simpleName}") }
+                        } catch (e: Throwable) { linhaApp.detalhe(getString(R.string.cfg_nao_mudou, e.javaClass.simpleName)) }
                     }
                     listaClientes.addView(linhaApp, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) })
                 }

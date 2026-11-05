@@ -34,7 +34,7 @@ object Rotinas {
     private const val PREFS = "rotinas"
     const val EXTRA_ID = "rotina_id"
 
-    enum class Acao(val rotulo: String) { LIGAR("Ligar a TV"), ABRIR("Ligar e abrir um app"), DESLIGAR("Desligar a TV") }
+    enum class Acao(val rotulo: Int) { LIGAR(R.string.rot_ligar), ABRIR(R.string.rot_abrir_um), DESLIGAR(R.string.rot_desligar) }
 
     /** [ocioso]: só para DESLIGAR; minutos sem tecla do controle exigidos (0 = desliga de qualquer jeito). */
     data class Rotina(val id: Int, val hora: Int, val minuto: Int, val dias: Int, val acao: Acao,
@@ -167,12 +167,12 @@ object Rotinas {
     // ---------------------------------------------------------------- textos
 
     fun descricao(ctx: Context, r: Rotina): String = when (r.acao) {
-        Acao.LIGAR -> "Ligar a TV"
-        Acao.ABRIR -> "Ligar e abrir " + (rotuloApp(ctx, r.pacote) ?: "um app (escolha)")
-        Acao.DESLIGAR -> "Desligar a TV" + if (r.ocioso > 0) " se ninguém mexeu há ${ociosoTexto(r.ocioso)}" else ""
+        Acao.LIGAR -> ctx.getString(R.string.rot_ligar)
+        Acao.ABRIR -> ctx.getString(R.string.rot_abrir, rotuloApp(ctx, r.pacote) ?: ctx.getString(R.string.rot_um_app))
+        Acao.DESLIGAR -> ctx.getString(R.string.rot_desligar) + if (r.ocioso > 0) ctx.getString(R.string.rot_se_ocioso, ociosoTexto(ctx, r.ocioso)) else ""
     }
 
-    fun ociosoTexto(min: Int) = when { min <= 0 -> "sempre"; min % 60 == 0 -> "${min / 60} h"; else -> "$min min" }
+    fun ociosoTexto(ctx: Context, min: Int) = when { min <= 0 -> ctx.getString(R.string.rot_sempre); min % 60 == 0 -> "${min / 60} h"; else -> "$min min" }
 
     fun rotuloApp(ctx: Context, pacote: String): String? = if (pacote.isBlank()) null else try {
         ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pacote, 0)).toString()
