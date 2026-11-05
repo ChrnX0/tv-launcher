@@ -240,6 +240,10 @@ class ConfigLauncherActivity : Activity() {
             val fp = try { ShellProprio.impressaoDigital(this) } catch (e: Exception) { "erro: ${e.javaClass.simpleName}" }
             ui.post { if (!isDestroyed) linhaChave.detalhe(fp) }
         }
+        // Licenças (05/11/2026): o texto fica em assets/licencas.txt, o mesmo que o repositório mostra.
+        adicionar(linha("Licenças e créditos", "código, fontes, ícones e dados de terceiros usados aqui") {
+            startActivity(Intent(this, LicencasActivity::class.java))
+        })
 
         return raiz
     }
