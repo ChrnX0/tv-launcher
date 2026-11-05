@@ -136,6 +136,10 @@ class ConfigLauncherActivity : Activity() {
             // A HOME relê o modo no onResume (bolinha e apps), então não precisa avisar nada a ela.
         }
         adicionar(linhaVisita)
+        // Rotinas por horário (05/11/2026): ligar, abrir um app ou desligar sozinha (ver Rotinas.kt).
+        adicionar(linha("Rotinas", "ligar, abrir um app ou desligar a TV num horário") {
+            startActivity(Intent(this, RotinasActivity::class.java))
+        })
         val listaVisita = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         lista.addView(listaVisita, LinearLayout.LayoutParams(MATCH, WRAP))
         carregarAppsDaVisita(listaVisita)
