@@ -1,6 +1,7 @@
 package br.paulo.tvlauncher
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -43,7 +44,7 @@ class AlarmeTocandoActivity : Activity() {
             ui.postDelayed(this, 1200)
         }
     }
-    private val desistir = Runnable { parar() }
+    private val desistir = Runnable { parar(falar = false) }   // ninguém apareceu: sem "Bom dia" para a sala vazia
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -139,9 +140,15 @@ class AlarmeTocandoActivity : Activity() {
         bip = null
     }
 
-    private fun parar() {
+    private fun parar(falar: Boolean = true) {
         if (timer) { finish(); return }
+        val bomDia = Despertador.listar(this).firstOrNull { it.id == id }?.bomDia == true && falar
         Despertador.tocou(this, id)
+        // "Bom dia" (05/11/2026): abre a previsão, que fala a saudação, a hora, o tempo e a agenda de hoje.
+        // Só no Parar: a soneca (e o Voltar, que é soneca) não fala nada, a pessoa quer dormir mais 10 min.
+        if (bomDia) startActivity(Intent(this, PrevisaoActivity::class.java)
+            .putExtra(PrevisaoActivity.EXTRA_BOM_DIA, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         finish()
     }
 

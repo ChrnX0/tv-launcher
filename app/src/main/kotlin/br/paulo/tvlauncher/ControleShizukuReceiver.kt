@@ -34,11 +34,14 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
         const val RECADO = "br.paulo.tvlauncher.RECADO"   // recado na tela da TV (só adb; o painel usa /api/recado)
         const val CHUVA = "br.paulo.tvlauncher.CHUVA"     // verificar o aviso de chuva agora, ou simular (só adb, testes)
-        const val UNIFI = "br.paulo.tvlauncher.UNIFI"     // verificar aparelho novo no roteador agora (só adb, testes)
-        const val DEBLOAT = "br.paulo.tvlauncher.DEBLOAT"       // candidatos da limpeza e o estado deles (só adb)
-        const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
         const val ERROS = "br.paulo.tvlauncher.ERROS"           // listar o registro local de erros (só adb)
         const val TESTE_ERRO = "br.paulo.tvlauncher.TESTE_ERRO" // gravar um erro de teste no registro (só adb)
+        const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
+        const val DEBLOAT = "br.paulo.tvlauncher.DEBLOAT"       // candidatos da limpeza e o estado deles (só adb)
+        const val IA_TESTE = "br.paulo.tvlauncher.IA_TESTE"     // confirmação da IA com resposta falsa, sem nuvem (só adb)
+        const val IA_ESTADO = "br.paulo.tvlauncher.IA_ESTADO"   // situação da IA e do último pedido (só adb)
+        const val AUTO_DESLIGAR = "br.paulo.tvlauncher.AUTO_DESLIGAR"   // desligar sozinha: ver/definir/testar (só adb)
+        const val UNIFI = "br.paulo.tvlauncher.UNIFI"     // verificar aparelho novo no roteador agora (só adb, testes)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -98,6 +101,21 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     }.start()
                 }
             }
+            // Só pelo adb: testa a tela de confirmação e a execução SEM nuvem e sem chave. A "resposta" faz o papel do
+            // JSON da IA e passa pela mesma conferência (ComandosIa.conferir). Ex.:
+            //   am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "abre a previsão"
+            //     --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}'
+            //     -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+            IA_TESTE -> if (this is ControleShizukuAdbReceiver) {
+                val r = intent.getStringExtra("resposta")
+                resultData = if (r == null) "falta --es resposta" else PedidoIa.pedir(ctx, intent.getStringExtra("frase") ?: "teste", "adb", r).let {
+                    "id=${it.id} situacao=${it.situacao} ${it.mensagem}"
+                }
+            }
+            IA_ESTADO -> if (this is ControleShizukuAdbReceiver) {
+                resultData = "ligada=${IaArmazem.ligada(ctx)} provedor=${IaArmazem.provedor(ctx).id} chave=${IaArmazem.finalDaChave(ctx) ?: "nenhuma"} modelo=${IaArmazem.modelo(ctx)} " +
+                    "ultimo=${PedidoIa.ultimo()?.json() ?: "nenhum"}"
+            }
             // Só chega pelo receiver do adb (o filtro de ROTULOS está só nele): o painel do PC pergunta o nome real
             // dos apps, que o adb não sabe dizer. Resposta: JSON {pacote: nome}.
             ROTULOS -> resultData = try {
@@ -135,6 +153,14 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     Thread { try { pendente.resultData = AvisoChuva.verificar(ctx) } finally { pendente.finish() } }.start()
                 }
             }
+            // Só pelo adb: desligar sozinha. Sem extras responde o valor atual. --ei minutos N grava (0, 30, 60, 90, 120,
+            // 180, 240); --ez aviso true mostra o aviso de 60 s agora (teste: deixe correr para a TV apagar, ou aperte
+            // um botão do controle para cancelar).
+            AUTO_DESLIGAR -> if (this is ControleShizukuAdbReceiver) {
+                if (intent.hasExtra("minutos")) AutoDesligar.definir(ctx, intent.getIntExtra("minutos", -1))
+                if (intent.getBooleanExtra("aviso", false)) { AutoDesligar.iniciar(ctx); AutoDesligar.testarAviso() }
+                resultData = "minutos=${AutoDesligar.minutos(ctx)}"
+            }
             UNIFI -> if (this is ControleShizukuAdbReceiver) {
                 val pendente = goAsync()   // HTTP: fora da thread principal
                 val antiga = intent.getBooleanExtra("antiga", false)   // --ez antiga true: testa a API antiga (sinal da TV)
@@ -146,15 +172,6 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }, 500)
-            }
-            // Só pelo adb (05/11/2026): para testar candidatos da limpeza (Debloat.kt) antes de liberá-los na TV.
-            DEBLOAT -> resultData = Debloat.relatorio(ctx)
-            // Só pelo adb (05/11/2026): sem extra, lista as rotinas e a próxima; com --ei id N, roda a rotina N agora.
-            ROTINA -> {
-                val id = intent.getIntExtra("id", 0)
-                if (id > 0) { Rotinas.rodar(ctx, id); resultData = "rodou $id" }
-                else resultData = Rotinas.paraJson(Rotinas.listar(ctx)) + " proxima=" + (Rotinas.proxima(ctx)?.let { "${it.first.id}@${it.second}" } ?: "nenhuma") +
-                    " semTecla=${Rotinas.minutosSemTecla()}min"
             }
             // Só pelo adb (05/11/2026): o registro local de erros (RegistroErros.kt). Resposta: um erro por linha.
             ERROS -> resultData = RegistroErros.listar(ctx).joinToString("\n") { "${it.arquivo.name} ${it.resumo}" }.ifEmpty { "nenhum" }
@@ -171,6 +188,15 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     resultData = "gravado"
                 }
             }
+            // Só pelo adb (05/11/2026): sem extra, lista as rotinas e a próxima; com --ei id N, roda a rotina N agora.
+            ROTINA -> {
+                val id = intent.getIntExtra("id", 0)
+                if (id > 0) { Rotinas.rodar(ctx, id); resultData = "rodou $id" }
+                else resultData = Rotinas.paraJson(Rotinas.listar(ctx)) + " proxima=" + (Rotinas.proxima(ctx)?.let { "${it.first.id}@${it.second}" } ?: "nenhuma") +
+                    " semTecla=${Rotinas.minutosSemTecla()}min"
+            }
+            // Só pelo adb (05/11/2026): para testar candidatos da limpeza (Debloat.kt) antes de liberá-los na TV.
+            DEBLOAT -> resultData = Debloat.relatorio(ctx)
         }
     }
 }

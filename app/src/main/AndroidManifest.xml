@@ -312,6 +312,19 @@
             android:name=".PrevisaoActivity"
             android:exported="false"
             android:label="Previsão" />
+        <!-- "Bom dia": como o Boletim do Tempo, mas fala antes a saudação e a hora e, depois, a agenda de hoje
+             ("Ok Google, abrir Bom dia"). É também o que o despertador abre ao apertar Parar (ver AlarmeTocandoActivity). -->
+        <activity-alias
+            android:name=".BomDia"
+            android:exported="true"
+            android:label="Bom dia"
+            android:targetActivity=".PrevisaoActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- "Boletim do Tempo": um segundo "app" no menu da TV que abre a previsão e a lê em voz alta.
              Existe para o Google Assistant abrir por voz ("Ok Google, abrir Boletim do Tempo"). O launcher não o mostra na linha de apps. -->
         <activity-alias
@@ -460,13 +473,18 @@
                 <action android:name="br.paulo.tvlauncher.UNIFI" />
                 <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />
-                <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
-                <action android:name="br.paulo.tvlauncher.DEBLOAT" />
-                <!-- Rotinas por horário: listar e rodar uma agora (05/11/2026). Só neste receiver (DUMP). -->
-                <action android:name="br.paulo.tvlauncher.ROTINA" />
                 <!-- Registro local de erros: listar e gravar um de teste (05/11/2026). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.ERROS" />
                 <action android:name="br.paulo.tvlauncher.TESTE_ERRO" />
+                <!-- Rotinas por horário: listar e rodar uma agora (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.ROTINA" />
+                <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.DEBLOAT" />
+                <!-- IA na nuvem: testar a confirmação sem chave e ver o estado (só adb, ver PedidoIa). -->
+                <action android:name="br.paulo.tvlauncher.IA_TESTE" />
+                <action android:name="br.paulo.tvlauncher.IA_ESTADO" />
+                <!-- Desligar sozinha: ver/definir/testar o aviso (testes). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.AUTO_DESLIGAR" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama
@@ -489,8 +507,18 @@
             android:name=".ResultadoDesinstalarReceiver"
             android:exported="false" />
 
-        <!-- Confirmação no controle do "Reconectar a TV" pedido pelo painel (UnifiCliente). Mesma receita da confirmação
-             do Shizuku: transparente, fora dos recentes, numa tarefa própria. -->
+        <!-- Confirmação NA TV de um pedido à IA na nuvem (bloco 6, ver PedidoIa.kt). Só o próprio launcher abre.
+             taskAffinity vazio: abre numa tarefa própria. Na tarefa da HOME, ela traria a HOME para a frente e, ao
+             fechar, a pessoa cairia na tela inicial em vez de voltar ao app que estava vendo (ex.: "pausa"). -->
+        <activity
+            android:name=".ConfirmarIaActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTop"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Confirmação no controle do "Reconectar a TV" pedido pelo painel (UnifiCliente). Mesma receita da ConfirmarIa. -->
         <activity
             android:name=".ConfirmarRoteadorActivity"
             android:exported="false"
