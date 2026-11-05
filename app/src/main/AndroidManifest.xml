@@ -312,6 +312,19 @@
             android:name=".PrevisaoActivity"
             android:exported="false"
             android:label="Previsão" />
+        <!-- "Bom dia": como o Boletim do Tempo, mas fala antes a saudação e a hora e, depois, a agenda de hoje
+             ("Ok Google, abrir Bom dia"). É também o que o despertador abre ao apertar Parar (ver AlarmeTocandoActivity). -->
+        <activity-alias
+            android:name=".BomDia"
+            android:exported="true"
+            android:label="Bom dia"
+            android:targetActivity=".PrevisaoActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- "Boletim do Tempo": um segundo "app" no menu da TV que abre a previsão e a lê em voz alta.
              Existe para o Google Assistant abrir por voz ("Ok Google, abrir Boletim do Tempo"). O launcher não o mostra na linha de apps. -->
         <activity-alias
