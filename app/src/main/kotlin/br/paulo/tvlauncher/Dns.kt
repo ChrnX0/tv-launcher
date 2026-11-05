@@ -119,7 +119,7 @@ object Dns {
         val host = e.host ?: return
         if (nomeDe(ctx, host) != null) return
         // Endereços "<código>.d.adguard-dns.com" são os perfis pessoais do AdGuard DNS: damos um nome legível.
-        val nome = if (host.endsWith(".d.adguard-dns.com")) "AdGuard (pessoal)" else "Personalizado (" + host.substringBefore('.') + ")"
+        val nome = if (host.endsWith(".d.adguard-dns.com")) ctx.getString(R.string.dns_adguard_pessoal) else ctx.getString(R.string.dns_personalizado, host.substringBefore('.'))
         salvar(ctx, Servidor(nome, host))
     }
 
@@ -131,8 +131,8 @@ object Dns {
         guardarAtualSeDesconhecido(ctx)   // dá nome ao servidor configurado por fora; senão o rodapé mostraria só o endereço
         val e = atual(ctx)
         return when (e.modo) {
-            Modo.AUTOMATICO -> "DNS: automático"
-            Modo.DESLIGADO -> "DNS: desligado"
+            Modo.AUTOMATICO -> "DNS: " + ctx.getString(R.string.dns_rot_auto)
+            Modo.DESLIGADO -> "DNS: " + ctx.getString(R.string.dns_rot_desl)
             Modo.HOST -> "DNS: " + (e.host?.let { nomeDe(ctx, it) ?: it } ?: "?")
         }
     }
