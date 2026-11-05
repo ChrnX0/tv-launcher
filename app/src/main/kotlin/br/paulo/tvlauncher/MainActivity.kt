@@ -607,6 +607,12 @@ class MainActivity : Activity() {
      * Transforma os apps instalados nos cards da linha: ordem (manual primeiro, depois automática),
      * pilhas (vários apps num card só) e, no fim, o card "Ocultos" se houver algum app oculto.
      */
+    /** Categoria que o app declara (ApplicationInfo.category; -1 = nenhuma). Guardada: não muda enquanto o app existir. */
+    private val categorias = HashMap<String, Int>()
+    private fun categoria(pacote: String): Int = categorias.getOrPut(pacote) {
+        try { packageManager.getApplicationInfo(pacote, 0).category } catch (e: Exception) { -1 }
+    }
+
     private fun montarEntradas(todos: List<Item>): MutableList<Entrada> {
         val ocultos = Organizacao.ocultos(this)
         // Modo visita (ModoVisita.kt): os apps escolhidos somem também, e o card "Apps ocultos" não aparece.
@@ -623,6 +629,22 @@ class MainActivity : Activity() {
             if (itens.size < 2) continue
             membros[pilha.id] = itens
             for (item in itens) pilhaDe[item.pacote] = pilha
+        }
+
+        // Pilhas AUTOMÁTICAS por categoria (Organizacao.agruparPorCategoria), se ligadas: só os apps que sobraram
+        // soltos. Os FIXOS ficam de fora (têm lugar próprio no começo). A frente é a escolhida com ▲ ou, sem escolha,
+        // o app usado mais recentemente.
+        if (Organizacao.pilhasAutomaticas(this)) {
+            val soltos = visiveis.filter { it.pacote !in pilhaDe && it.pacote !in Config.FIXOS }
+            val grupos = Organizacao.agruparPorCategoria(soltos.map { it.pacote to categoria(it.pacote) }, Organizacao.foraDaAuto(this))
+            val frentes = Organizacao.frentesAuto(this)
+            for ((id, pacotes) in grupos) {
+                val itens = pacotes.mapNotNull { porPacote[it] }
+                val frente = frentes[id]?.takeIf { it in pacotes } ?: pacotes.maxByOrNull { ultimoUso[it] ?: 0L }
+                val pilha = Organizacao.Pilha(id, pacotes.toMutableList(), frente)
+                membros[id] = itens
+                for (item in itens) pilhaDe[item.pacote] = pilha
+            }
         }
 
         // Lido fora da tela por preencherApps (queryAndAggregateUsageStats de 14 dias é caro); aqui só se usa o mapa.
@@ -1263,7 +1285,12 @@ class MainActivity : Activity() {
         if (alvo != null && card is Entrada.App) {
             // Congela a ordem de agora (com o arrastado onde estava) e junta: a pilha ocupa o lugar do alvo.
             Organizacao.salvarOrdem(this, lista.filter { it !is Entrada.Ocultos }.map { it.token })
-            ultimoToken = Organizacao.empilhar(this, card.token, alvo.token)
+            ultimoToken = if (alvo is Entrada.Pilha && alvo.id.startsWith(Organizacao.PREFIXO_AUTO)) {
+                // Soltar em cima de uma pilha automática: ela vira manual, já com o app novo na frente.
+                val token = Organizacao.criarPilha(this, alvo.itens.map { it.pacote } + card.token, card.token)
+                Organizacao.salvarOrdem(this, Organizacao.ordem(this).filter { it != card.token }.map { if (it == alvo.token) token else it })
+                token
+            } else Organizacao.empilhar(this, card.token, alvo.token)
         } else {
             Organizacao.salvarOrdem(this, listaMovendo().filter { it !is Entrada.Ocultos }.map { it.token })
         }
