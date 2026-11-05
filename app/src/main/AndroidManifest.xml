@@ -30,6 +30,8 @@
         tools:ignore="ProtectedPermissions" />
     <!-- Abrir um app quando a TV reinicia -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Atualizador.kt: instalar a versão nova do próprio launcher (Device Owner instala sem perguntar). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Só declarada: permite que o app abra outro app a partir do receiver de boot (ver BootReceiver) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
@@ -316,5 +318,9 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
+        <!-- Resposta do PackageInstaller para o Atualizador. exported=false: só o sistema (pelo PendingIntent) chega aqui. -->
+        <receiver
+            android:name=".Atualizador$Resultado"
+            android:exported="false" />
     </application>
 </manifest>
