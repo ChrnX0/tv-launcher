@@ -1,4 +1,4 @@
-cd C:\Users\rockx\tv-launcher
+cd $env:USERPROFILE\tv-launcher
 git add app/src/main/AndroidManifest.xml app/src/main/kotlin/br/paulo/tvlauncher/
 git status --short app/
 $msg = @"

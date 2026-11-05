@@ -23,6 +23,9 @@ perfil-*.jpg
 perfil-*.jpeg
 perfil-*.png
 externos/
+# APKs prontos (05/11/2026): nunca versionar (o da Sala é assinado com a chave debug do Dell)
+dist/*.apk
+*.apk
 dist/tela.png
 dist/tela*.png
 
@@ -37,3 +40,6 @@ chromecast-painel/cache/
 
 # Certificado de VPN - NUNCA deve ir pro repositorio (ver CLAUDE.md)
 app/src/main/res/raw/vpn_cert.pem
+
+# Dados pessoais do build (cidade, coordenadas, apps preferidos): NUNCA versionar. Modelo: pessoal.properties.exemplo
+pessoal.properties
