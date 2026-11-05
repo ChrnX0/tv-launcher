@@ -206,6 +206,19 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <!-- "Bom dia": como o Boletim do Tempo, mas fala antes a saudação e a hora e, depois, a agenda de hoje
+             ("Ok Google, abrir Bom dia"). É também o que o despertador abre ao apertar Parar (ver AlarmeTocandoActivity). -->
+        <activity-alias
+            android:name=".BomDia"
+            android:exported="true"
+            android:label="Bom dia"
+            android:targetActivity=".PrevisaoActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- Agenda do perfil ativo (abre no OK da data do topo) -->
         <activity
             android:name=".CalendarioActivity"
