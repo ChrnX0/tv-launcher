@@ -10,6 +10,7 @@ import org.json.JSONObject
 
 /**
  * Onde a TV está, do jeito mais preciso disponível (nesta ordem):
+ *  0. O lugar escolhido à mão no painel (LocalClima.kt), se houver: vence todos os outros.
  *  1. A localização do próprio Android: o Google compara as redes Wi-Fi que a TV enxerga com um mapa delas.
  *     Na Sala, em 31/10/2026, deu ±57 m. Precisa de ACCESS_FINE_LOCATION (dada uma vez por adb).
  *  2. Pelo IP da internet (ipwho.is): acerta a cidade, mas pode cair no centro dela ou na central do provedor.
@@ -18,12 +19,14 @@ import org.json.JSONObject
  */
 object Localizacao {
     /** [fonte] diz de onde veio o ponto (aparece no log TvLauncher.Local). */
-    class Ponto(val lat: Double, val lon: Double, val fonte: String)
+    /** [nome] é o do lugar escolhido à mão (LocalClima); null na localização automática. */
+    class Ponto(val lat: Double, val lon: Double, val fonte: String, val nome: String? = null)
 
     @Volatile private var guardadoIp: Ponto? = null   // o IP quase nunca muda: busca uma vez por execução
 
     fun atual(ctx: Context, httpGet: (String) -> String?): Ponto {
-        val ponto = doAparelho(ctx) ?: porIp(httpGet) ?: Ponto(Config.LATITUDE, Config.LONGITUDE, "Config.kt")
+        val ponto = LocalClima.ler(ctx)?.let { Ponto(it.lat, it.lon, "escolhido no painel", it.nome) }
+            ?: doAparelho(ctx) ?: porIp(httpGet) ?: Ponto(Config.LATITUDE, Config.LONGITUDE, "Config.kt")
         Log.i("TvLauncher.Local", "${ponto.lat},${ponto.lon} (${ponto.fonte})")
         return ponto
     }

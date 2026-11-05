@@ -154,3 +154,5 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 }
 .recado-opcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .recado-opcoes button { margin-left: auto; }
+#formClima { margin-top: 12px; }
+#formClima .recado-opcoes button[type=submit] { margin-left: 0; }

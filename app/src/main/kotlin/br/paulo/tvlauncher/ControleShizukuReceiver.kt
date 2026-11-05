@@ -34,6 +34,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
         const val RECADO = "br.paulo.tvlauncher.RECADO"   // recado na tela da TV (só adb; o painel usa /api/recado)
         const val CHUVA = "br.paulo.tvlauncher.CHUVA"     // verificar o aviso de chuva agora, ou simular (só adb, testes)
+        const val LOCAL_CLIMA = "br.paulo.tvlauncher.LOCAL_CLIMA"   // lugar do clima (só adb; o painel usa /api/clima)
         const val DEBLOAT = "br.paulo.tvlauncher.DEBLOAT"       // candidatos da limpeza e o estado deles (só adb)
         const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
         const val ERROS = "br.paulo.tvlauncher.ERROS"           // listar o registro local de erros (só adb)
@@ -124,6 +125,17 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 resultData = if (t == null) "texto vazio ou com mais de ${Recado.MAX_CARACTERES} caracteres"
                 else AvisoTv.mostrar(ctx, "Recado", t, Recado.duracao(intent.getIntExtra("segundos", 60)),
                     intent.getBooleanExtra("som", true), guardarSeApagada = true).name.lowercase()
+            }
+            // Só pelo adb: o lugar do clima (LocalClima.kt). Sem --es coordenadas, volta para a localização automática.
+            // Ex.: am broadcast -a br.paulo.tvlauncher.LOCAL_CLIMA --es nome "Centro" --es coordenadas "-21.18,-47.81"
+            //   -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+            LOCAL_CLIMA -> if (this is ControleShizukuAdbReceiver) {
+                val texto = intent.getStringExtra("coordenadas")
+                resultData = if (texto.isNullOrBlank()) { LocalClima.limpar(ctx); "automatico" }
+                else LocalClima.lerCoordenadas(texto)?.let { (lat, lon) ->
+                    val nome = LocalClima.limparNome(intent.getStringExtra("nome"))
+                    LocalClima.gravar(ctx, LocalClima.Lugar(nome, lat, lon)); "fixo $nome $lat,$lon"
+                } ?: "coordenadas inválidas (ex.: -21.18,-47.81)"
             }
             // Só pelo adb: --ez simular true mostra o cartão de teste (sem consultar a previsão nem mexer no silêncio);
             // sem ele, roda a verificação de verdade e responde o que decidiu (ex.: "sem chuva à vista").

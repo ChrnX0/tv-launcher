@@ -161,7 +161,7 @@ class PrevisaoActivity : Activity() {
                 "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,is_day" +
                 "&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,visibility,dew_point_2m,uv_index" +
                 "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,precipitation_sum" +
-                "&timezone=auto&forecast_days=7$unidade"
+                "&timezone=auto&forecast_days=${FaixaDias.DIAS}$unidade"
         ) ?: return null)
         val c = j.getJSONObject("current"); val h = j.getJSONObject("hourly"); val d = j.getJSONObject("daily")
         fun <T> lista(o: JSONObject, k: String, f: (org.json.JSONArray, Int) -> T) = o.getJSONArray(k).let { a -> (0 until a.length()).map { f(a, it) } }
@@ -231,6 +231,8 @@ class PrevisaoActivity : Activity() {
             text = getString(R.string.pv_max_min, maxHoje, minHoje, sensacao)
             setPadding(0, dp(4), 0, 0)
         })
+        // O lugar escolhido no painel (LocalClima.kt), para não haver dúvida de onde é a previsão.
+        d.ponto.nome?.let { nome -> txt.addView(texto(16f, textoSuave).apply { text = "📍 $nome"; setPadding(0, dp(4), 0, 0) }) }
         cabecalho.addView(txt)
         coluna.addView(cabecalho)
 
