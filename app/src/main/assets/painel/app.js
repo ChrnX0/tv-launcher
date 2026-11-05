@@ -109,6 +109,8 @@ function mudarAba(nome) {
   $('abaControle').hidden = nome !== 'controle';
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
+  $('abaRoteador').hidden = nome !== 'roteador';
+  if (nome === 'roteador') carregarRoteador();
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
@@ -438,6 +440,117 @@ async function carregarRegistro() {
     const p = document.createElement('p'); p.className = 'erro'; p.textContent = e.message; lista.appendChild(p);
   }
 }
+
+// ---------- roteador UniFi (só leitura; UnifiCliente.kt) ----------
+
+const TIPOS_APARELHO = { WIRED: 'cabo', WIRELESS: 'Wi-Fi', VPN: 'VPN', TELEPORT: 'Teleport' };
+let certLido = null;
+
+function desenharRoteador(r) {
+  if (document.activeElement !== $('campoEnderecoRoteador')) $('campoEnderecoRoteador').value = r.endereco || '';
+  $('campoChaveRoteador').value = '';
+  $('chaveAtualRoteador').textContent = r.chave ? `(guardada: ${r.chave})` : '(nenhuma guardada)';
+  $('certAtualRoteador').textContent = r.certificado ? `Confirmado: ${r.certificado}` : 'Nenhum certificado confirmado ainda.';
+  $('chkRoteadorLigado').checked = r.ligado;
+  $('chkRoteadorAviso').checked = r.avisoNovos;
+  $('infoConhecidos').textContent = r.avisoNovos ? `${r.conhecidos} aparelho(s) já conhecidos.` : '';
+  $('certNovoRoteador').hidden = true;
+}
+
+async function carregarRoteador() {
+  try {
+    const r = await chamar('GET', '/api/roteador');
+    desenharRoteador(r);
+    if (r.pronto) carregarAparelhos(false);
+    else { $('listaAparelhos').replaceChildren(); $('estadoRoteador').textContent = faltaRoteador(r); }
+  } catch (e) { mostrar($('statusRoteador'), e.message); }
+}
+
+function faltaRoteador(r) {
+  if (!r.endereco) return 'Falta o endereço do roteador.';
+  if (!r.chave) return 'Falta a chave de API.';
+  if (!r.certificado) return 'Falta confirmar o certificado.';
+  if (!r.ligado) return 'A leitura está desligada.';
+  return '';
+}
+
+async function carregarAparelhos(atualizar) {
+  const lista = $('listaAparelhos');
+  $('estadoRoteador').textContent = 'Lendo o roteador…';
+  try {
+    const r = await chamar('GET', '/api/roteador/aparelhos' + (atualizar ? '?atualizar=1' : ''));
+    $('estadoRoteador').textContent = `Roteador respondendo em ${r.respostaMs} ms` + (r.versao ? ` · UniFi Network ${r.versao}` : '') +
+      ` · ${r.aparelhos.length} aparelho(s) · lido às ${new Date(r.em).toLocaleTimeString('pt-BR')}`;
+    lista.replaceChildren();
+    for (const a of r.aparelhos) {
+      const linha = document.createElement('div');
+      linha.className = 'linha-registro';
+      const nome = document.createElement('span');
+      nome.textContent = a.nome;
+      const det = document.createElement('span');
+      det.className = 'quando';
+      const desde = a.desde ? ' · desde ' + new Date(a.desde).toLocaleString('pt-BR') : '';
+      det.textContent = [a.ip, TIPOS_APARELHO[a.tipo] || a.tipo, a.mac].filter(Boolean).join(' · ') + desde;
+      linha.append(nome, det);
+      lista.appendChild(linha);
+    }
+  } catch (e) {
+    lista.replaceChildren();
+    $('estadoRoteador').textContent = e.message;
+  }
+}
+
+async function salvarRoteador(corpo, texto) {
+  mostrar($('statusRoteador'), 'Salvando…');
+  try {
+    const r = await chamar('POST', '/api/roteador/config', corpo);
+    desenharRoteador(r);
+    mostrar($('statusRoteador'), texto || 'Salvo.');
+    if (r.pronto) carregarAparelhos(true); else $('estadoRoteador').textContent = faltaRoteador(r);
+  } catch (e) { mostrar($('statusRoteador'), e.message); carregarRoteador(); }
+}
+
+$('formRoteador').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const corpo = {};
+  const end = $('campoEnderecoRoteador').value.trim();
+  if (end) corpo.endereco = end;
+  const chave = $('campoChaveRoteador').value.trim();
+  if (chave) corpo.chave = chave;
+  if (!Object.keys(corpo).length) { mostrar($('statusRoteador'), 'Preencha o endereço e/ou a chave.'); return; }
+  salvarRoteador(corpo);
+});
+$('chkRoteadorLigado').addEventListener('change', (ev) => salvarRoteador({ ligado: ev.target.checked }));
+$('chkRoteadorAviso').addEventListener('change', (ev) => salvarRoteador({ avisoNovos: ev.target.checked },
+  ev.target.checked ? 'Ligado. A primeira leitura só anota os aparelhos de agora; o recado vem para os que aparecerem depois.' : 'Desligado.'));
+$('btnAtualizarAparelhos').addEventListener('click', () => carregarAparelhos(true));
+
+$('btnLerCert').addEventListener('click', async () => {
+  $('certNovoRoteador').hidden = true;
+  mostrar($('statusRoteador'), 'Lendo o certificado (a chave não vai junto)…');
+  try {
+    const c = await chamar('POST', '/api/roteador/certificado');
+    certLido = c.impressao;
+    $('certNovoTexto').textContent = `SHA-256: ${c.impressao}\nEmitido para: ${c.emitidoPara}\nVálido até: ${new Date(c.validoAte).toLocaleDateString('pt-BR')}`;
+    $('certNovoRoteador').hidden = c.igualAoConfirmado;
+    mostrar($('statusRoteador'), c.igualAoConfirmado ? 'É o mesmo certificado já confirmado.' : 'Confira a impressão antes de confiar.');
+  } catch (e) { mostrar($('statusRoteador'), e.message); }
+});
+
+$('btnConfiarCert').addEventListener('click', async () => {
+  try {
+    const r = await chamar('POST', '/api/roteador/confiar', { impressao: certLido });
+    desenharRoteador(r);
+    mostrar($('statusRoteador'), 'Certificado confirmado.');
+    if (r.pronto) carregarAparelhos(true); else $('estadoRoteador').textContent = faltaRoteador(r);
+  } catch (e) { mostrar($('statusRoteador'), e.message); }
+});
+
+$('btnEsquecerRoteador').addEventListener('click', async () => {
+  const r = await confirmar('Esquecer o roteador?', 'Apaga o endereço, a chave guardada, o certificado e a lista de aparelhos conhecidos.',
+    'Esquecer', () => chamar('POST', '/api/roteador/esquecer'));
+  if (r) { desenharRoteador(r); $('listaAparelhos').replaceChildren(); $('estadoRoteador').textContent = faltaRoteador(r); }
+});
 
 // ---------- envio com progresso (instalar APK e aba Arquivos) ----------
 
