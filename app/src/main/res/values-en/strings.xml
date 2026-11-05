@@ -317,4 +317,28 @@
         <item>W</item>
         <item>NW</item>
     </string-array>
+    <!-- Tema.kt -->
+    <string name="tema_escuro">Dark</string>
+    <string name="tema_galeria">Gallery</string>
+    <!-- SomAlarme.kt -->
+    <string name="som_suave">Soft</string>
+    <string name="som_classico">Classic</string>
+    <string name="som_sino">Bell</string>
+    <string name="som_direto">Full volume</string>
+    <string name="som_rampa1">Rises over 1 min</string>
+    <string name="som_rampa2">Rises over 2 min</string>
+    <!-- Velocidade.kt -->
+    <string name="vel_resultado">Internet: %1$.0f Mbps (downloaded %2$.0f MB in %3$.1f s)</string>
+    <string name="vel_falhou">Test failed (no internet or server down)</string>
+    <!-- Rede.kt -->
+    <!-- EscolherAppActivity.kt -->
+    <string name="esc_atual">  ·  current</string>
+    <string name="esc_botao">%1$s button opens:</string>
+    <!-- Config.kt -->
+    <string name="shz_modo_desligado">off</string>
+    <string name="shz_modo_sob">on demand</string>
+    <string name="shz_modo_sempre">always on</string>
+    <!-- Fundos.kt -->
+    <string name="fd_nascer">sunrise %1$s</string>
+    <string name="fd_por">sunset %1$s</string>
 </resources>
