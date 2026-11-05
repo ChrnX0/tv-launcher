@@ -88,9 +88,12 @@ class ConfigLauncherActivity : Activity() {
         })
 
         // ---- Diagnóstico de 1 botão (04/11/2026): a 1ª linha, para ser o OK mais rápido quando "o app parou".
-        adicionar(linha("Diagnosticar a TV", "internet, DNS, VPN e por que um app parou — tudo de uma vez") {
+        val linhaDiagnostico = linha("Diagnosticar a TV", "internet, DNS, VPN e por que um app parou — tudo de uma vez") {
             startActivity(Intent(this, DiagnosticoActivity::class.java))
-        })
+        }
+        adicionar(linhaDiagnostico)
+        // Sem isto a tela abria sem nenhuma linha com foco e o 1º OK do controle não fazia nada.
+        linhaDiagnostico.post { linhaDiagnostico.requestFocus() }
 
         // ---- Aparência: o mesmo "trocar tema" que já existia no popup, só realocado para cá.
         secao("Aparência")
