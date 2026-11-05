@@ -93,6 +93,11 @@ object Config {
     // A causa ainda não foi investigada. Pista: o AdGuard VPN tinha sido atualizado pela Play Store em 03/11, 13:58.
     // Antes de pôr um pacote aqui de novo, resolver isso (ex.: o 1-Stream nas exclusões do app de VPN).
     const val VPN_FIXA = ""
+    // Atualização automática pelo GitHub Releases (Atualizador.kt, 05/11/2026). Só instala APK do MESMO pacote e assinado
+    // com a MESMA chave do launcher instalado; numa TV atualizada pelo PC (chave própria) o Release é sempre recusado.
+    // Num fork: troque o repositório para o seu.
+    const val ATUALIZACAO_AUTOMATICA = true
+    const val ATUALIZACAO_REPO = "ChrnX0/tv-launcher"
     // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).
