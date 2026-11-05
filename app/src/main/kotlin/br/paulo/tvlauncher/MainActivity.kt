@@ -191,6 +191,7 @@ class MainActivity : Activity() {
         Privilegio.religarAcessibilidade(this)
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
         Despertador.agendar(this)   // garante o proximo alarme agendado (barato: so le as preferencias)
+        Rotinas.agendar(this)   // idem para as rotinas por horário
         // DNS fixo que parou de responder deixa a TV "sem internet": confere ao voltar à HOME (fora da thread; só testa
         // a rede de verdade se o modo é fixo E a rede perdeu a validação — no caso normal custa quase nada).
         rede.execute { Dns.voltarAoAutomaticoSeQuebrado(this) }

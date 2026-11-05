@@ -36,6 +36,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val CHUVA = "br.paulo.tvlauncher.CHUVA"     // verificar o aviso de chuva agora, ou simular (só adb, testes)
         const val ERROS = "br.paulo.tvlauncher.ERROS"           // listar o registro local de erros (só adb)
         const val TESTE_ERRO = "br.paulo.tvlauncher.TESTE_ERRO" // gravar um erro de teste no registro (só adb)
+        const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -152,6 +153,13 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     RegistroErros.gravar(ctx, "adb", erro)
                     resultData = "gravado"
                 }
+            }
+            // Só pelo adb (05/11/2026): sem extra, lista as rotinas e a próxima; com --ei id N, roda a rotina N agora.
+            ROTINA -> {
+                val id = intent.getIntExtra("id", 0)
+                if (id > 0) { Rotinas.rodar(ctx, id); resultData = "rodou $id" }
+                else resultData = Rotinas.paraJson(Rotinas.listar(ctx)) + " proxima=" + (Rotinas.proxima(ctx)?.let { "${it.first.id}@${it.second}" } ?: "nenhuma") +
+                    " semTecla=${Rotinas.minutosSemTecla()}min"
             }
         }
     }
