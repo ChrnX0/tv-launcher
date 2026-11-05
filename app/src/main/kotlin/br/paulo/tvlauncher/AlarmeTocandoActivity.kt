@@ -1,6 +1,7 @@
 package br.paulo.tvlauncher
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -25,8 +26,12 @@ import android.widget.TextView
  * A tela que aparece quando um alarme toca: acende a tela (e, pelo HDMI-CEC, normalmente liga a TV), mostra a hora
  * e toca o som até alguém apertar Parar ou Soneca. Sem ninguém, para sozinha em 10 min.
  * Voltar = Soneca (para um toque sem querer não desligar o alarme).
+ * Também é a tela do fim do timer (EXTRA_TIMER, ver Timer.kt): aí só tem "Parar" e o Voltar também para.
  */
 class AlarmeTocandoActivity : Activity() {
+    companion object { const val EXTRA_TIMER = "timer" }
+    private var timer = false
+    private var nomeTimer = ""
     private val ui = Handler(Looper.getMainLooper())
     private var id = 0
     private var player: MediaPlayer? = null
@@ -39,7 +44,7 @@ class AlarmeTocandoActivity : Activity() {
             ui.postDelayed(this, 1200)
         }
     }
-    private val desistir = Runnable { parar() }
+    private val desistir = Runnable { parar(falar = false) }   // ninguém apareceu: sem "Bom dia" para a sala vazia
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,10 +53,15 @@ class AlarmeTocandoActivity : Activity() {
         setTurnScreenOn(true)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         id = intent.getIntExtra(Despertador.EXTRA_ID, 0)
+        timer = intent.getBooleanExtra(EXTRA_TIMER, false)
+        if (timer) {
+            nomeTimer = getSharedPreferences("timer", MODE_PRIVATE).getString("nome", "") ?: ""
+            Timer.limpar(this)   // acabou: some da HOME
+        }
         setContentView(montar())
         tocarSom()
         ui.postDelayed(desistir, 10 * 60_000L)
-        Log.i("TvLauncher.Alarme", "tocando (id $id)")
+        Log.i("TvLauncher.Alarme", if (timer) "timer acabou ('$nomeTimer')" else "tocando (id $id)")
     }
 
     private fun montar(): View {
@@ -71,7 +81,8 @@ class AlarmeTocandoActivity : Activity() {
             gravity = Gravity.CENTER   // numa coluna vertical cada linha ocupa a largura toda: o texto precisa se centralizar
         })
         coluna.addView(texto(24f, 0xFFE8EEEA.toInt()).apply {
-            text = "⏰  " + (alarme?.nome?.takeIf { it.isNotBlank() } ?: "Despertador")
+            text = if (timer) "⏱  " + nomeTimer.ifBlank { "Tempo esgotado" }
+                else "⏰  " + (alarme?.nome?.takeIf { it.isNotBlank() } ?: "Despertador")
             setPadding(0, dp(12), 0, dp(36))
             gravity = Gravity.CENTER
         })
@@ -80,8 +91,8 @@ class AlarmeTocandoActivity : Activity() {
         coluna.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             clipChildren = false
-            addView(parar, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(24) })
-            addView(soneca, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(parar, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT).apply { if (!timer) marginEnd = dp(24) })
+            if (!timer) addView(soneca, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT))
         })
         ui.post { parar.requestFocus() }
         return FrameLayout(this).apply {
@@ -92,7 +103,7 @@ class AlarmeTocandoActivity : Activity() {
     }
 
     private fun tocarSom() {
-        val alarme = Despertador.listar(this).firstOrNull { it.id == id }
+        val alarme = if (timer) null else Despertador.listar(this).firstOrNull { it.id == id }
         val rampa = alarme?.rampa ?: 0
         player = SomAlarme.criar(this, alarme?.som ?: 0)
         if (player != null) {
@@ -128,8 +139,15 @@ class AlarmeTocandoActivity : Activity() {
         bip = null
     }
 
-    private fun parar() {
+    private fun parar(falar: Boolean = true) {
+        if (timer) { finish(); return }
+        val bomDia = Despertador.listar(this).firstOrNull { it.id == id }?.bomDia == true && falar
         Despertador.tocou(this, id)
+        // "Bom dia" (05/11/2026): abre a previsão, que fala a saudação, a hora, o tempo e a agenda de hoje.
+        // Só no Parar: a soneca (e o Voltar, que é soneca) não fala nada, a pessoa quer dormir mais 10 min.
+        if (bomDia) startActivity(Intent(this, PrevisaoActivity::class.java)
+            .putExtra(PrevisaoActivity.EXTRA_BOM_DIA, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         finish()
     }
 
@@ -139,7 +157,7 @@ class AlarmeTocandoActivity : Activity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) { soneca(); return true }
+        if (keyCode == KeyEvent.KEYCODE_BACK) { if (timer) parar() else soneca(); return true }
         return super.onKeyDown(keyCode, event)
     }
 
