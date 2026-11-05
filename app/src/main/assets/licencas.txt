@@ -1,0 +1,61 @@
+LICENÇAS E CRÉDITOS
+
+Este launcher usa código, fontes, ícones e bibliotecas de outras pessoas. Cada um continua com a licença original.
+O texto completo de cada licença está no endereço indicado.
+
+— Código embutido —
+
+Shizuku (servidor), fork de thedjchi, a partir de RikkaApps/Shizuku
+  https://github.com/thedjchi/Shizuku
+  Licença Apache-2.0 (módulos server, starter, common). Alterações marcadas com "// tv-launcher:" no código.
+
+Shizuku-API (aidl, shared, server-shared, rish, provider, api), de RikkaW
+  https://github.com/thedjchi/Shizuku-API
+  Licença MIT. Copyright (c) 2021 RikkaW.
+
+— Bibliotecas —
+
+LibADB Android, de Muntashir Al-Islam
+  https://github.com/MuntashirAkon/libadb-android
+  Licença dupla GPL-3.0-or-later ou Apache-2.0; este launcher usa sob a Apache-2.0.
+
+sun-security-android, de Muntashir Al-Islam (partes do OpenJDK)
+  https://github.com/MuntashirAkon/sun-security-android
+  Licença GPL-2.0 com a "Classpath Exception".
+
+Bouncy Castle (vem junto com a LibADB)
+  https://www.bouncycastle.org/licence.html
+  Licença Bouncy Castle (estilo MIT).
+
+Refine runtime, de RikkaW
+  https://github.com/RikkaApps/Refine
+  Licença MIT.
+
+AndroidX ProfileInstaller, do Android Open Source Project
+  https://developer.android.com/jetpack/androidx/releases/profileinstaller
+  Licença Apache-2.0.
+
+— Fontes dos temas —
+
+Instrument Serif, Cormorant, Figtree e IBM Plex Mono
+  https://github.com/google/fonts
+  Licença SIL Open Font License 1.1 (OFL).
+
+— Ícones —
+
+Meteocons (ícones do clima), de Bas Milius
+  https://github.com/basmilius/weather-icons
+  Licença MIT. Copyright (c) 2020-present Bas Milius.
+
+Fluent Emoji (ícones 3D da previsão), da Microsoft
+  https://github.com/microsoft/fluentui-emoji
+  Licença MIT. Copyright (c) Microsoft Corporation.
+
+— Dados —
+
+Previsão do tempo: Open-Meteo (https://open-meteo.com), dados sob CC BY 4.0.
+Observação do aeroporto (METAR): Aviation Weather Center, NOAA (domínio público dos EUA).
+Obras de arte dos fundos: The Metropolitan Museum of Art, Open Access (CC0).
+Localização aproximada pelo IP: ipwho.is.
+
+Os sons do despertador foram gerados pelo próprio projeto.
