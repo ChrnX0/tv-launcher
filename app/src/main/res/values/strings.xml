@@ -10,8 +10,8 @@
     <string name="cfg_vpn_conectada">conectada</string>
     <string name="cfg_vpn_nenhuma">nenhuma</string>
     <string name="cfg_vpn_desconectada">desconectada</string>
-    <string name="cfg_vpn_nao_fixa"> — o launcher não fixa VPN</string>
-    <string name="cfg_vpn_adguard"> — app AdGuard VPN, sempre ativa · OK abre o app</string>
+    <string name="cfg_vpn_nao_fixa">" — o launcher não fixa VPN"</string>
+    <string name="cfg_vpn_adguard">" — app AdGuard VPN, sempre ativa · OK abre o app"</string>
     <string name="cfg_titulo">Configurações do launcher</string>
     <string name="cfg_diag">Diagnosticar a TV</string>
     <string name="cfg_diag_det">internet, DNS, VPN e por que um app parou — tudo de uma vez</string>
@@ -38,7 +38,7 @@
     <string name="cfg_procurando">procurando no GitHub…</string>
     <string name="cfg_sec_rede">Rede</string>
     <string name="cfg_dns">DNS privado</string>
-    <string name="cfg_dns_caiu"> · %1$s não respondeu, voltei para o automático</string>
+    <string name="cfg_dns_caiu">" · %1$s não respondeu, voltei para o automático"</string>
     <string name="cfg_velocidade">Testar velocidade da internet</string>
     <string name="cfg_velocidade_det">baixa 25 MB e mede</string>
     <string name="cfg_testando">Testando…</string>
@@ -48,8 +48,8 @@
     <string name="cfg_nao_mudou_do">não consegui mudar (Device Owner inativo?)</string>
     <string name="cfg_sec_ligado">O que está ligado — %1$s</string>
     <string name="cfg_ligado">ligado</string>
-    <string name="cfg_so_pc"> · só com computador (adb)</string>
-    <string name="cfg_tenta_ligar"> · OK tenta ligar</string>
+    <string name="cfg_so_pc">" · só com computador (adb)"</string>
+    <string name="cfg_tenta_ligar">" · OK tenta ligar"</string>
     <string name="cfg_perm_fixas">Permissões fixas concedidas</string>
     <string name="cfg_sec_shizuku">Shizuku do launcher</string>
     <string name="cfg_shz_rodando">rodando (uid %1$d, versão %2$d)</string>
@@ -116,14 +116,14 @@
     <string name="rot_desligar">Desligar a TV</string>
     <string name="rot_abrir">Ligar e abrir %1$s</string>
     <string name="rot_um_app">um app (escolha)</string>
-    <string name="rot_se_ocioso"> se ninguém mexeu há %1$s</string>
+    <string name="rot_se_ocioso">" se ninguém mexeu há %1$s"</string>
     <string name="rot_sempre">sempre</string>
     <!-- RotinasActivity.kt -->
     <string name="rot_nenhuma">nenhuma rotina ligada</string>
     <string name="rot_proxima">próxima: %1$s</string>
     <string name="rot_nova_mais">+ Nova rotina</string>
     <string name="rot_nova_det">ligar, abrir um app ou desligar num horário</string>
-    <string name="rot_desligada_sufixo"> · desligada</string>
+    <string name="rot_desligada_sufixo">" · desligada"</string>
     <string name="rot_nova">Nova rotina</string>
     <string name="rot_editar">Editar rotina</string>
     <string name="rot_editor_det">OK muda cada linha · BACK sai sem salvar</string>
@@ -211,7 +211,7 @@
     <string name="al_soneca">Soneca 10 min</string>
     <!-- PopupPerfil.kt -->
     <string name="pp_sem_conta">Sem conta Google</string>
-    <string name="pp_ativo">  ·  ativo</string>
+    <string name="pp_ativo">"  ·  ativo"</string>
     <string name="pp_adicionar">Adicionar perfil</string>
     <string name="pp_launcher_det">Aparência, DNS, diagnóstico</string>
     <string name="pp_sistema">Sistema</string>
@@ -232,7 +232,7 @@
     <string name="cal_dia_todo">Dia todo</string>
     <string name="cal_sem_titulo">(sem título)</string>
     <!-- ProtetorTela.kt -->
-    <string name="pt_chovendo">  ·  chovendo</string>
+    <string name="pt_chovendo">"  ·  chovendo"</string>
     <string name="pt_lua">Lua</string>
     <string name="pt_sol">Sol</string>
     <string name="pt_umidade">Umidade</string>
@@ -276,10 +276,10 @@
     </string-array>
     <!-- PrevisaoActivity.kt -->
     <string name="pv_carregando">Carregando a previsão…</string>
-    <string name="pv_voz_agora">Agora faz %1$d graus, %2$s. </string>
+    <string name="pv_voz_agora">"Agora faz %1$d graus, %2$s. "</string>
     <string name="pv_voz_hoje">Hoje, máxima de %1$d e mínima de %2$d</string>
-    <string name="pv_voz_chuva">, com %1$d por cento de chance de chuva. </string>
-    <string name="pv_voz_sem_chuva">, sem previsão de chuva. </string>
+    <string name="pv_voz_chuva">", com %1$d por cento de chance de chuva. "</string>
+    <string name="pv_voz_sem_chuva">", sem previsão de chuva. "</string>
     <string name="pv_voz_amanha">Amanhã, %1$s, máxima de %2$d e mínima de %3$d</string>
     <string name="pv_voz_amanha_chuva">, chance de chuva de %1$d por cento</string>
     <string name="pv_sem">Sem previsão agora (sem internet ou fonte fora do ar).</string>
@@ -338,7 +338,7 @@
     <string name="vel_falhou">Teste falhou (sem internet ou servidor fora do ar)</string>
     <!-- Rede.kt -->
     <!-- EscolherAppActivity.kt -->
-    <string name="esc_atual">  ·  atual</string>
+    <string name="esc_atual">"  ·  atual"</string>
     <string name="esc_botao">Botão %1$s abre:</string>
     <!-- Config.kt -->
     <string name="shz_modo_desligado">desligado</string>
@@ -347,4 +347,98 @@
     <!-- Fundos.kt -->
     <string name="fd_nascer">nascer %1$s</string>
     <string name="fd_por">pôr %1$s</string>
+    <!-- DnsActivity.kt -->
+    <string name="dns_dica">OK: usar   ·   segurar OK em um servidor seu: remover   ·   Voltar: sair</string>
+    <string name="dns_auto">Automático</string>
+    <string name="dns_auto_det">Usa o DNS do roteador e criptografa quando ele aceitar (padrão do Android)</string>
+    <string name="dns_desl">Desligado</string>
+    <string name="dns_desl_det">DNS comum, sem criptografia</string>
+    <string name="dns_publicos">Servidores públicos</string>
+    <string name="dns_meus">Meus servidores</string>
+    <string name="dns_adicionar">+  Adicionar servidor</string>
+    <string name="dns_adicionar_det">Endereço de DNS sobre TLS, como dns.exemplo.com</string>
+    <string name="dns_sem_permissao">"Sem permissão para mudar o DNS. No computador: "</string>
+    <string name="dns_troque_antes">troque de servidor antes de remover este</string>
+    <string name="dns_remover_q">Remover %1$s?</string>
+    <string name="dns_remover">Remover</string>
+    <string name="dns_nome_opc">Nome (opcional)</string>
+    <string name="dns_endereco_ex">Endereço, ex.: dns.exemplo.com</string>
+    <string name="dns_adicionar_tit">Adicionar servidor DNS</string>
+    <string name="dns_salvar_usar">Salvar e usar</string>
+    <string name="dns_invalido">Endereço inválido. Use um nome como dns.exemplo.com (o Android não aceita número de IP).</string>
+    <string name="dns_em_uso">Em uso: %1$s</string>
+    <string name="dns_testando">testando…</string>
+    <string name="dns_falha">FALHA: nenhum nome resolveu. Escolha outro servidor ou Automático.</string>
+    <string name="dns_res_sem_cripto">resolvendo em %1$d ms (sem criptografia)</string>
+    <string name="dns_res_tls">resolvendo em %1$d ms   ·   TLS ativo</string>
+    <string name="dns_res_com">" com %1$s"</string>
+    <string name="dns_res_sem_tls">resolvendo em %1$d ms   ·   sem TLS no momento</string>
+    <!-- Dns.kt -->
+    <string name="dns_adguard_pessoal">AdGuard (pessoal)</string>
+    <string name="dns_personalizado">Personalizado (%1$s)</string>
+    <string name="dns_rot_auto">automático</string>
+    <string name="dns_rot_desl">desligado</string>
+    <!-- Diagnostico.kt -->
+    <string name="diag_resumo">Resumo</string>
+    <string name="diag_wifi_desc">desconectado: a TV não está em nenhuma rede</string>
+    <string name="diag_lat">%1$d ms até a internet</string>
+    <string name="diag_sem_resp">sem resposta da internet</string>
+    <string name="diag_wifi">%1$s · sinal %2$d dBm · %3$d Mbps · %4$s</string>
+    <string name="diag_validou">o Android validou o Wi-Fi</string>
+    <string name="diag_nao_validou">o Android NÃO validou o Wi-Fi</string>
+    <string name="diag_net_ok">funcionando (teste em %1$d ms) · %2$s</string>
+    <string name="diag_net_falhou">o teste não chegou ao Google · %1$s</string>
+    <string name="diag_net_estranha">resposta estranha (%1$d): rede pode estar pedindo login · %2$s</string>
+    <string name="diag_cripto">criptografado ativo</string>
+    <string name="diag_sem_cripto">criptografado NÃO ativo</string>
+    <string name="diag_resolve">resolve nomes (%1$d ms)</string>
+    <string name="diag_nao_resolve">NÃO resolve nomes</string>
+    <string name="diag_caiu">%1$s caiu antes e voltei para o automático</string>
+    <string name="diag_nenhum_app">nenhum app</string>
+    <string name="diag_vpn_nada">nenhuma VPN fixada nem ligada</string>
+    <string name="diag_vpn_desc">%1$s fixada, mas DESCONECTADA (a internet segue sem VPN)</string>
+    <string name="diag_vpn_nao_validada">%1$s conectada, mas o Android não validou o túnel</string>
+    <string name="diag_vpn_ok">%1$s conectada e funcionando</string>
+    <string name="diag_r_sem_wifi">a TV está sem Wi-Fi</string>
+    <string name="diag_r_dns_fora">o DNS não responde: a internet parece fora</string>
+    <string name="diag_r_net_fora">a internet não está chegando (roteador ou operadora)</string>
+    <string name="diag_r_dns">o DNS não resolve nomes: os apps não acham os servidores</string>
+    <string name="diag_r_net">o DNS funciona, mas a internet não responde</string>
+    <string name="diag_r_vpn">rede ok; só a VPN está fora (os apps funcionam sem ela)</string>
+    <string name="diag_r_atencao">rede funcionando, com pontos de atenção abaixo</string>
+    <string name="diag_r_ok">rede ok. Se um app parou, veja o que aconteceu com ele abaixo</string>
+    <string name="diag_usava">" · usava %1$d MB"</string>
+    <string name="diag_texto">Motivo: %1$s\nProcesso: %2$s\nImportância: %3$s</string>
+    <string name="diag_detalhe">\nDetalhe do Android: %1$s</string>
+    <string name="diag_m_memoria">fechado por falta de memória</string>
+    <string name="diag_m_crash">travou com erro</string>
+    <string name="diag_m_nativo">travou com erro nativo</string>
+    <string name="diag_m_anr">parou de responder (ANR)</string>
+    <string name="diag_m_iniciar">não conseguiu iniciar</string>
+    <string name="diag_m_recurso">fechado por usar recurso demais</string>
+    <string name="diag_m_dependencia">fechado porque um app do qual depende morreu</string>
+    <string name="diag_m_sinal">encerrado pelo sistema (sinal)</string>
+    <string name="diag_m_permissao">reiniciado por mudança de permissão</string>
+    <string name="diag_i_tela">estava na tela</string>
+    <string name="diag_i_visivel">visível</string>
+    <string name="diag_i_servico">rodando por trás</string>
+    <string name="diag_i_cache">em segundo plano (cache)</string>
+    <!-- DiagnosticoActivity.kt -->
+    <string name="diag_titulo">Diagnóstico</string>
+    <string name="diag_refazer">Verificar de novo</string>
+    <string name="diag_refazer_det">roda todas as verificações outra vez</string>
+    <string name="diag_verificando">verificando…</string>
+    <string name="diag_apps">Apps (últimos 7 dias)</string>
+    <string name="diag_lendo">Lendo o histórico dos apps</string>
+    <string name="diag_sem_perm">Sem permissão para ler crashes de outros apps</string>
+    <string name="diag_sem_perm_det">o launcher se concede READ_LOGS e DUMP pelo próprio shell; aguarde alguns minutos ou religue a TV</string>
+    <string name="diag_nada">nada registrado</string>
+    <string name="diag_erros">Erros do launcher (gravados por ele)</string>
+    <string name="diag_sem_erros">Nenhum erro gravado</string>
+    <string name="diag_sem_erros_det">o launcher guarda aqui os últimos %1$d crashes dele</string>
+    <string name="diag_erro">Erro do launcher</string>
+    <string name="diag_apagar">Apagar os erros gravados</string>
+    <string name="diag_apagar_det">limpa a lista acima (não mexe em nada mais)</string>
+    <string name="diag_rodape">%1$s · setas rolam · BACK volta</string>
+    <string name="diag_app_ok">Nenhum crash, travada ou encerramento anormal nos últimos 7 dias.\n\nSe o app abre mas não carrega nada, o problema costuma ser rede: veja a seção Rede na tela anterior.</string>
 </resources>
