@@ -93,6 +93,24 @@ async function atualizarEstado() {
   $('nomeAparelho').textContent = e.aparelho;
   document.title = e.aparelho;
   $('naTela').textContent = 'TV: ' + e.naTela;
+  atualizarOutrasTvs().catch(() => {});
+}
+
+// Outras TVs da casa com o painel ligado (achadas por mDNS na rede). Cada uma tem o próprio PIN: o link só leva até lá.
+async function atualizarOutrasTvs() {
+  const r = await chamar('GET', '/api/tvs');
+  const alvo = $('outrasTvs');
+  alvo.textContent = '';
+  if (!r.outras || !r.outras.length) { alvo.hidden = true; return; }
+  alvo.append('Outras TVs: ');
+  r.outras.forEach((t, i) => {
+    if (i) alvo.append(' · ');
+    const a = document.createElement('a');
+    a.href = t.url;
+    a.textContent = `${t.nome} (${t.id})`;   // textContent: o nome vem da rede, nunca vira HTML
+    alvo.append(a);
+  });
+  alvo.hidden = false;
 }
 
 // Atualiza "o que está na TV" a cada 30 s, só com a aba do navegador visível (custo zero com a aba escondida).
@@ -111,6 +129,8 @@ function mudarAba(nome) {
   if (nome === 'falar') carregarIa();
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
+  $('abaRoteador').hidden = nome !== 'roteador';
+  if (nome === 'roteador') carregarRoteador();
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
@@ -440,6 +460,171 @@ async function carregarRegistro() {
     const p = document.createElement('p'); p.className = 'erro'; p.textContent = e.message; lista.appendChild(p);
   }
 }
+
+// ---------- roteador UniFi (só leitura; UnifiCliente.kt) ----------
+
+const TIPOS_APARELHO = { WIRED: 'cabo', WIRELESS: 'Wi-Fi', VPN: 'VPN', TELEPORT: 'Teleport' };
+let certLido = null;
+
+function desenharRoteador(r) {
+  if (document.activeElement !== $('campoEnderecoRoteador')) $('campoEnderecoRoteador').value = r.endereco || '';
+  $('campoChaveRoteador').value = '';
+  $('chaveAtualRoteador').textContent = r.chave ? `(guardada: ${r.chave})` : '(nenhuma guardada)';
+  $('certAtualRoteador').textContent = r.certificado ? `Confirmado: ${r.certificado}` : 'Nenhum certificado confirmado ainda.';
+  $('chkRoteadorLigado').checked = r.ligado;
+  $('chkRoteadorAviso').checked = r.avisoNovos;
+  $('infoConhecidos').textContent = r.avisoNovos ? `${r.conhecidos} aparelho(s) já conhecidos.` : '';
+  $('certNovoRoteador').hidden = true;
+}
+
+async function carregarRoteador() {
+  try {
+    const r = await chamar('GET', '/api/roteador');
+    desenharRoteador(r);
+    if (r.pronto) carregarAparelhos(false);
+    else { $('listaAparelhos').replaceChildren(); $('estadoRoteador').textContent = faltaRoteador(r); }
+  } catch (e) { mostrar($('statusRoteador'), e.message); }
+}
+
+function faltaRoteador(r) {
+  if (!r.endereco) return 'Falta o endereço do roteador.';
+  if (!r.chave) return 'Falta a chave de API.';
+  if (!r.certificado) return 'Falta confirmar o certificado.';
+  if (!r.ligado) return 'A leitura está desligada.';
+  return '';
+}
+
+async function carregarAparelhos(atualizar) {
+  const lista = $('listaAparelhos');
+  $('estadoRoteador').textContent = 'Lendo o roteador…';
+  try {
+    const r = await chamar('GET', '/api/roteador/aparelhos' + (atualizar ? '?atualizar=1' : ''));
+    $('estadoRoteador').textContent = `Roteador respondendo em ${r.respostaMs} ms` + (r.versao ? ` · UniFi Network ${r.versao}` : '') +
+      ` · ${r.aparelhos.length} aparelho(s) · lido às ${new Date(r.em).toLocaleTimeString('pt-BR')}`;
+    lista.replaceChildren();
+    for (const a of r.aparelhos) {
+      const linha = document.createElement('div');
+      linha.className = 'linha-registro';
+      const nome = document.createElement('span');
+      nome.textContent = a.nome;
+      const det = document.createElement('span');
+      det.className = 'quando';
+      const desde = a.desde ? ' · desde ' + new Date(a.desde).toLocaleString('pt-BR') : '';
+      det.textContent = [a.ip, TIPOS_APARELHO[a.tipo] || a.tipo, a.mac].filter(Boolean).join(' · ') + desde;
+      linha.append(nome, det);
+      lista.appendChild(linha);
+    }
+  } catch (e) {
+    lista.replaceChildren();
+    $('estadoRoteador').textContent = e.message;
+  }
+}
+
+async function salvarRoteador(corpo, texto) {
+  mostrar($('statusRoteador'), 'Salvando…');
+  try {
+    const r = await chamar('POST', '/api/roteador/config', corpo);
+    desenharRoteador(r);
+    mostrar($('statusRoteador'), texto || 'Salvo.');
+    if (r.pronto) carregarAparelhos(true); else $('estadoRoteador').textContent = faltaRoteador(r);
+  } catch (e) { mostrar($('statusRoteador'), e.message); carregarRoteador(); }
+}
+
+$('formRoteador').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const corpo = {};
+  const end = $('campoEnderecoRoteador').value.trim();
+  if (end) corpo.endereco = end;
+  const chave = $('campoChaveRoteador').value.trim();
+  if (chave) corpo.chave = chave;
+  if (!Object.keys(corpo).length) { mostrar($('statusRoteador'), 'Preencha o endereço e/ou a chave.'); return; }
+  salvarRoteador(corpo);
+});
+$('chkRoteadorLigado').addEventListener('change', (ev) => salvarRoteador({ ligado: ev.target.checked }));
+$('chkRoteadorAviso').addEventListener('change', (ev) => salvarRoteador({ avisoNovos: ev.target.checked },
+  ev.target.checked ? 'Ligado. A primeira leitura só anota os aparelhos de agora; o recado vem para os que aparecerem depois.' : 'Desligado.'));
+$('btnAtualizarAparelhos').addEventListener('click', () => carregarAparelhos(true));
+
+const TEXTO_RECONECTAR = {
+  esperando_tv: 'Aperte OK no controle da TV para confirmar (ou Cancelar).',
+  cancelado: 'Cancelado na TV.',
+  fazendo: 'Pedindo ao roteador…',
+  feito: 'Feito: a TV sai do Wi-Fi e volta em alguns segundos. Depois, toque em Diagnosticar de novo.',
+  falhou: 'Não deu certo',
+};
+
+$('btnReconectarTv').addEventListener('click', async () => {
+  const st = $('statusReconectar');
+  try {
+    let r = await chamar('POST', '/api/roteador/reconectar');
+    mostrar(st, TEXTO_RECONECTAR[r.estado] || r.estado);
+    // Acompanha até a TV responder (a confirmação fecha sozinha em 45 s).
+    for (let i = 0; i < 30 && (r.estado === 'esperando_tv' || r.estado === 'fazendo'); i++) {
+      await new Promise((ok) => setTimeout(ok, 2000));
+      try { r = await chamar('GET', '/api/roteador/reconectar'); } catch (e) { continue; }   // a TV pode sumir da rede por uns segundos
+      mostrar(st, (TEXTO_RECONECTAR[r.estado] || r.estado) + (r.estado === 'falhou' && r.detalhe ? `: ${r.detalhe}` : ''));
+    }
+  } catch (e) { mostrar(st, e.message); }
+});
+
+$('btnWifiTv').addEventListener('click', async () => {
+  const dicas = $('dicasWifiTv');
+  dicas.replaceChildren();
+  $('estadoWifiTv').textContent = 'Medindo…';
+  try {
+    const w = await chamar('GET', '/api/roteador/wifi-tv');
+    if (!w.noWifi) { $('estadoWifiTv').textContent = 'A TV não está no Wi-Fi (no cabo ou desconectada): nada a ajustar no Wi-Fi.'; return; }
+    const partes = [`Sinal ${w.dbm} dBm`];
+    if (w.banda) partes.push(`${w.banda.replace('.', ',')} GHz`);
+    if (w.mbps > 0) partes.push(`link ${w.mbps} Mbps`);
+    if (w.pontoDeAcesso) {
+      const ap = w.pontoDeAcesso;
+      partes.push(`ligada em ${ap.nome}${ap.modelo ? ' (' + ap.modelo + ')' : ''}`);
+      for (const r of ap.radios) {
+        const det = [r.canal != null ? `canal ${r.canal}` : '', r.larguraMhz ? `${r.larguraMhz} MHz` : '',
+          r.retransmissoesPct != null ? `${Math.round(r.retransmissoesPct)}% retransmissões` : ''].filter(Boolean).join(', ');
+        if (det) partes.push(`${r.ghz.replace('.', ',')} GHz: ${det}`);
+      }
+    } else if (!w.achadaNoRoteador) partes.push('a TV não apareceu na lista do roteador (sem dados do ponto de acesso)');
+    if (w.peloRoteador) {
+      const r = w.peloRoteador;
+      const visto = [r.sinalDbm != null ? `${r.sinalDbm} dBm` : '', r.banda ? `${r.banda.replace('.', ',')} GHz` : '',
+        r.canal != null ? `canal ${r.canal}` : '', r.txMbps ? `${r.txMbps}/${r.rxMbps} Mbps` : '',
+        r.satisfacao != null ? `nota ${r.satisfacao}/100` : ''].filter(Boolean).join(', ');
+      if (visto) partes.push(`o roteador vê: ${visto}`);
+    } else if (w.falhaApiAntiga) partes.push(`sinal pelo roteador indisponível (${w.falhaApiAntiga})`);
+    $('estadoWifiTv').textContent = partes.join(' · ');
+    const lista = w.dicas.length ? w.dicas : ['Wi-Fi da TV está bom: nada a ajustar.'];
+    for (const d of lista) { const li = document.createElement('li'); li.textContent = d; dicas.appendChild(li); }
+  } catch (e) { $('estadoWifiTv').textContent = e.message; }
+});
+
+$('btnLerCert').addEventListener('click', async () => {
+  $('certNovoRoteador').hidden = true;
+  mostrar($('statusRoteador'), 'Lendo o certificado (a chave não vai junto)…');
+  try {
+    const c = await chamar('POST', '/api/roteador/certificado');
+    certLido = c.impressao;
+    $('certNovoTexto').textContent = `SHA-256: ${c.impressao}\nEmitido para: ${c.emitidoPara}\nVálido até: ${new Date(c.validoAte).toLocaleDateString('pt-BR')}`;
+    $('certNovoRoteador').hidden = c.igualAoConfirmado;
+    mostrar($('statusRoteador'), c.igualAoConfirmado ? 'É o mesmo certificado já confirmado.' : 'Confira a impressão antes de confiar.');
+  } catch (e) { mostrar($('statusRoteador'), e.message); }
+});
+
+$('btnConfiarCert').addEventListener('click', async () => {
+  try {
+    const r = await chamar('POST', '/api/roteador/confiar', { impressao: certLido });
+    desenharRoteador(r);
+    mostrar($('statusRoteador'), 'Certificado confirmado.');
+    if (r.pronto) carregarAparelhos(true); else $('estadoRoteador').textContent = faltaRoteador(r);
+  } catch (e) { mostrar($('statusRoteador'), e.message); }
+});
+
+$('btnEsquecerRoteador').addEventListener('click', async () => {
+  const r = await confirmar('Esquecer o roteador?', 'Apaga o endereço, a chave guardada, o certificado e a lista de aparelhos conhecidos.',
+    'Esquecer', () => chamar('POST', '/api/roteador/esquecer'));
+  if (r) { desenharRoteador(r); $('listaAparelhos').replaceChildren(); $('estadoRoteador').textContent = faltaRoteador(r); }
+});
 
 // ---------- envio com progresso (instalar APK e aba Arquivos) ----------
 
@@ -856,11 +1041,17 @@ async function atualizarFoto() {
       if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.erro || `Falha (${r.status})`); }
       const url = URL.createObjectURL(await r.blob());
       $('fotoTela').src = url;
+      $('fotoTela').hidden = false;
+      $('semFoto').hidden = true;
       if (fotoUrl) URL.revokeObjectURL(fotoUrl);
       fotoUrl = url;
       $('statusTela').textContent = 'Atualiza a cada 2 s · ' + new Date().toLocaleTimeString('pt-BR');
     } catch (e) {
-      $('statusTela').textContent = e.message;
+      // Sem foto (TV em espera, por exemplo): troca a imagem pelo motivo, em vez de mostrar uma imagem quebrada.
+      $('fotoTela').hidden = true;
+      $('semFoto').hidden = false;
+      $('semFoto').textContent = e.message;
+      $('statusTela').textContent = '';
     } finally {
       fotoPedindo = false;
     }
@@ -889,6 +1080,21 @@ $('formTexto').addEventListener('submit', async (ev) => {
     $('campoTexto').value = '';
     mostrar($('statusControle'), '');
     setTimeout(atualizarFoto, 400);
+  } catch (e) { mostrar($('statusControle'), e.message); }
+});
+
+$('formRecado').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const texto = $('campoRecado').value.trim();
+  if (!texto) { mostrar($('statusControle'), 'Escreva o recado.'); return; }
+  try {
+    const r = await chamar('POST', '/api/recado', {
+      texto, segundos: Number($('duracaoRecado').value), som: $('somRecado').checked });
+    $('campoRecado').value = '';
+    mostrar($('statusControle'), r.situacao === 'guardado'
+      ? 'A tela da TV está apagada: o recado aparece quando ela ligar.'
+      : 'Recado na tela da TV.');
+    setTimeout(atualizarFoto, 600);   // a foto mostra o recado
   } catch (e) { mostrar($('statusControle'), e.message); }
 });
 

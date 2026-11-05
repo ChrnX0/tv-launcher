@@ -183,7 +183,7 @@ object PareamentoNaTv {
                     override fun onResolveFailed(i: NsdServiceInfo, erro: Int) {}
                     override fun onServiceResolved(i: NsdServiceInfo) {
                         val host = i.host?.hostAddress ?: return
-                        // Só a porta DESTE aparelho: na rede há outros com depuração sem fio (ex.: 192.168.1.159).
+                        // Só a porta DESTE aparelho: na rede há outros com depuração sem fio (outras TVs, celulares).
                         if (host !in locais && host != "127.0.0.1") return
                         porta = i.port
                         principal.post {
