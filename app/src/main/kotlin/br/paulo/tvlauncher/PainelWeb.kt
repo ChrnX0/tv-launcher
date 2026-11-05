@@ -202,7 +202,7 @@ object PainelWeb {
                            val arquivo: File? = null)
 
     /** Rotas que recebem o corpo como fluxo, direto para o disco (arquivo de vários GB não cabe na memória). */
-    private val ROTAS_FLUXO = setOf("/api/arquivos/enviar", "/api/apps/instalar")
+    private val ROTAS_FLUXO = setOf("/api/arquivos/enviar", "/api/apps/instalar", "/api/fotos/enviar")
 
     private fun json(codigo: Int, o: JSONObject, extras: Map<String, String> = emptyMap()) =
         Resposta(codigo, "application/json; charset=utf-8", o.toString().toByteArray(), extras)
@@ -334,6 +334,27 @@ object PainelWeb {
                 PainelArmazem.registrar(app, ip, "liberar memória", if (ganho == null) "sem shell" else "ok, ${ganho / 1048576} MB")
                 return if (ganho == null) erro(503, "o shell do launcher não respondeu (a depuração sem fio está ligada?)")
                 else json(200, JSONObject().put("ok", true).put("ganho", ganho))
+            }
+            // Fotos do protetor de tela (FotosProtetor.kt): pasta privada do launcher, só imagens.
+            "/api/fotos" -> if (req.metodo == "GET") return json(200, JSONObject().put("fotos", org.json.JSONArray().apply {
+                for (f in FotosProtetor.listar(app)) put(JSONObject().put("nome", f.name).put("tamanho", f.length()))
+            }).put("limite", FotosProtetor.MAXIMO_FOTOS))
+            "/api/fotos/ver" -> if (req.metodo == "GET") {
+                val f = FotosProtetor.arquivo(app, req.consulta["nome"] ?: "") ?: return erro(404, "essa foto não existe")
+                val tipo = when (f.extension.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; else -> "image/jpeg" }
+                return Resposta(200, tipo, f.readBytes())
+            }
+            "/api/fotos/enviar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val motivo = FotosProtetor.receber(app, nome, req.tamanho, req.fluxoCorpo())
+                PainelArmazem.registrar(app, ip, "enviar foto do protetor ${nome.take(80)}", motivo ?: "ok")
+                return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(400, motivo)
+            }
+            "/api/fotos/apagar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val ok = FotosProtetor.apagar(app, nome)
+                PainelArmazem.registrar(app, ip, "apagar foto do protetor ${nome.take(80)}", if (ok) "ok" else "não existe")
+                return if (ok) json(200, JSONObject().put("ok", true)) else erro(404, "essa foto não existe")
             }
             "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
             "/api/apps/instalar" -> if (req.metodo == "POST") return instalar(req, token, ip)
