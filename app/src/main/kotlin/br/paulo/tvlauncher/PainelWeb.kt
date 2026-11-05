@@ -312,6 +312,23 @@ object PainelWeb {
                     mapOf("Content-Disposition" to "attachment; filename=\"launcher-antes-de-restaurar.json\""))
             }
             "/api/backup/restaurar" -> if (req.metodo == "POST") return restaurar(req, token, ip)
+            // Backup automático (BackupAutomatico.kt): as cópias diárias guardadas na TV.
+            "/api/backup/automaticos" -> if (req.metodo == "GET") return json(200, JSONObject().put("copias",
+                org.json.JSONArray().apply {
+                    for (f in BackupAutomatico.listar(app)) put(JSONObject().put("nome", f.name).put("tamanho", f.length()).put("quando", f.lastModified()))
+                }))
+            "/api/backup/automatico" -> if (req.metodo == "GET") {
+                val nome = req.consulta["nome"] ?: ""
+                val f = BackupAutomatico.arquivo(app, nome) ?: return erro(404, "essa cópia não existe")
+                PainelArmazem.registrar(app, ip, "baixar cópia automática $nome", "ok")
+                return Resposta(200, "application/json; charset=utf-8", f.readBytes(),
+                    mapOf("Content-Disposition" to "attachment; filename=\"launcher-$nome\""))
+            }
+            "/api/backup/automatico/restaurar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val f = BackupAutomatico.arquivo(app, nome) ?: return erro(404, "essa cópia não existe")
+                return restaurarTexto(f.readText(), token, ip, "restaurar cópia automática $nome")
+            }
             "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
             "/api/apps/instalar" -> if (req.metodo == "POST") return instalar(req, token, ip)
             "/api/arquivos" -> if (req.metodo == "GET") { semAcesso()?.let { return it }; return json(200, PainelArquivos.listar(req.consulta["caminho"])) }
@@ -473,16 +490,22 @@ object PainelWeb {
 
     private fun restaurar(req: Requisicao, token: String?, ip: String): Resposta {
         if (!sessoes.elevada(token)) return precisaPin()
+        return restaurarTexto(req.corpoTexto(), token, ip, "restaurar backup")
+    }
+
+    /** Restaura um backup já lido (do arquivo enviado ou de uma cópia automática). [acao] vai para o registro. */
+    private fun restaurarTexto(texto: String, token: String?, ip: String, acao: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
         val n = try {
-            BackupConfig.importar(app, req.corpoTexto())
+            BackupConfig.importar(app, texto)
         } catch (e: IllegalArgumentException) {
-            PainelArmazem.registrar(app, ip, "restaurar backup", "recusado: ${e.message}")
+            PainelArmazem.registrar(app, ip, acao, "recusado: ${e.message}")
             return erro(400, "backup recusado: ${e.message}")
         } catch (e: Exception) {
-            PainelArmazem.registrar(app, ip, "restaurar backup", "falhou: $e")
+            PainelArmazem.registrar(app, ip, acao, "falhou: $e")
             return erro(500, "a restauração falhou na TV (${e.javaClass.simpleName}); as configurações de antes foram mantidas")
         }
-        PainelArmazem.registrar(app, ip, "restaurar backup", "ok, $n chaves")
+        PainelArmazem.registrar(app, ip, acao, "ok, $n chaves")
         // Reinicia o launcher depois de a resposta sair (várias telas leem as preferências só ao abrir). É o mesmo
         // jeito do REINICIAR do adb. O sistema sobe o processo de novo para religar o serviço de acessibilidade, e é
         // ele (AutorizaShizukuService.onServiceConnected) que reabre o painel mesmo sem a HOME na frente. As sessões caem.
