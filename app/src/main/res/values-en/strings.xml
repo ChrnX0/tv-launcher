@@ -4,8 +4,8 @@
     <string name="cfg_vpn_conectada">connected</string>
     <string name="cfg_vpn_nenhuma">none</string>
     <string name="cfg_vpn_desconectada">disconnected</string>
-    <string name="cfg_vpn_nao_fixa"> — the launcher does not pin a VPN</string>
-    <string name="cfg_vpn_adguard"> — AdGuard VPN app, always on · OK opens the app</string>
+    <string name="cfg_vpn_nao_fixa">" — the launcher does not pin a VPN"</string>
+    <string name="cfg_vpn_adguard">" — AdGuard VPN app, always on · OK opens the app"</string>
     <string name="cfg_titulo">Launcher settings</string>
     <string name="cfg_diag">Diagnose the TV</string>
     <string name="cfg_diag_det">internet, DNS, VPN and why an app stopped — all at once</string>
@@ -32,7 +32,7 @@
     <string name="cfg_procurando">checking GitHub…</string>
     <string name="cfg_sec_rede">Network</string>
     <string name="cfg_dns">Private DNS</string>
-    <string name="cfg_dns_caiu"> · %1$s did not answer, switched back to automatic</string>
+    <string name="cfg_dns_caiu">" · %1$s did not answer, switched back to automatic"</string>
     <string name="cfg_velocidade">Test internet speed</string>
     <string name="cfg_velocidade_det">downloads 25 MB and measures</string>
     <string name="cfg_testando">Testing…</string>
@@ -42,8 +42,8 @@
     <string name="cfg_nao_mudou_do">could not change (Device Owner inactive?)</string>
     <string name="cfg_sec_ligado">What is on — %1$s</string>
     <string name="cfg_ligado">on</string>
-    <string name="cfg_so_pc"> · only with a computer (adb)</string>
-    <string name="cfg_tenta_ligar"> · OK tries to turn on</string>
+    <string name="cfg_so_pc">" · only with a computer (adb)"</string>
+    <string name="cfg_tenta_ligar">" · OK tries to turn on"</string>
     <string name="cfg_perm_fixas">Fixed permissions granted</string>
     <string name="cfg_sec_shizuku">Launcher Shizuku</string>
     <string name="cfg_shz_rodando">running (uid %1$d, version %2$d)</string>
@@ -110,14 +110,14 @@
     <string name="rot_desligar">Turn off the TV</string>
     <string name="rot_abrir">Turn on and open %1$s</string>
     <string name="rot_um_app">an app (choose)</string>
-    <string name="rot_se_ocioso"> if nobody touched it for %1$s</string>
+    <string name="rot_se_ocioso">" if nobody touched it for %1$s"</string>
     <string name="rot_sempre">always</string>
     <!-- RotinasActivity.kt -->
     <string name="rot_nenhuma">no routine on</string>
     <string name="rot_proxima">next: %1$s</string>
     <string name="rot_nova_mais">+ New routine</string>
     <string name="rot_nova_det">turn on, open an app or turn off at a set time</string>
-    <string name="rot_desligada_sufixo"> · off</string>
+    <string name="rot_desligada_sufixo">" · off"</string>
     <string name="rot_nova">New routine</string>
     <string name="rot_editar">Edit routine</string>
     <string name="rot_editor_det">OK changes each line · BACK leaves without saving</string>
@@ -205,7 +205,7 @@
     <string name="al_soneca">Snooze 10 min</string>
     <!-- PopupPerfil.kt -->
     <string name="pp_sem_conta">No Google account</string>
-    <string name="pp_ativo">  ·  active</string>
+    <string name="pp_ativo">"  ·  active"</string>
     <string name="pp_adicionar">Add profile</string>
     <string name="pp_launcher_det">Appearance, DNS, diagnostics</string>
     <string name="pp_sistema">System</string>
@@ -226,7 +226,7 @@
     <string name="cal_dia_todo">All day</string>
     <string name="cal_sem_titulo">(no title)</string>
     <!-- ProtetorTela.kt -->
-    <string name="pt_chovendo">  ·  raining</string>
+    <string name="pt_chovendo">"  ·  raining"</string>
     <string name="pt_lua">Moon</string>
     <string name="pt_sol">Sun</string>
     <string name="pt_umidade">Humidity</string>
@@ -270,10 +270,10 @@
     </string-array>
     <!-- PrevisaoActivity.kt -->
     <string name="pv_carregando">Loading the forecast…</string>
-    <string name="pv_voz_agora">It is now %1$d degrees, %2$s. </string>
+    <string name="pv_voz_agora">"It is now %1$d degrees, %2$s. "</string>
     <string name="pv_voz_hoje">Today, a high of %1$d and a low of %2$d</string>
-    <string name="pv_voz_chuva">, with a %1$d percent chance of rain. </string>
-    <string name="pv_voz_sem_chuva">, no rain expected. </string>
+    <string name="pv_voz_chuva">", with a %1$d percent chance of rain. "</string>
+    <string name="pv_voz_sem_chuva">", no rain expected. "</string>
     <string name="pv_voz_amanha">Tomorrow, %1$s, a high of %2$d and a low of %3$d</string>
     <string name="pv_voz_amanha_chuva">, a %1$d percent chance of rain</string>
     <string name="pv_sem">No forecast now (no internet or source down).</string>
@@ -332,7 +332,7 @@
     <string name="vel_falhou">Test failed (no internet or server down)</string>
     <!-- Rede.kt -->
     <!-- EscolherAppActivity.kt -->
-    <string name="esc_atual">  ·  current</string>
+    <string name="esc_atual">"  ·  current"</string>
     <string name="esc_botao">%1$s button opens:</string>
     <!-- Config.kt -->
     <string name="shz_modo_desligado">off</string>
@@ -341,4 +341,98 @@
     <!-- Fundos.kt -->
     <string name="fd_nascer">sunrise %1$s</string>
     <string name="fd_por">sunset %1$s</string>
+    <!-- DnsActivity.kt -->
+    <string name="dns_dica">OK: use   ·   hold OK on one of your servers: remove   ·   Back: exit</string>
+    <string name="dns_auto">Automatic</string>
+    <string name="dns_auto_det">Uses the router DNS and encrypts when it accepts (Android default)</string>
+    <string name="dns_desl">Off</string>
+    <string name="dns_desl_det">Plain DNS, no encryption</string>
+    <string name="dns_publicos">Public servers</string>
+    <string name="dns_meus">My servers</string>
+    <string name="dns_adicionar">+  Add server</string>
+    <string name="dns_adicionar_det">DNS-over-TLS address, like dns.example.com</string>
+    <string name="dns_sem_permissao">"No permission to change the DNS. On a computer: "</string>
+    <string name="dns_troque_antes">switch servers before removing this one</string>
+    <string name="dns_remover_q">Remove %1$s?</string>
+    <string name="dns_remover">Remove</string>
+    <string name="dns_nome_opc">Name (optional)</string>
+    <string name="dns_endereco_ex">Address, e.g. dns.example.com</string>
+    <string name="dns_adicionar_tit">Add DNS server</string>
+    <string name="dns_salvar_usar">Save and use</string>
+    <string name="dns_invalido">Invalid address. Use a name like dns.example.com (Android does not accept an IP number).</string>
+    <string name="dns_em_uso">In use: %1$s</string>
+    <string name="dns_testando">testing…</string>
+    <string name="dns_falha">FAILED: no name resolved. Pick another server or Automatic.</string>
+    <string name="dns_res_sem_cripto">resolving in %1$d ms (no encryption)</string>
+    <string name="dns_res_tls">resolving in %1$d ms   ·   TLS active</string>
+    <string name="dns_res_com">" with %1$s"</string>
+    <string name="dns_res_sem_tls">resolving in %1$d ms   ·   no TLS right now</string>
+    <!-- Dns.kt -->
+    <string name="dns_adguard_pessoal">AdGuard (personal)</string>
+    <string name="dns_personalizado">Custom (%1$s)</string>
+    <string name="dns_rot_auto">automatic</string>
+    <string name="dns_rot_desl">off</string>
+    <!-- Diagnostico.kt -->
+    <string name="diag_resumo">Summary</string>
+    <string name="diag_wifi_desc">disconnected: the TV is not on any network</string>
+    <string name="diag_lat">%1$d ms to the internet</string>
+    <string name="diag_sem_resp">no answer from the internet</string>
+    <string name="diag_wifi">%1$s · signal %2$d dBm · %3$d Mbps · %4$s</string>
+    <string name="diag_validou">Android validated the Wi-Fi</string>
+    <string name="diag_nao_validou">Android did NOT validate the Wi-Fi</string>
+    <string name="diag_net_ok">working (test in %1$d ms) · %2$s</string>
+    <string name="diag_net_falhou">the test did not reach Google · %1$s</string>
+    <string name="diag_net_estranha">odd answer (%1$d): the network may want a login · %2$s</string>
+    <string name="diag_cripto">encryption active</string>
+    <string name="diag_sem_cripto">encryption NOT active</string>
+    <string name="diag_resolve">resolves names (%1$d ms)</string>
+    <string name="diag_nao_resolve">does NOT resolve names</string>
+    <string name="diag_caiu">%1$s failed earlier and I switched back to automatic</string>
+    <string name="diag_nenhum_app">no app</string>
+    <string name="diag_vpn_nada">no VPN pinned or on</string>
+    <string name="diag_vpn_desc">%1$s pinned, but DISCONNECTED (internet keeps working without VPN)</string>
+    <string name="diag_vpn_nao_validada">%1$s connected, but Android did not validate the tunnel</string>
+    <string name="diag_vpn_ok">%1$s connected and working</string>
+    <string name="diag_r_sem_wifi">the TV has no Wi-Fi</string>
+    <string name="diag_r_dns_fora">the DNS does not answer: the internet seems down</string>
+    <string name="diag_r_net_fora">the internet is not getting through (router or provider)</string>
+    <string name="diag_r_dns">the DNS does not resolve names: apps cannot find their servers</string>
+    <string name="diag_r_net">the DNS works, but the internet does not answer</string>
+    <string name="diag_r_vpn">network ok; only the VPN is down (apps work without it)</string>
+    <string name="diag_r_atencao">network working, with points of attention below</string>
+    <string name="diag_r_ok">network ok. If an app stopped, see what happened to it below</string>
+    <string name="diag_usava">" · was using %1$d MB"</string>
+    <string name="diag_texto">Reason: %1$s\nProcess: %2$s\nImportance: %3$s</string>
+    <string name="diag_detalhe">\nAndroid detail: %1$s</string>
+    <string name="diag_m_memoria">closed for lack of memory</string>
+    <string name="diag_m_crash">crashed</string>
+    <string name="diag_m_nativo">crashed (native)</string>
+    <string name="diag_m_anr">stopped responding (ANR)</string>
+    <string name="diag_m_iniciar">could not start</string>
+    <string name="diag_m_recurso">closed for using too many resources</string>
+    <string name="diag_m_dependencia">closed because an app it depends on died</string>
+    <string name="diag_m_sinal">ended by the system (signal)</string>
+    <string name="diag_m_permissao">restarted by a permission change</string>
+    <string name="diag_i_tela">was on screen</string>
+    <string name="diag_i_visivel">visible</string>
+    <string name="diag_i_servico">running in the background</string>
+    <string name="diag_i_cache">in the background (cached)</string>
+    <!-- DiagnosticoActivity.kt -->
+    <string name="diag_titulo">Diagnostics</string>
+    <string name="diag_refazer">Check again</string>
+    <string name="diag_refazer_det">runs all the checks again</string>
+    <string name="diag_verificando">checking…</string>
+    <string name="diag_apps">Apps (last 7 days)</string>
+    <string name="diag_lendo">Reading the app history</string>
+    <string name="diag_sem_perm">No permission to read other apps\' crashes</string>
+    <string name="diag_sem_perm_det">the launcher grants itself READ_LOGS and DUMP through its own shell; wait a few minutes or restart the TV</string>
+    <string name="diag_nada">nothing recorded</string>
+    <string name="diag_erros">Launcher errors (recorded by it)</string>
+    <string name="diag_sem_erros">No errors recorded</string>
+    <string name="diag_sem_erros_det">the launcher keeps its last %1$d crashes here</string>
+    <string name="diag_erro">Launcher error</string>
+    <string name="diag_apagar">Delete recorded errors</string>
+    <string name="diag_apagar_det">clears the list above (touches nothing else)</string>
+    <string name="diag_rodape">%1$s · arrows scroll · BACK returns</string>
+    <string name="diag_app_ok">No crash, freeze or abnormal exit in the last 7 days.\n\nIf the app opens but loads nothing, the problem is usually the network: see the Network section on the previous screen.</string>
 </resources>
