@@ -14,7 +14,8 @@ import java.io.File
  * O que entra: os arquivos de preferências [ARQUIVOS] inteiros:
  *  - "launcher": ordem e pilhas dos apps, ocultos, perfil ativo, tema, botões do controle, Shizuku...
  *  - "despertador": os alarmes;
- *  - "dns": os servidores de DNS cadastrados (restaurar NÃO aplica o DNS na TV: só devolve a lista).
+ *  - "dns": os servidores de DNS cadastrados (restaurar NÃO aplica o DNS na TV: só devolve a lista);
+ *  - "rotinas": as rotinas por horário (Rotinas.kt).
  * O que NÃO entra: o PIN e o registro do painel ("painel_seguro"/"painel_log", fora da lista de propósito), as
  * chaves do adb (arquivos em filesDir) e o cache do clima.
  *
@@ -23,7 +24,7 @@ import java.io.File
  */
 object BackupConfig {
     private const val TAG = "TvLauncher.Backup"
-    val ARQUIVOS = listOf("launcher", "despertador", "dns")
+    val ARQUIVOS = listOf("launcher", "despertador", "dns", "rotinas")   // "rotinas": Rotinas.kt (PR #30); a HOME reagenda ao reabrir
     const val LIMITE_BYTES = 512 * 1024   // um backup real tem poucos KB; isto barra lixo grande
 
     /** Cópia do estado de antes da última restauração (para desfazer: o painel deixa baixar). */
