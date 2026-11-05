@@ -80,6 +80,9 @@ object AutoDesligar {
         reagendar()
     }
 
+    /** O aviso de "vai desligar" está na tela agora. */
+    fun avisoNaTela() = janela != null
+
     /** Alguém mexeu (tecla do controle ou do painel). Barato: só a hora. */
     fun atividade() {
         ultima = SystemClock.elapsedRealtime()

@@ -102,4 +102,10 @@ class HistoricoRedeTest {
         val r = ResumoRede.resumir(a, 0, 101 * min)
         assertEquals(95, r.latP95)
     }
+
+    @Test fun p95ComPoucasAmostrasNaoFicaAbaixoDaMedia() {
+        val r = ResumoRede.resumir(listOf(ok(0, 15), ok(min, 17)), 0, 2 * min)
+        assertEquals(16, r.latMedia)
+        assertEquals(17, r.latP95)
+    }
 }
