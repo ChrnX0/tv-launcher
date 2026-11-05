@@ -54,7 +54,7 @@ class EscolherAppActivity : Activity() {
                 addView(ImageView(this@EscolherAppActivity).apply { setImageDrawable(app.loadIcon(pm)) },
                     LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(16) })
                 addView(TextView(this@EscolherAppActivity).apply {
-                    text = app.loadLabel(pm).toString() + if (pacote == atual) "  ·  atual" else ""
+                    text = app.loadLabel(pm).toString() + if (pacote == atual) getString(R.string.esc_atual) else ""
                     setTextColor(Color.WHITE)
                     textSize = 18f
                     typeface = Fontes.ui(this@EscolherAppActivity, tema)
@@ -74,7 +74,7 @@ class EscolherAppActivity : Activity() {
             setPadding(dp(24), dp(20), dp(24), dp(20))
             background = GradientDrawable().apply { cornerRadius = dp(22).toFloat(); setColor(0xF01C2024.toInt()) }
             addView(TextView(this@EscolherAppActivity).apply {
-                text = "Botão ${botao.nome} abre:"
+                text = getString(R.string.esc_botao, botao.nome)
                 setTextColor(Color.WHITE)
                 textSize = 24f
                 typeface = Fontes.uiMedia(this@EscolherAppActivity, tema)

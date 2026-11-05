@@ -35,17 +35,17 @@ object Recursos {
     fun listar(ctx: Context): List<Recurso> {
         val dono = PrivilegioDO.somosDonos(ctx)
         return listOf(
-            Recurso("Device Owner", dono, "sem ele: não oculta apps, não fixa a HOME nem a VPN, não muda o tempo do protetor", null),
-            Recurso("Agenda", tem(ctx, Manifest.permission.READ_CALENDAR), "sem ela: o calendário não mostra eventos", PEDIR_PERMISSAO),
-            Recurso("Localização", tem(ctx, Manifest.permission.ACCESS_FINE_LOCATION), "sem ela: o clima usa a cidade pelo IP e o Wi-Fi não mostra o nome da rede", PEDIR_PERMISSAO),
-            Recurso("Contas", tem(ctx, Manifest.permission.GET_ACCOUNTS), "sem ela: a bolinha do perfil não mostra a inicial da conta", PEDIR_PERMISSAO),
-            Recurso("Uso dos apps", usoLiberado(ctx), "sem ele: os apps não se ordenam pelo uso recente",
+            Recurso("Device Owner", dono, ctx.getString(R.string.rec_do_sem), null),
+            Recurso(ctx.getString(R.string.rec_agenda), tem(ctx, Manifest.permission.READ_CALENDAR), ctx.getString(R.string.rec_agenda_sem), PEDIR_PERMISSAO),
+            Recurso(ctx.getString(R.string.rec_local), tem(ctx, Manifest.permission.ACCESS_FINE_LOCATION), ctx.getString(R.string.rec_local_sem), PEDIR_PERMISSAO),
+            Recurso(ctx.getString(R.string.rec_contas), tem(ctx, Manifest.permission.GET_ACCOUNTS), ctx.getString(R.string.rec_contas_sem), PEDIR_PERMISSAO),
+            Recurso(ctx.getString(R.string.rec_uso), usoLiberado(ctx), ctx.getString(R.string.rec_uso_sem),
                 Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)),
-            Recurso("Sobreposição", Settings.canDrawOverlays(ctx), "sem ela: recados e o pareamento sem PC não aparecem por cima dos apps",
+            Recurso(ctx.getString(R.string.rec_sobre), Settings.canDrawOverlays(ctx), ctx.getString(R.string.rec_sobre_sem),
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${ctx.packageName}"))),
-            Recurso("Configurações seguras", tem(ctx, "android.permission.WRITE_SECURE_SETTINGS"),
-                "sem ela: não troca o DNS nem religa sozinho o serviço de teclas e a depuração sem fio (só com PC ou o shell do launcher)", null),
-            Recurso("Serviço de teclas", AutorizaShizukuService.instancia != null, "sem ele: o botão HOME pode abrir o launcher do Google e as teclas Netflix/YouTube não remapeiam",
+            Recurso(ctx.getString(R.string.rec_seguras), tem(ctx, "android.permission.WRITE_SECURE_SETTINGS"),
+                ctx.getString(R.string.rec_seguras_sem), null),
+            Recurso(ctx.getString(R.string.rec_teclas), AutorizaShizukuService.instancia != null, ctx.getString(R.string.rec_teclas_sem),
                 Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
         )
     }
@@ -57,6 +57,6 @@ object Recursos {
     fun resumo(ctx: Context): String {
         val l = listar(ctx)
         val faltam = l.count { !it.ativo }
-        return if (faltam == 0) "tudo ligado" else "$faltam de ${l.size} recursos faltando · OK num item tenta ligar"
+        return if (faltam == 0) ctx.getString(R.string.rec_tudo) else ctx.getString(R.string.rec_faltam, faltam, l.size)
     }
 }

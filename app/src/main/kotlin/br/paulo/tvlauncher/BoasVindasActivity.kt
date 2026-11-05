@@ -59,21 +59,20 @@ class BoasVindasActivity : Activity() {
             background = resources.getDrawable(R.drawable.fundo, theme)
             setPadding(dp(96), dp(48), dp(96), dp(32))
         }
-        raiz.addView(texto(36f, textoClaro).apply { text = "Bem-vindo"; typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) })
+        raiz.addView(texto(36f, textoClaro).apply { text = getString(R.string.bv_titulo); typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) })
         raiz.addView(texto(16f, textoSuave).apply {
-            text = "A tela inicial, o relógio, o clima, o despertador e o protetor já funcionam. " +
-                "O resto liga aqui, se você quiser (${Recursos.resumo(this@BoasVindasActivity)})."
+            text = getString(R.string.bv_texto, Recursos.resumo(this@BoasVindasActivity))
         })
         val lista = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(8), dp(24), dp(8)) }
         raiz.addView(ScrollView(this).apply { addView(lista) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(16) })
 
         val faltam = Recursos.perigosasFaltando(this)
-        val comecar = linha("Começar", "vai para a tela inicial") { finish() }
-        if (faltam.isNotEmpty()) lista.addView(linha("Ligar agenda, localização e contas",
-            "eventos no calendário, clima da sua cidade, inicial da conta no perfil") { requestPermissions(faltam, PEDIDO) })
-        if (AutorizaShizukuService.instancia == null) lista.addView(linha("Ligar o serviço de teclas",
-            "Acessibilidade > Launcher: faz o botão HOME sempre voltar para cá") { abrir(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
-        lista.addView(linha("Ver tudo o que dá para ligar", "Configurações do launcher") {
+        val comecar = linha(getString(R.string.bv_comecar), getString(R.string.bv_comecar_det)) { finish() }
+        if (faltam.isNotEmpty()) lista.addView(linha(getString(R.string.bv_perm),
+            getString(R.string.bv_perm_det)) { requestPermissions(faltam, PEDIDO) })
+        if (AutorizaShizukuService.instancia == null) lista.addView(linha(getString(R.string.bv_teclas),
+            getString(R.string.bv_teclas_det)) { abrir(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
+        lista.addView(linha(getString(R.string.bv_tudo), getString(R.string.cfg_titulo)) {
             abrir(Intent(this, ConfigLauncherActivity::class.java))
         })
         lista.addView(comecar)

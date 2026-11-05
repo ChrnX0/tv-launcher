@@ -72,7 +72,7 @@ class DiagnosticoActivity : Activity() {
             background = resources.getDrawable(R.drawable.fundo, theme)
             setPadding(dp(96), dp(48), dp(96), dp(32))
         }
-        raiz.addView(texto(36f, textoClaro, fonteLeve).apply { text = "Diagnóstico" })
+        raiz.addView(texto(36f, textoClaro, fonteLeve).apply { text = getString(R.string.diag_titulo) })
         lista = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
@@ -90,16 +90,16 @@ class DiagnosticoActivity : Activity() {
     /** Limpa a lista e roda tudo de novo (é o que o "Verificar de novo" faz). */
     private fun verificar() {
         lista.removeAllViews()
-        val refazer = linha("Verificar de novo", "roda todas as verificações outra vez", -1) { verificar() }
+        val refazer = linha(getString(R.string.diag_refazer), getString(R.string.diag_refazer_det), -1) { verificar() }
         adicionar(refazer)
         refazer.requestFocus()
 
-        secao("Rede")
-        val resumo = info("Resumo", "verificando…").also { adicionar(it) }
-        val wifi = info("Wi-Fi", "verificando…").also { adicionar(it) }
-        val internet = info("Internet", "verificando…").also { adicionar(it) }
-        val dns = info("DNS", "verificando…").also { adicionar(it) }
-        val vpn = info("VPN", "verificando…").also { adicionar(it) }
+        secao(getString(R.string.cfg_sec_rede))
+        val resumo = info(getString(R.string.diag_resumo), getString(R.string.diag_verificando)).also { adicionar(it) }
+        val wifi = info("Wi-Fi", getString(R.string.diag_verificando)).also { adicionar(it) }
+        val internet = info("Internet", getString(R.string.diag_verificando)).also { adicionar(it) }
+        val dns = info("DNS", getString(R.string.diag_verificando)).also { adicionar(it) }
+        val vpn = info("VPN", getString(R.string.diag_verificando)).also { adicionar(it) }
 
         // Cada verificação numa thread; quando as quatro chegam, calcula o resumo.
         val resultados = arrayOfNulls<Diagnostico.Item>(4)
@@ -118,8 +118,8 @@ class DiagnosticoActivity : Activity() {
         rodar(2, dns) { Diagnostico.dns(this) }
         rodar(3, vpn) { Diagnostico.vpn(this) }
 
-        secao("Apps (últimos 7 dias)")
-        val carregando = info("Lendo o histórico dos apps", "…").also { adicionar(it) }
+        secao(getString(R.string.diag_apps))
+        val carregando = info(getString(R.string.diag_lendo), "…").also { adicionar(it) }
         trabalho.execute {
             val apps = Diagnostico.appsDaTv(this)
             val ocorr = Diagnostico.ocorrencias(this, apps.map { it.first })
@@ -127,8 +127,8 @@ class DiagnosticoActivity : Activity() {
             ui.post {
                 if (isDestroyed) return@post
                 lista.removeView(carregando)
-                if (!podeLer) adicionar(info("Sem permissão para ler crashes de outros apps",
-                    "o launcher se concede READ_LOGS e DUMP pelo próprio shell; aguarde alguns minutos ou religue a TV", 1))
+                if (!podeLer) adicionar(info(getString(R.string.diag_sem_perm),
+                    getString(R.string.diag_sem_perm_det), 1))
                 // Primeiro quem teve problema (mais recente no topo), depois o resto em ordem alfabética.
                 val nomes = apps.toMap()
                 val comProblema = ocorr.entries.sortedByDescending { it.value.first().quando }
@@ -144,7 +144,7 @@ class DiagnosticoActivity : Activity() {
                     })
                 }
                 for ((pacote, nome) in apps) if (pacote !in ocorr)
-                    adicionar(linha(nome, "nada registrado", 0) { mostrarDetalhe(nome, pacote, emptyList()) })
+                    adicionar(linha(nome, getString(R.string.diag_nada), 0) { mostrarDetalhe(nome, pacote, emptyList()) })
                 mostrarErrosDoLauncher()
             }
         }
@@ -155,14 +155,14 @@ class DiagnosticoActivity : Activity() {
      * Fica por último, depois dos apps, porque a lista dos apps chega depois (lida numa thread).
      */
     private fun mostrarErrosDoLauncher() {
-        secao("Erros do launcher (gravados por ele)")
+        secao(getString(R.string.diag_erros))
         val erros = RegistroErros.listar(this)
-        if (erros.isEmpty()) { adicionar(info("Nenhum erro gravado", "o launcher guarda aqui os últimos ${RegistroErros.MAXIMO} crashes dele", 0)); return }
+        if (erros.isEmpty()) { adicionar(info(getString(R.string.diag_sem_erros), getString(R.string.diag_sem_erros_det, RegistroErros.MAXIMO), 0)); return }
         for (e in erros) {
             val quando = DateUtils.getRelativeTimeSpanString(e.quando, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
-            adicionar(linha(e.resumo, quando.toString(), 2) { mostrarTexto("Erro do launcher", e.arquivo.name, e.texto) })
+            adicionar(linha(e.resumo, quando.toString(), 2) { mostrarTexto(getString(R.string.diag_erro), e.arquivo.name, e.texto) })
         }
-        adicionar(linha("Apagar os erros gravados", "limpa a lista acima (não mexe em nada mais)", -1) {
+        adicionar(linha(getString(R.string.diag_apagar), getString(R.string.diag_apagar_det), -1) {
             RegistroErros.apagarTodos(this)
             verificar()
         })
@@ -177,7 +177,7 @@ class DiagnosticoActivity : Activity() {
             setPadding(dp(96), dp(48), dp(96), dp(32))
         }
         raiz.addView(texto(32f, textoClaro, fonteLeve).apply { text = titulo })
-        raiz.addView(texto(14f, textoSuave).apply { text = "$subtitulo · setas rolam · BACK volta" })
+        raiz.addView(texto(14f, textoSuave).apply { text = getString(R.string.diag_rodape, subtitulo) })
         val corpo = texto(15f, textoClaro, Typeface.MONOSPACE).apply { text = conteudo; setPadding(dp(8), dp(8), dp(8), dp(8)) }
         val rolagem = ScrollView(this).apply { isFocusable = true; addView(corpo) }
         raiz.addView(rolagem, LinearLayout.LayoutParams(MATCH, 0, 1f).apply { topMargin = dp(16) })
@@ -192,8 +192,7 @@ class DiagnosticoActivity : Activity() {
     private fun mostrarDetalhe(nome: String, pacote: String, l: List<Diagnostico.Ocorrencia>) {
         focoAntes = currentFocus
         val sb = StringBuilder()
-        if (l.isEmpty()) sb.append("Nenhum crash, travada ou encerramento anormal nos últimos 7 dias.\n\n" +
-            "Se o app abre mas não carrega nada, o problema costuma ser rede: veja a seção Rede na tela anterior.")
+        if (l.isEmpty()) sb.append(getString(R.string.diag_app_ok))
         for (o in l) {
             sb.append("■ ").append(DateUtils.formatDateTime(this, o.quando,
                 DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_WEEKDAY))
@@ -207,7 +206,7 @@ class DiagnosticoActivity : Activity() {
             setPadding(dp(96), dp(48), dp(96), dp(32))
         }
         raiz.addView(texto(32f, textoClaro, fonteLeve).apply { text = nome })
-        raiz.addView(texto(14f, textoSuave).apply { text = "$pacote · setas rolam · BACK volta" })
+        raiz.addView(texto(14f, textoSuave).apply { text = getString(R.string.diag_rodape, pacote) })
         val corpo = texto(15f, textoClaro, Typeface.MONOSPACE).apply { text = sb; setPadding(dp(8), dp(8), dp(8), dp(8)) }
         val rolagem = ScrollView(this).apply {
             isFocusable = true

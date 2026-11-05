@@ -17,7 +17,7 @@ import android.widget.TextView
 class LicencasActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val texto = try { assets.open("licencas.txt").bufferedReader().use { it.readText() } } catch (e: Exception) { "Arquivo de licenças não encontrado." }
+        val texto = try { assets.open("licencas.txt").bufferedReader().use { it.readText() } } catch (e: Exception) { getString(R.string.lic_sem_arquivo) }
         val d = resources.displayMetrics.density
         fun dp(v: Int) = (v * d + 0.5f).toInt()
         val raiz = LinearLayout(this).apply {
@@ -29,7 +29,7 @@ class LicencasActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 32f)
             setTextColor(0xFFE8EEEA.toInt())
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            text = "Licenças e créditos"
+            text = getString(R.string.cfg_licencas)
         })
         val corpo = TextView(this).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
