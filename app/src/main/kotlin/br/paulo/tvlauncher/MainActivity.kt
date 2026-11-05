@@ -1243,7 +1243,10 @@ class MainActivity : Activity() {
                         if (motivo == null) {
                             Organizacao.mostrar(this, pacote)   // limpa a marca de oculto, se tinha (o app não existe mais)
                             mostrarAviso(getString(R.string.home_desinstalado, nome))
-                            atualizarAposMudanca(null)
+                            // Relê os apps do Android: o reorganizar() reusa a lista "instalados" da memória, e o card
+                            // do app desinstalado ficava na tela até a próxima volta à HOME (visto na Sala, 05/11/2026).
+                            fecharPasta()
+                            preencherApps()
                         } else {
                             mostrarAviso(getString(R.string.home_desinstalar_falhou, nome, motivo))
                         }
