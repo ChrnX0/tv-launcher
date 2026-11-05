@@ -65,14 +65,14 @@ class RotinasActivity : Activity() {
     private fun mostrarLista() {
         noEditor = false
         val prox = Rotinas.proxima(this)
-        val (raiz, lista) = tela("Rotinas", if (prox == null) "nenhuma rotina ligada" else
-            "próxima: ${Rotinas.descricao(this, prox.first).lowercase()} " +
+        val (raiz, lista) = tela(getString(R.string.cfg_rotinas), if (prox == null) getString(R.string.rot_nenhuma) else
+            getString(R.string.rot_proxima, Rotinas.descricao(this, prox.first).lowercase()) + " " +
                 android.text.format.DateUtils.getRelativeTimeSpanString(prox.second, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS))
-        val nova = linha("+ Nova rotina", "ligar, abrir um app ou desligar num horário") { mostrarEditor(null) }
+        val nova = linha(getString(R.string.rot_nova_mais), getString(R.string.rot_nova_det)) { mostrarEditor(null) }
         adicionar(lista, nova)
         for (r in Rotinas.listar(this)) {
             adicionar(lista, linha("%02d:%02d  ·  %s".format(r.hora, r.minuto, Rotinas.descricao(this, r)),
-                Despertador.diasTexto(r.dias) + if (r.ativa) "" else " · desligada") { mostrarEditor(r) })
+                Despertador.diasTexto(this, r.dias) + if (r.ativa) "" else getString(R.string.rot_desligada_sufixo)) { mostrarEditor(r) })
         }
         setContentView(raiz)
         (lista.getChildAt(1) ?: nova).requestFocus()
@@ -84,19 +84,19 @@ class RotinasActivity : Activity() {
         val apps = packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0)
             .map { it.activityInfo.packageName }.distinct().filter { it != packageName }
             .sortedBy { (Rotinas.rotuloApp(this, it) ?: it).lowercase() }
-        val (raiz, lista) = tela(if (original == null) "Nova rotina" else "Editar rotina", "OK muda cada linha · BACK sai sem salvar")
+        val (raiz, lista) = tela(if (original == null) getString(R.string.rot_nova) else getString(R.string.rot_editar), getString(R.string.rot_editor_det))
 
         lateinit var lHora: TextView; lateinit var lDias: TextView; lateinit var lAcao: TextView
         lateinit var lApp: TextView; lateinit var lOcioso: TextView; lateinit var lAtiva: TextView
         fun redesenhar() {
-            lHora.titulo("Hora: %02d:%02d".format(r.hora, r.minuto))
-            lDias.titulo("Dias: " + Despertador.diasTexto(r.dias))
-            lAcao.titulo("Ação: " + r.acao.rotulo)
-            lApp.titulo("App: " + (Rotinas.rotuloApp(this, r.pacote) ?: "nenhum"))
+            lHora.titulo(getString(R.string.rot_hora, "%02d:%02d".format(r.hora, r.minuto)))
+            lDias.titulo(getString(R.string.rot_dias, Despertador.diasTexto(this, r.dias)))
+            lAcao.titulo(getString(R.string.rot_acao, getString(r.acao.rotulo)))
+            lApp.titulo(getString(R.string.rot_app, Rotinas.rotuloApp(this, r.pacote) ?: getString(R.string.rot_nenhum)))
             lApp.visibility = if (r.acao == Rotinas.Acao.ABRIR) View.VISIBLE else View.GONE
-            lOcioso.titulo("Só se ninguém mexeu há: " + Rotinas.ociosoTexto(r.ocioso))
+            lOcioso.titulo(getString(R.string.rot_ocioso, Rotinas.ociosoTexto(this, r.ocioso)))
             lOcioso.visibility = if (r.acao == Rotinas.Acao.DESLIGAR) View.VISIBLE else View.GONE
-            lAtiva.titulo(if (r.ativa) "Ligada" else "Desligada")
+            lAtiva.titulo(if (r.ativa) getString(R.string.rot_ligada) else getString(R.string.rot_desligada))
         }
         fun mudarMinutos(delta: Int) {
             val total = ((r.hora * 60 + r.minuto + delta) % 1440 + 1440) % 1440
@@ -108,7 +108,7 @@ class RotinasActivity : Activity() {
             r = r.copy(pacote = apps[((if (i < 0) -1 else i) + passo + apps.size) % apps.size])
         }
 
-        lHora = linha("", "◀ ▶ 5 minutos · OK +1 hora") { mudarMinutos(60); redesenhar() }
+        lHora = linha("", getString(R.string.rot_hora_det)) { mudarMinutos(60); redesenhar() }
         lHora.setOnKeyListener { _, k, e ->
             if (e.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
             when (k) {
@@ -117,16 +117,16 @@ class RotinasActivity : Activity() {
                 else -> false
             }
         }
-        lDias = linha("", "OK: todo dia, seg a sex, fim de semana, uma vez") {
+        lDias = linha("", getString(R.string.rot_dias_det)) {
             r = r.copy(dias = DIAS[(DIAS.indexOf(r.dias) + 1) % DIAS.size]); redesenhar()
         }
-        lAcao = linha("", "OK muda") {
+        lAcao = linha("", getString(R.string.rot_ok_muda)) {
             val a = Rotinas.Acao.values()
             r = r.copy(acao = a[(r.acao.ordinal + 1) % a.size])
             if (r.acao == Rotinas.Acao.ABRIR && r.pacote.isBlank()) mudarApp(1)
             redesenhar()
         }
-        lApp = linha("", "OK ou ▶ próximo · ◀ anterior") { mudarApp(1); redesenhar() }
+        lApp = linha("", getString(R.string.rot_app_det)) { mudarApp(1); redesenhar() }
         lApp.setOnKeyListener { _, k, e ->
             if (e.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
             when (k) {
@@ -135,17 +135,17 @@ class RotinasActivity : Activity() {
                 else -> false
             }
         }
-        lOcioso = linha("", "não corta o filme de quem está usando a TV") {
+        lOcioso = linha("", getString(R.string.rot_ocioso_det)) {
             val o = Rotinas.OCIOSO_OPCOES
             r = r.copy(ocioso = o[(o.indexOf(r.ocioso) + 1) % o.size]); redesenhar()
         }
-        lAtiva = linha("", "OK liga/desliga esta rotina") { r = r.copy(ativa = !r.ativa); redesenhar() }
+        lAtiva = linha("", getString(R.string.rot_ativa_det)) { r = r.copy(ativa = !r.ativa); redesenhar() }
         for (v in listOf(lHora, lDias, lAcao, lApp, lOcioso, lAtiva)) adicionar(lista, v)
-        adicionar(lista, linha("Salvar", "") {
-            if (r.acao == Rotinas.Acao.ABRIR && r.pacote.isBlank()) { Toast.makeText(this, "Escolha o app", Toast.LENGTH_SHORT).show(); return@linha }
+        adicionar(lista, linha(getString(R.string.rot_salvar), "") {
+            if (r.acao == Rotinas.Acao.ABRIR && r.pacote.isBlank()) { Toast.makeText(this, getString(R.string.rot_escolha_app), Toast.LENGTH_SHORT).show(); return@linha }
             Rotinas.salvar(this, r); mostrarLista()
         })
-        if (original != null) adicionar(lista, linha("Apagar esta rotina", "") { Rotinas.apagar(this, original.id); mostrarLista() })
+        if (original != null) adicionar(lista, linha(getString(R.string.rot_apagar), "") { Rotinas.apagar(this, original.id); mostrarLista() })
         redesenhar()
         setContentView(raiz)
         lHora.requestFocus()

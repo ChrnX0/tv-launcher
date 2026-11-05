@@ -147,7 +147,7 @@ class AlarmesActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(140), ViewGroup.LayoutParams.WRAP_CONTENT))
         addView(LinearLayout(this@AlarmesActivity).apply {
             orientation = LinearLayout.VERTICAL
-            addView(texto(17f, textoClaro).apply { text = Despertador.diasTexto(a.dias) })
+            addView(texto(17f, textoClaro).apply { text = Despertador.diasTexto(context, a.dias) })
             if (a.nome.isNotBlank()) addView(texto(15f, textoSuave).apply { text = a.nome })
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         addView(texto(15f, if (a.ativo) verde else textoSuave, fonteMedia).apply { text = if (a.ativo) "Ligado" else "Desligado" })
@@ -209,7 +209,7 @@ class AlarmesActivity : Activity() {
 
         // Dias da semana: 7 bolinhas (D S T Q Q S S); OK liga/desliga. Nenhum marcado = toca uma vez só.
         val legendaDias = texto(15f, textoSuave).apply { setPadding(0, dp(10), 0, 0) }
-        fun atualizarLegenda() { legendaDias.text = Despertador.diasTexto(dias) }
+        fun atualizarLegenda() { legendaDias.text = Despertador.diasTexto(this, dias) }
         val linhaDias = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(20), 0, 0) }
         Despertador.NOMES_DIAS.forEachIndexed { i, nome ->
             val bit = 1 shl i

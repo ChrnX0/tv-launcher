@@ -6,4 +6,156 @@
     <!-- Permissão que apps clientes do Shizuku pedem ao launcher (gerente do Shizuku embutido) -->
     <string name="shizuku_permissao_nome">acessar o Shizuku do launcher</string>
     <string name="shizuku_permissao_descricao">Permite que o app use os poderes de sistema (shell) do launcher, se você autorizar.</string>
+    <!-- ConfigLauncherActivity.kt -->
+    <string name="cfg_vpn_conectada">conectada</string>
+    <string name="cfg_vpn_nenhuma">nenhuma</string>
+    <string name="cfg_vpn_desconectada">desconectada</string>
+    <string name="cfg_vpn_nao_fixa"> — o launcher não fixa VPN</string>
+    <string name="cfg_vpn_adguard"> — app AdGuard VPN, sempre ativa · OK abre o app</string>
+    <string name="cfg_titulo">Configurações do launcher</string>
+    <string name="cfg_diag">Diagnosticar a TV</string>
+    <string name="cfg_diag_det">internet, DNS, VPN e por que um app parou — tudo de uma vez</string>
+    <string name="cfg_sec_aparencia">Aparência</string>
+    <string name="cfg_tema">Tema: %1$s</string>
+    <string name="cfg_tema_det">muda para o próximo visual</string>
+    <string name="cfg_pilhas">Pilhas automáticas</string>
+    <string name="cfg_pilhas_on">ligadas: apps soltos juntam pela categoria (vídeo, música, jogo…) · OK desliga</string>
+    <string name="cfg_pilhas_off">desligadas · OK liga (as pilhas que você montou continuam)</string>
+    <string name="cfg_sec_descanso">Descanso de tela</string>
+    <string name="cfg_nunca">Nunca</string>
+    <string name="cfg_min">%1$d min</string>
+    <string name="cfg_iniciar_apos">Iniciar após: %1$s</string>
+    <string name="cfg_descanso_det">OK muda o tempo parado até o protetor aparecer</string>
+    <string name="cfg_nao_gravou_do">não consegui gravar (Device Owner inativo?)</string>
+    <string name="cfg_visita">Modo visita</string>
+    <string name="cfg_visita_on">ligado — perfil, agenda e os apps marcados abaixo estão escondidos · OK desliga</string>
+    <string name="cfg_visita_off">desligado — OK esconde o perfil, a agenda e os apps marcados abaixo</string>
+    <string name="cfg_rotinas">Rotinas</string>
+    <string name="cfg_rotinas_det">ligar, abrir um app ou desligar a TV num horário</string>
+    <string name="cfg_sec_atualizacao">Atualização</string>
+    <string name="cfg_atualizar">Procurar versão nova</string>
+    <string name="cfg_atualizar_det">versão %1$s · %2$s · OK procura agora</string>
+    <string name="cfg_procurando">procurando no GitHub…</string>
+    <string name="cfg_sec_rede">Rede</string>
+    <string name="cfg_dns">DNS privado</string>
+    <string name="cfg_dns_caiu"> · %1$s não respondeu, voltei para o automático</string>
+    <string name="cfg_velocidade">Testar velocidade da internet</string>
+    <string name="cfg_velocidade_det">baixa 25 MB e mede</string>
+    <string name="cfg_testando">Testando…</string>
+    <string name="cfg_sec_ocultos">Apps ocultos</string>
+    <string name="cfg_oculto">oculto — OK mostra</string>
+    <string name="cfg_visivel">visível — OK oculta</string>
+    <string name="cfg_nao_mudou_do">não consegui mudar (Device Owner inativo?)</string>
+    <string name="cfg_sec_ligado">O que está ligado — %1$s</string>
+    <string name="cfg_ligado">ligado</string>
+    <string name="cfg_so_pc"> · só com computador (adb)</string>
+    <string name="cfg_tenta_ligar"> · OK tenta ligar</string>
+    <string name="cfg_perm_fixas">Permissões fixas concedidas</string>
+    <string name="cfg_sec_shizuku">Shizuku do launcher</string>
+    <string name="cfg_shz_rodando">rodando (uid %1$d, versão %2$d)</string>
+    <string name="cfg_shz_parado">parado</string>
+    <string name="cfg_shz_sob">sobe quando um app pede, desce após 5 min sem uso</string>
+    <string name="cfg_shz_sempre">sempre de pé, religa se cair</string>
+    <string name="cfg_shz_desligado">não sobe</string>
+    <string name="cfg_shz_det">%1$s (%2$s) · agora: %3$s — OK troca o modo</string>
+    <string name="cfg_servidor">Servidor</string>
+    <string name="cfg_parear">Parear sem PC</string>
+    <string name="cfg_parear_det">abre a tela de pareamento do Android com um teclado do launcher por cima</string>
+    <string name="cfg_acess_off">o serviço de acessibilidade do launcher está desligado</string>
+    <string name="cfg_sec_diagnostico">Diagnóstico</string>
+    <string name="cfg_versao">Versão do launcher</string>
+    <string name="cfg_desconhecida">desconhecida</string>
+    <string name="cfg_depuracao">Depuração sem fio</string>
+    <string name="cfg_depuracao_on">mantida ligada pelo launcher</string>
+    <string name="cfg_depuracao_android">como o Android deixar</string>
+    <string name="cfg_chave">Chave do shell próprio</string>
+    <string name="cfg_calculando">calculando…</string>
+    <string name="cfg_erro">erro: %1$s</string>
+    <string name="cfg_licencas">Licenças e créditos</string>
+    <string name="cfg_licencas_det">código, fontes, ícones e dados de terceiros usados aqui</string>
+    <string name="cfg_some_visita">some no modo visita — OK mantém</string>
+    <string name="cfg_aparece_visita">aparece no modo visita — OK esconde</string>
+    <string name="cfg_apps_acesso">Apps com acesso</string>
+    <string name="cfg_nenhum_pediu">nenhum app instalado pediu acesso ao Shizuku</string>
+    <string name="cfg_permitido">permitido — OK revoga</string>
+    <string name="cfg_sem_acesso">sem acesso — OK permite</string>
+    <string name="cfg_nao_mudou">não consegui mudar: %1$s</string>
+    <!-- Recursos.kt -->
+    <string name="rec_do_sem">sem ele: não oculta apps, não fixa a HOME nem a VPN, não muda o tempo do protetor</string>
+    <string name="rec_agenda">Agenda</string>
+    <string name="rec_agenda_sem">sem ela: o calendário não mostra eventos</string>
+    <string name="rec_local">Localização</string>
+    <string name="rec_local_sem">sem ela: o clima usa a cidade pelo IP e o Wi-Fi não mostra o nome da rede</string>
+    <string name="rec_contas">Contas</string>
+    <string name="rec_contas_sem">sem ela: a bolinha do perfil não mostra a inicial da conta</string>
+    <string name="rec_uso">Uso dos apps</string>
+    <string name="rec_uso_sem">sem ele: os apps não se ordenam pelo uso recente</string>
+    <string name="rec_sobre">Sobreposição</string>
+    <string name="rec_sobre_sem">sem ela: recados e o pareamento sem PC não aparecem por cima dos apps</string>
+    <string name="rec_seguras">Configurações seguras</string>
+    <string name="rec_seguras_sem">sem ela: não troca o DNS nem religa sozinho o serviço de teclas e a depuração sem fio (só com PC ou o shell do launcher)</string>
+    <string name="rec_teclas">Serviço de teclas</string>
+    <string name="rec_teclas_sem">sem ele: o botão HOME pode abrir o launcher do Google e as teclas Netflix/YouTube não remapeiam</string>
+    <string name="rec_tudo">tudo ligado</string>
+    <string name="rec_faltam">%1$d de %2$d recursos faltando · OK num item tenta ligar</string>
+    <!-- BoasVindasActivity.kt -->
+    <string name="bv_titulo">Bem-vindo</string>
+    <string name="bv_texto">A tela inicial, o relógio, o clima, o despertador e o protetor já funcionam. O resto liga aqui, se você quiser (%1$s).</string>
+    <string name="bv_comecar">Começar</string>
+    <string name="bv_comecar_det">vai para a tela inicial</string>
+    <string name="bv_perm">Ligar agenda, localização e contas</string>
+    <string name="bv_perm_det">eventos no calendário, clima da sua cidade, inicial da conta no perfil</string>
+    <string name="bv_teclas">Ligar o serviço de teclas</string>
+    <string name="bv_teclas_det">Acessibilidade &gt; Launcher: faz o botão HOME sempre voltar para cá</string>
+    <string name="bv_tudo">Ver tudo o que dá para ligar</string>
+    <!-- LicencasActivity.kt -->
+    <string name="lic_sem_arquivo">Arquivo de licenças não encontrado.</string>
+    <!-- Rotinas.kt -->
+    <string name="rot_ligar">Ligar a TV</string>
+    <string name="rot_abrir_um">Ligar e abrir um app</string>
+    <string name="rot_desligar">Desligar a TV</string>
+    <string name="rot_abrir">Ligar e abrir %1$s</string>
+    <string name="rot_um_app">um app (escolha)</string>
+    <string name="rot_se_ocioso"> se ninguém mexeu há %1$s</string>
+    <string name="rot_sempre">sempre</string>
+    <!-- RotinasActivity.kt -->
+    <string name="rot_nenhuma">nenhuma rotina ligada</string>
+    <string name="rot_proxima">próxima: %1$s</string>
+    <string name="rot_nova_mais">+ Nova rotina</string>
+    <string name="rot_nova_det">ligar, abrir um app ou desligar num horário</string>
+    <string name="rot_desligada_sufixo"> · desligada</string>
+    <string name="rot_nova">Nova rotina</string>
+    <string name="rot_editar">Editar rotina</string>
+    <string name="rot_editor_det">OK muda cada linha · BACK sai sem salvar</string>
+    <string name="rot_hora">Hora: %1$s</string>
+    <string name="rot_dias">Dias: %1$s</string>
+    <string name="rot_acao">Ação: %1$s</string>
+    <string name="rot_app">App: %1$s</string>
+    <string name="rot_nenhum">nenhum</string>
+    <string name="rot_ocioso">Só se ninguém mexeu há: %1$s</string>
+    <string name="rot_ligada">Ligada</string>
+    <string name="rot_desligada">Desligada</string>
+    <string name="rot_hora_det">◀ ▶ 5 minutos · OK +1 hora</string>
+    <string name="rot_dias_det">OK: todo dia, seg a sex, fim de semana, uma vez</string>
+    <string name="rot_ok_muda">OK muda</string>
+    <string name="rot_app_det">OK ou ▶ próximo · ◀ anterior</string>
+    <string name="rot_ocioso_det">não corta o filme de quem está usando a TV</string>
+    <string name="rot_ativa_det">OK liga/desliga esta rotina</string>
+    <string name="rot_salvar">Salvar</string>
+    <string name="rot_escolha_app">Escolha o app</string>
+    <string name="rot_apagar">Apagar esta rotina</string>
+    <!-- Despertador.kt -->
+    <string name="dia_uma_vez">Uma vez</string>
+    <string name="dia_todo">Todo dia</string>
+    <string name="dia_seg_sex">Seg a sex</string>
+    <string name="dia_fim">Fim de semana</string>
+    <string-array name="dias_curtos">
+        <item>Dom</item>
+        <item>Seg</item>
+        <item>Ter</item>
+        <item>Qua</item>
+        <item>Qui</item>
+        <item>Sex</item>
+        <item>Sáb</item>
+    </string-array>
 </resources>

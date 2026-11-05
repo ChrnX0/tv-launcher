@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ConfigLauncherActivity.kt -->
+    <string name="cfg_vpn_conectada">connected</string>
+    <string name="cfg_vpn_nenhuma">none</string>
+    <string name="cfg_vpn_desconectada">disconnected</string>
+    <string name="cfg_vpn_nao_fixa"> — the launcher does not pin a VPN</string>
+    <string name="cfg_vpn_adguard"> — AdGuard VPN app, always on · OK opens the app</string>
+    <string name="cfg_titulo">Launcher settings</string>
+    <string name="cfg_diag">Diagnose the TV</string>
+    <string name="cfg_diag_det">internet, DNS, VPN and why an app stopped — all at once</string>
+    <string name="cfg_sec_aparencia">Appearance</string>
+    <string name="cfg_tema">Theme: %1$s</string>
+    <string name="cfg_tema_det">switches to the next look</string>
+    <string name="cfg_pilhas">Automatic stacks</string>
+    <string name="cfg_pilhas_on">on: loose apps group by category (video, music, games…) · OK turns off</string>
+    <string name="cfg_pilhas_off">off · OK turns on (the stacks you made stay)</string>
+    <string name="cfg_sec_descanso">Screen saver</string>
+    <string name="cfg_nunca">Never</string>
+    <string name="cfg_min">%1$d min</string>
+    <string name="cfg_iniciar_apos">Start after: %1$s</string>
+    <string name="cfg_descanso_det">OK changes the idle time before the screen saver</string>
+    <string name="cfg_nao_gravou_do">could not save (Device Owner inactive?)</string>
+    <string name="cfg_visita">Guest mode</string>
+    <string name="cfg_visita_on">on — profile, calendar and the apps marked below are hidden · OK turns off</string>
+    <string name="cfg_visita_off">off — OK hides the profile, the calendar and the apps marked below</string>
+    <string name="cfg_rotinas">Routines</string>
+    <string name="cfg_rotinas_det">turn on, open an app or turn off the TV at a set time</string>
+    <string name="cfg_sec_atualizacao">Updates</string>
+    <string name="cfg_atualizar">Check for a new version</string>
+    <string name="cfg_atualizar_det">version %1$s · %2$s · OK checks now</string>
+    <string name="cfg_procurando">checking GitHub…</string>
+    <string name="cfg_sec_rede">Network</string>
+    <string name="cfg_dns">Private DNS</string>
+    <string name="cfg_dns_caiu"> · %1$s did not answer, switched back to automatic</string>
+    <string name="cfg_velocidade">Test internet speed</string>
+    <string name="cfg_velocidade_det">downloads 25 MB and measures</string>
+    <string name="cfg_testando">Testing…</string>
+    <string name="cfg_sec_ocultos">Hidden apps</string>
+    <string name="cfg_oculto">hidden — OK shows</string>
+    <string name="cfg_visivel">visible — OK hides</string>
+    <string name="cfg_nao_mudou_do">could not change (Device Owner inactive?)</string>
+    <string name="cfg_sec_ligado">What is on — %1$s</string>
+    <string name="cfg_ligado">on</string>
+    <string name="cfg_so_pc"> · only with a computer (adb)</string>
+    <string name="cfg_tenta_ligar"> · OK tries to turn on</string>
+    <string name="cfg_perm_fixas">Fixed permissions granted</string>
+    <string name="cfg_sec_shizuku">Launcher Shizuku</string>
+    <string name="cfg_shz_rodando">running (uid %1$d, version %2$d)</string>
+    <string name="cfg_shz_parado">stopped</string>
+    <string name="cfg_shz_sob">starts when an app asks, stops after 5 min unused</string>
+    <string name="cfg_shz_sempre">always up, restarts if it dies</string>
+    <string name="cfg_shz_desligado">does not start</string>
+    <string name="cfg_shz_det">%1$s (%2$s) · now: %3$s — OK changes the mode</string>
+    <string name="cfg_servidor">Server</string>
+    <string name="cfg_parear">Pair without a PC</string>
+    <string name="cfg_parear_det">opens the Android pairing screen with a launcher keypad on top</string>
+    <string name="cfg_acess_off">the launcher accessibility service is off</string>
+    <string name="cfg_sec_diagnostico">Diagnostics</string>
+    <string name="cfg_versao">Launcher version</string>
+    <string name="cfg_desconhecida">unknown</string>
+    <string name="cfg_depuracao">Wireless debugging</string>
+    <string name="cfg_depuracao_on">kept on by the launcher</string>
+    <string name="cfg_depuracao_android">as Android leaves it</string>
+    <string name="cfg_chave">Own shell key</string>
+    <string name="cfg_calculando">computing…</string>
+    <string name="cfg_erro">error: %1$s</string>
+    <string name="cfg_licencas">Licenses and credits</string>
+    <string name="cfg_licencas_det">third-party code, fonts, icons and data used here</string>
+    <string name="cfg_some_visita">hidden in guest mode — OK keeps it</string>
+    <string name="cfg_aparece_visita">shown in guest mode — OK hides it</string>
+    <string name="cfg_apps_acesso">Apps with access</string>
+    <string name="cfg_nenhum_pediu">no installed app asked for Shizuku access</string>
+    <string name="cfg_permitido">allowed — OK revokes</string>
+    <string name="cfg_sem_acesso">no access — OK allows</string>
+    <string name="cfg_nao_mudou">could not change: %1$s</string>
+    <!-- Recursos.kt -->
+    <string name="rec_do_sem">without it: no hiding apps, no pinned HOME or VPN, no screen saver timeout</string>
+    <string name="rec_agenda">Calendar</string>
+    <string name="rec_agenda_sem">without it: the calendar shows no events</string>
+    <string name="rec_local">Location</string>
+    <string name="rec_local_sem">without it: weather uses the city from the IP and Wi-Fi does not show the network name</string>
+    <string name="rec_contas">Accounts</string>
+    <string name="rec_contas_sem">without it: the profile dot does not show the account initial</string>
+    <string name="rec_uso">App usage</string>
+    <string name="rec_uso_sem">without it: apps are not sorted by recent use</string>
+    <string name="rec_sobre">Overlay</string>
+    <string name="rec_sobre_sem">without it: notes and PC-free pairing do not show over apps</string>
+    <string name="rec_seguras">Secure settings</string>
+    <string name="rec_seguras_sem">without it: no DNS change and no auto-restart of the key service and wireless debugging (only with a PC or the launcher shell)</string>
+    <string name="rec_teclas">Key service</string>
+    <string name="rec_teclas_sem">without it: HOME may open the Google launcher and the Netflix/YouTube keys are not remapped</string>
+    <string name="rec_tudo">everything on</string>
+    <string name="rec_faltam">%1$d of %2$d features missing · OK on an item tries to turn it on</string>
+    <!-- BoasVindasActivity.kt -->
+    <string name="bv_titulo">Welcome</string>
+    <string name="bv_texto">The home screen, clock, weather, alarm and screen saver already work. Turn on the rest here if you want (%1$s).</string>
+    <string name="bv_comecar">Start</string>
+    <string name="bv_comecar_det">goes to the home screen</string>
+    <string name="bv_perm">Turn on calendar, location and accounts</string>
+    <string name="bv_perm_det">calendar events, weather for your city, account initial on the profile</string>
+    <string name="bv_teclas">Turn on the key service</string>
+    <string name="bv_teclas_det">Accessibility &gt; Launcher: makes HOME always come back here</string>
+    <string name="bv_tudo">See everything you can turn on</string>
+    <!-- LicencasActivity.kt -->
+    <string name="lic_sem_arquivo">License file not found.</string>
+    <!-- Rotinas.kt -->
+    <string name="rot_ligar">Turn on the TV</string>
+    <string name="rot_abrir_um">Turn on and open an app</string>
+    <string name="rot_desligar">Turn off the TV</string>
+    <string name="rot_abrir">Turn on and open %1$s</string>
+    <string name="rot_um_app">an app (choose)</string>
+    <string name="rot_se_ocioso"> if nobody touched it for %1$s</string>
+    <string name="rot_sempre">always</string>
+    <!-- RotinasActivity.kt -->
+    <string name="rot_nenhuma">no routine on</string>
+    <string name="rot_proxima">next: %1$s</string>
+    <string name="rot_nova_mais">+ New routine</string>
+    <string name="rot_nova_det">turn on, open an app or turn off at a set time</string>
+    <string name="rot_desligada_sufixo"> · off</string>
+    <string name="rot_nova">New routine</string>
+    <string name="rot_editar">Edit routine</string>
+    <string name="rot_editor_det">OK changes each line · BACK leaves without saving</string>
+    <string name="rot_hora">Time: %1$s</string>
+    <string name="rot_dias">Days: %1$s</string>
+    <string name="rot_acao">Action: %1$s</string>
+    <string name="rot_app">App: %1$s</string>
+    <string name="rot_nenhum">none</string>
+    <string name="rot_ocioso">Only if nobody touched it for: %1$s</string>
+    <string name="rot_ligada">On</string>
+    <string name="rot_desligada">Off</string>
+    <string name="rot_hora_det">◀ ▶ 5 minutes · OK +1 hour</string>
+    <string name="rot_dias_det">OK: every day, Mon to Fri, weekend, once</string>
+    <string name="rot_ok_muda">OK changes</string>
+    <string name="rot_app_det">OK or ▶ next · ◀ previous</string>
+    <string name="rot_ocioso_det">does not interrupt someone watching</string>
+    <string name="rot_ativa_det">OK turns this routine on/off</string>
+    <string name="rot_salvar">Save</string>
+    <string name="rot_escolha_app">Choose the app</string>
+    <string name="rot_apagar">Delete this routine</string>
+    <!-- Despertador.kt -->
+    <string name="dia_uma_vez">Once</string>
+    <string name="dia_todo">Every day</string>
+    <string name="dia_seg_sex">Mon to Fri</string>
+    <string name="dia_fim">Weekend</string>
+    <string-array name="dias_curtos">
+        <item>Sun</item>
+        <item>Mon</item>
+        <item>Tue</item>
+        <item>Wed</item>
+        <item>Thu</item>
+        <item>Fri</item>
+        <item>Sat</item>
+    </string-array>
+</resources>
