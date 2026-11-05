@@ -19,6 +19,15 @@
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!-- Diagnóstico (04/11/2026): ler os crashes/ANRs de OUTROS apps (DropBoxManager exige READ_LOGS) e o motivo de o
+         Android ter fechado cada app (ActivityManager.getHistoricalProcessExitReasons exige DUMP). As duas são de
+         "desenvolvimento": o launcher se concede pelo próprio shell (GuardiaoShizuku.autocurar), sem PC. -->
+    <uses-permission
+        android:name="android.permission.READ_LOGS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
     <!-- Abrir um app quando a TV reinicia -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Só declarada: permite que o app abra outro app a partir do receiver de boot (ver BootReceiver) -->
@@ -79,6 +88,10 @@
         android:label="Início"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
+        <activity
+            android:name=".DiagnosticoActivity"
+            android:exported="false"
+            android:label="Diagnóstico" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
