@@ -435,4 +435,20 @@
     <string name="diag_apagar_det">clears the list above (touches nothing else)</string>
     <string name="diag_rodape">%1$s · arrows scroll · BACK returns</string>
     <string name="diag_app_ok">No crash, freeze or abnormal exit in the last 7 days.\n\nIf the app opens but loads nothing, the problem is usually the network: see the Network section on the previous screen.</string>
+    <!-- Atualizador.kt -->
+    <string name="atu_nunca">not checked yet</string>
+    <string name="atu_android9">needs Android 9 or newer</string>
+    <string name="atu_ocupado">already checking</string>
+    <string name="atu_erro">error: %1$s %2$s</string>
+    <string name="atu_em_dia">up to date (installed %1$d, latest %2$d)</string>
+    <string name="atu_sem_apk">Release %1$d has no APK or SHA-256</string>
+    <string name="atu_sha">Release %1$d: SHA-256 does not match, not installed</string>
+    <string name="atu_ilegivel">Release %1$d: unreadable APK</string>
+    <string name="atu_pacote">Release %1$d: different package (%2$s)</string>
+    <string name="atu_versao">Release %1$d: APK version (%2$d) does not match the tag</string>
+    <string name="atu_chave">Release %1$d signed with another key: not installing (normal on a TV updated from a PC)</string>
+    <string name="atu_disponivel">version %1$d available (installed %2$d)</string>
+    <string name="atu_instalando">installing %1$d (installed %2$d)</string>
+    <string name="atu_ok">updated</string>
+    <string name="atu_falhou">install failed (%1$d): %2$s</string>
 </resources>
