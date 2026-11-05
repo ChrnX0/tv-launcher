@@ -1,5 +1,5 @@
 $adb=$env:USERPROFILE+'\android-sdk\platform-tools\adb.exe'
-$s='192.168.1.153:40507'
+$s=$env:TV_ADB
 & $adb -s $s shell "input keyevent WAKEUP"
 Start-Sleep 1
 & $adb -s $s shell "input keyevent HOME"
