@@ -91,13 +91,14 @@ object Timer {
  * Por que os atalhos (05/11/2026, teste do Paulo na TV): "Ok Google, timer de 2 minutos" NÃO chega aqui. O Gemini
  * desta TV responde que "ainda não consegue alterar o timer neste dispositivo" e nem manda o SET_TIMER. Então, como
  * no "Desligar em 30 minutos", cada duração vira um "app" com nome falável (activity-alias no manifesto):
- * "Ok Google, abrir Contagem de 10 minutos". O nome evita a palavra "timer", que o Gemini intercepta.
- * "Contagem regressiva" (ou o SET_TIMER sem duração) abre a escolha da duração no controle.
+ * "Ok Google, abrir Avisar em 10 minutos". O nome evita "timer" e "contagem": com "abrir Contagem de 1 minuto" o
+ * Gemini entendeu pedido de vídeo e mostrou contagens do YouTube (teste do Paulo, 05/11/2026).
+ * "Ampulheta" (ou o SET_TIMER sem duração) abre a escolha da duração no controle; "Não avisar" cancela.
  */
 class TimerActivity : Activity() {
     companion object {
         /** Alias do manifesto -> minutos. */
-        val ATALHOS = mapOf("Contagem1" to 1, "Contagem5" to 5, "Contagem10" to 10, "Contagem15" to 15, "Contagem30" to 30)
+        val ATALHOS = mapOf("Avisar5" to 5, "Avisar10" to 10, "Avisar15" to 15, "Avisar20" to 20, "Avisar30" to 30)
         /** Opções da tela de escolha, em minutos. */
         val OPCOES = listOf(1, 3, 5, 10, 15, 20, 30, 45, 60)
     }
@@ -107,7 +108,7 @@ class TimerActivity : Activity() {
         val alias = intent.component?.className?.substringAfterLast('.') ?: ""
         val seg = when {
             alias in ATALHOS -> ATALHOS.getValue(alias) * 60
-            alias == "PararContagem" -> { cancelar(); finish(); return }
+            alias == "NaoAvisar" -> { cancelar(); finish(); return }
             else -> intent.getIntExtra(AlarmClock.EXTRA_LENGTH, 0)
         }
         val nome = intent.getStringExtra(AlarmClock.EXTRA_MESSAGE)?.trim() ?: ""
@@ -119,7 +120,7 @@ class TimerActivity : Activity() {
     private fun marcar(seg: Int, nome: String) {
         Timer.iniciar(this, seg, nome)
         val titulo = if (nome.isNotEmpty()) " ($nome)" else ""
-        Toast.makeText(applicationContext, "⏱ Contagem de ${Timer.duracaoTexto(seg)}$titulo", Toast.LENGTH_LONG).show()
+        Toast.makeText(applicationContext, "⏱ Aviso em ${Timer.duracaoTexto(seg)}$titulo", Toast.LENGTH_LONG).show()
     }
 
     private fun cancelar() = Toast.makeText(applicationContext,
