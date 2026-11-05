@@ -173,6 +173,7 @@ class MainActivity : Activity() {
         // Shizuku embutido (MARCO S3): sobe o servidor se não estiver de pé e liga o vigia (binder, Wi-Fi, 10 min).
         GuardiaoShizuku.vigiar(this)
         GuardiaoShizuku.garantir(this, "launcher abriu")
+        BoasVindasActivity.talvezMostrar(this)   // 1ª abertura sem Device Owner: assistente (nunca na TV com DO)
     }
 
     override fun onResume() {
