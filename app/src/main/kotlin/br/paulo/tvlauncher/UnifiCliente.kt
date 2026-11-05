@@ -166,10 +166,29 @@ object UnifiCliente {
     }
 
     /** A estação de IP [ip] pela API antiga (stat/sta). Null se o roteador não a listar. */
-    private fun estacao(app: Context, ip: String): Unifi.SinalRoteador? {
+    /**
+     * A estação de IP [ip] pela API antiga (stat/sta). Se a resposta vier sem a TV, lança [Falha] dizendo o que veio
+     * (quantas estações e os NOMES dos campos, nunca os valores): é o que mostra se a chave vale ali e em que formato.
+     */
+    private fun estacao(app: Context, ip: String): Unifi.SinalRoteador {
         val (endereco, cert, chave) = credenciais(app)
         val ref = siteAtual(app).ref
-        return Unifi.lerEstacao(pegar(app, endereco, cert, chave, "/api/s/$ref/stat/sta", base = BASE_ANTIGA), ip)
+        val texto = pegar(app, endereco, cert, chave, "/api/s/$ref/stat/sta", base = BASE_ANTIGA)
+        return try {
+            Unifi.lerEstacao(texto, ip) ?: throw Falha("a API antiga respondeu, mas sem a TV: ${Unifi.resumoResposta(texto)} (site \"$ref\")")
+        } catch (e: org.json.JSONException) {
+            throw Falha("a API antiga respondeu algo que não é a lista esperada: ${Unifi.resumoResposta(texto)}")
+        }
+    }
+
+    /** Teste pelo adb (UNIFI --ez antiga true): o que a API antiga devolve para a TV. Chamar fora da thread da tela. */
+    fun testarApiAntiga(ctx: Context): String {
+        val app = ctx.applicationContext
+        val ip = ipDaTv(app) ?: return "a TV não está no Wi-Fi"
+        return try {
+            val e = estacao(app, ip)
+            "ok: sinal ${e.sinalDbm} dBm, rádio ${e.radio}, canal ${e.canal}, ${e.txMbps}/${e.rxMbps} Mbps, nota ${e.satisfacao}"
+        } catch (e: Falha) { "falhou: ${e.message}" }
     }
 
     private fun credenciais(app: Context): Triple<String, String, String> {
@@ -197,7 +216,7 @@ object UnifiCliente {
     fun reconectarTv(ctx: Context): String {
         val app = ctx.applicationContext
         val ip = ipDaTv(app) ?: throw Falha("a TV não está no Wi-Fi")
-        val est = estacao(app, ip) ?: throw Falha("o roteador não mostra a TV na lista de Wi-Fi")
+        val est = estacao(app, ip)
         if (!Unifi.macValida(est.mac)) throw Falha("MAC inválido")
         val (endereco, cert, chave) = credenciais(app)
         val corpo = org.json.JSONObject().put("cmd", "kick-sta").put("mac", est.mac).toString()
