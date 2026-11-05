@@ -6,4 +6,455 @@
     <!-- Permissão que apps clientes do Shizuku pedem ao launcher (gerente do Shizuku embutido) -->
     <string name="shizuku_permissao_nome">acessar o Shizuku do launcher</string>
     <string name="shizuku_permissao_descricao">Permite que o app use os poderes de sistema (shell) do launcher, se você autorizar.</string>
+    <!-- ConfigLauncherActivity.kt -->
+    <string name="cfg_vpn_conectada">conectada</string>
+    <string name="cfg_vpn_nenhuma">nenhuma</string>
+    <string name="cfg_vpn_desconectada">desconectada</string>
+    <string name="cfg_vpn_nao_fixa">" — o launcher não fixa VPN"</string>
+    <string name="cfg_vpn_adguard">" — app AdGuard VPN, sempre ativa · OK abre o app"</string>
+    <string name="cfg_titulo">Configurações do launcher</string>
+    <string name="cfg_diag">Diagnosticar a TV</string>
+    <string name="cfg_diag_det">internet, DNS, VPN e por que um app parou — tudo de uma vez</string>
+    <string name="cfg_sec_aparencia">Aparência</string>
+    <string name="cfg_tema">Tema: %1$s</string>
+    <string name="cfg_tema_det">muda para o próximo visual</string>
+    <string name="cfg_pilhas">Pilhas automáticas</string>
+    <string name="cfg_pilhas_on">ligadas: apps soltos juntam pela categoria (vídeo, música, jogo…) · OK desliga</string>
+    <string name="cfg_pilhas_off">desligadas · OK liga (as pilhas que você montou continuam)</string>
+    <string name="cfg_sec_descanso">Descanso de tela</string>
+    <string name="cfg_nunca">Nunca</string>
+    <string name="cfg_min">%1$d min</string>
+    <string name="cfg_iniciar_apos">Iniciar após: %1$s</string>
+    <string name="cfg_descanso_det">OK muda o tempo parado até o protetor aparecer</string>
+    <string name="cfg_nao_gravou_do">não consegui gravar (Device Owner inativo?)</string>
+    <string name="cfg_visita">Modo visita</string>
+    <string name="cfg_visita_on">ligado — perfil, agenda e os apps marcados abaixo estão escondidos · OK desliga</string>
+    <string name="cfg_visita_off">desligado — OK esconde o perfil, a agenda e os apps marcados abaixo</string>
+    <string name="cfg_rotinas">Rotinas</string>
+    <string name="cfg_rotinas_det">ligar, abrir um app ou desligar a TV num horário</string>
+    <string name="cfg_sec_atualizacao">Atualização</string>
+    <string name="cfg_atualizar">Procurar versão nova</string>
+    <string name="cfg_atualizar_det">versão %1$s · %2$s · OK procura agora</string>
+    <string name="cfg_procurando">procurando no GitHub…</string>
+    <string name="cfg_sec_rede">Rede</string>
+    <string name="cfg_dns">DNS privado</string>
+    <string name="cfg_dns_caiu">" · %1$s não respondeu, voltei para o automático"</string>
+    <string name="cfg_velocidade">Testar velocidade da internet</string>
+    <string name="cfg_velocidade_det">baixa 25 MB e mede</string>
+    <string name="cfg_testando">Testando…</string>
+    <string name="cfg_sec_ocultos">Apps ocultos</string>
+    <string name="cfg_oculto">oculto — OK mostra</string>
+    <string name="cfg_visivel">visível — OK oculta</string>
+    <string name="cfg_nao_mudou_do">não consegui mudar (Device Owner inativo?)</string>
+    <string name="cfg_sec_ligado">O que está ligado — %1$s</string>
+    <string name="cfg_ligado">ligado</string>
+    <string name="cfg_so_pc">" · só com computador (adb)"</string>
+    <string name="cfg_tenta_ligar">" · OK tenta ligar"</string>
+    <string name="cfg_perm_fixas">Permissões fixas concedidas</string>
+    <string name="cfg_sec_shizuku">Shizuku do launcher</string>
+    <string name="cfg_shz_rodando">rodando (uid %1$d, versão %2$d)</string>
+    <string name="cfg_shz_parado">parado</string>
+    <string name="cfg_shz_sob">sobe quando um app pede, desce após 5 min sem uso</string>
+    <string name="cfg_shz_sempre">sempre de pé, religa se cair</string>
+    <string name="cfg_shz_desligado">não sobe</string>
+    <string name="cfg_shz_det">%1$s (%2$s) · agora: %3$s — OK troca o modo</string>
+    <string name="cfg_servidor">Servidor</string>
+    <string name="cfg_parear">Parear sem PC</string>
+    <string name="cfg_parear_det">abre a tela de pareamento do Android com um teclado do launcher por cima</string>
+    <string name="cfg_acess_off">o serviço de acessibilidade do launcher está desligado</string>
+    <string name="cfg_sec_diagnostico">Diagnóstico</string>
+    <string name="cfg_versao">Versão do launcher</string>
+    <string name="cfg_desconhecida">desconhecida</string>
+    <string name="cfg_depuracao">Depuração sem fio</string>
+    <string name="cfg_depuracao_on">mantida ligada pelo launcher</string>
+    <string name="cfg_depuracao_android">como o Android deixar</string>
+    <string name="cfg_chave">Chave do shell próprio</string>
+    <string name="cfg_calculando">calculando…</string>
+    <string name="cfg_erro">erro: %1$s</string>
+    <string name="cfg_licencas">Licenças e créditos</string>
+    <string name="cfg_licencas_det">código, fontes, ícones e dados de terceiros usados aqui</string>
+    <string name="cfg_some_visita">some no modo visita — OK mantém</string>
+    <string name="cfg_aparece_visita">aparece no modo visita — OK esconde</string>
+    <string name="cfg_apps_acesso">Apps com acesso</string>
+    <string name="cfg_nenhum_pediu">nenhum app instalado pediu acesso ao Shizuku</string>
+    <string name="cfg_permitido">permitido — OK revoga</string>
+    <string name="cfg_sem_acesso">sem acesso — OK permite</string>
+    <string name="cfg_nao_mudou">não consegui mudar: %1$s</string>
+    <!-- Recursos.kt -->
+    <string name="rec_do_sem">sem ele: não oculta apps, não fixa a HOME nem a VPN, não muda o tempo do protetor</string>
+    <string name="rec_agenda">Agenda</string>
+    <string name="rec_agenda_sem">sem ela: o calendário não mostra eventos</string>
+    <string name="rec_local">Localização</string>
+    <string name="rec_local_sem">sem ela: o clima usa a cidade pelo IP e o Wi-Fi não mostra o nome da rede</string>
+    <string name="rec_contas">Contas</string>
+    <string name="rec_contas_sem">sem ela: a bolinha do perfil não mostra a inicial da conta</string>
+    <string name="rec_uso">Uso dos apps</string>
+    <string name="rec_uso_sem">sem ele: os apps não se ordenam pelo uso recente</string>
+    <string name="rec_sobre">Sobreposição</string>
+    <string name="rec_sobre_sem">sem ela: recados e o pareamento sem PC não aparecem por cima dos apps</string>
+    <string name="rec_seguras">Configurações seguras</string>
+    <string name="rec_seguras_sem">sem ela: não troca o DNS nem religa sozinho o serviço de teclas e a depuração sem fio (só com PC ou o shell do launcher)</string>
+    <string name="rec_teclas">Serviço de teclas</string>
+    <string name="rec_teclas_sem">sem ele: o botão HOME pode abrir o launcher do Google e as teclas Netflix/YouTube não remapeiam</string>
+    <string name="rec_tudo">tudo ligado</string>
+    <string name="rec_faltam">%1$d de %2$d recursos faltando · OK num item tenta ligar</string>
+    <!-- BoasVindasActivity.kt -->
+    <string name="bv_titulo">Bem-vindo</string>
+    <string name="bv_texto">A tela inicial, o relógio, o clima, o despertador e o protetor já funcionam. O resto liga aqui, se você quiser (%1$s).</string>
+    <string name="bv_comecar">Começar</string>
+    <string name="bv_comecar_det">vai para a tela inicial</string>
+    <string name="bv_perm">Ligar agenda, localização e contas</string>
+    <string name="bv_perm_det">eventos no calendário, clima da sua cidade, inicial da conta no perfil</string>
+    <string name="bv_teclas">Ligar o serviço de teclas</string>
+    <string name="bv_teclas_det">Acessibilidade &gt; Launcher: faz o botão HOME sempre voltar para cá</string>
+    <string name="bv_tudo">Ver tudo o que dá para ligar</string>
+    <!-- LicencasActivity.kt -->
+    <string name="lic_sem_arquivo">Arquivo de licenças não encontrado.</string>
+    <!-- Rotinas.kt -->
+    <string name="rot_ligar">Ligar a TV</string>
+    <string name="rot_abrir_um">Ligar e abrir um app</string>
+    <string name="rot_desligar">Desligar a TV</string>
+    <string name="rot_abrir">Ligar e abrir %1$s</string>
+    <string name="rot_um_app">um app (escolha)</string>
+    <string name="rot_se_ocioso">" se ninguém mexeu há %1$s"</string>
+    <string name="rot_sempre">sempre</string>
+    <!-- RotinasActivity.kt -->
+    <string name="rot_nenhuma">nenhuma rotina ligada</string>
+    <string name="rot_proxima">próxima: %1$s</string>
+    <string name="rot_nova_mais">+ Nova rotina</string>
+    <string name="rot_nova_det">ligar, abrir um app ou desligar num horário</string>
+    <string name="rot_desligada_sufixo">" · desligada"</string>
+    <string name="rot_nova">Nova rotina</string>
+    <string name="rot_editar">Editar rotina</string>
+    <string name="rot_editor_det">OK muda cada linha · BACK sai sem salvar</string>
+    <string name="rot_hora">Hora: %1$s</string>
+    <string name="rot_dias">Dias: %1$s</string>
+    <string name="rot_acao">Ação: %1$s</string>
+    <string name="rot_app">App: %1$s</string>
+    <string name="rot_nenhum">nenhum</string>
+    <string name="rot_ocioso">Só se ninguém mexeu há: %1$s</string>
+    <string name="rot_ligada">Ligada</string>
+    <string name="rot_desligada">Desligada</string>
+    <string name="rot_hora_det">◀ ▶ 5 minutos · OK +1 hora</string>
+    <string name="rot_dias_det">OK: todo dia, seg a sex, fim de semana, uma vez</string>
+    <string name="rot_ok_muda">OK muda</string>
+    <string name="rot_app_det">OK ou ▶ próximo · ◀ anterior</string>
+    <string name="rot_ocioso_det">não corta o filme de quem está usando a TV</string>
+    <string name="rot_ativa_det">OK liga/desliga esta rotina</string>
+    <string name="rot_salvar">Salvar</string>
+    <string name="rot_escolha_app">Escolha o app</string>
+    <string name="rot_apagar">Apagar esta rotina</string>
+    <!-- Despertador.kt -->
+    <string name="dia_uma_vez">Uma vez</string>
+    <string name="dia_todo">Todo dia</string>
+    <string name="dia_seg_sex">Seg a sex</string>
+    <string name="dia_fim">Fim de semana</string>
+    <string-array name="dias_curtos">
+        <item>Dom</item>
+        <item>Seg</item>
+        <item>Ter</item>
+        <item>Qua</item>
+        <item>Qui</item>
+        <item>Sex</item>
+        <item>Sáb</item>
+    </string-array>
+    <!-- MainActivity.kt -->
+    <string name="home_ocultos">Ocultos (%1$d)</string>
+    <string name="fmt_data_longa">EEEE, d \'de\' MMMM</string>
+    <string name="home_perfil">Perfil</string>
+    <string name="home_painel_google">Painel do Google</string>
+    <string name="home_visita_titulo">Modo visita ligado</string>
+    <string name="home_visita_msg">O perfil, a agenda e os apps escolhidos estão escondidos. Sair do modo visita?</string>
+    <string name="home_continuar">Continuar</string>
+    <string name="home_sair">Sair</string>
+    <string name="home_qual_sai">Qual app sai do grupo?</string>
+    <string name="home_ocultos_dica">OK abre  ·  segure OK para mostrar na tela inicial  ·  Voltar fecha</string>
+    <string name="home_remover_dica">OK escolhe o app a remover  ·  Voltar fecha</string>
+    <string name="home_remover_titulo">Remover %1$s do grupo?</string>
+    <string name="home_remover_msg">Ele volta a ser um card solto.</string>
+    <string name="comum_cancelar">Cancelar</string>
+    <string name="home_remover">Remover</string>
+    <string name="home_mostrar">Mostrar na tela inicial</string>
+    <string name="home_mover">Mover</string>
+    <string name="home_remover_cards">Remover cards do grupo</string>
+    <string name="home_mover_pilha">OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela</string>
+    <string name="home_mover_forma">OK forma a pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela</string>
+    <string name="home_mover_app">◀ ▶ mover · OK confirma · Voltar cancela · ▲ ocultar · ▼ ordem automática</string>
+    <string name="home_mover_dica">◀ ▶ mover · OK confirma · Voltar cancela · ▼ ordem automática</string>
+    <string name="home_chovendo">Chovendo agora</string>
+    <string name="home_chuva_agora">%1$s - Chuva %2$d%% neste momento</string>
+    <string name="home_chuva_em">%1$s - Chuva %2$d%% em %3$d h</string>
+    <!-- AlarmesActivity.kt -->
+    <string name="al_criado">Alarme criado: %1$s</string>
+    <string name="al_um_app">um app</string>
+    <string name="al_criar_q">Criar alarme às %1$s?</string>
+    <string name="al_pedido">Pedido de %1$s.</string>
+    <string name="al_criar">Criar</string>
+    <string name="al_titulo">Despertador</string>
+    <string name="al_nenhum">Nenhum alarme ligado</string>
+    <string name="al_proximo">Próximo: %1$s</string>
+    <string name="al_novo_mais">+  Novo alarme</string>
+    <string name="al_ligado">Ligado</string>
+    <string name="al_desligado">Desligado</string>
+    <string name="al_novo">Novo alarme</string>
+    <string name="al_editar">Editar alarme</string>
+    <string name="al_editor_dica">▲ ▼ mudam hora e minuto (segure para ir rápido) · OK marca os dias</string>
+    <string name="al_nome">Nome (opcional)</string>
+    <string name="al_som">Som: %1$s</string>
+    <string name="al_ouvir">Ouvir</string>
+    <string name="al_apagar">Apagar</string>
+    <string name="al_hoje">hoje</string>
+    <string name="al_amanha">amanhã</string>
+    <string name="al_dia_as">%1$s às %2$s</string>
+    <!-- AlarmeTocandoActivity.kt -->
+    <string name="al_parar">Parar</string>
+    <string name="al_soneca">Soneca 10 min</string>
+    <!-- PopupPerfil.kt -->
+    <string name="pp_sem_conta">Sem conta Google</string>
+    <string name="pp_ativo">"  ·  ativo"</string>
+    <string name="pp_adicionar">Adicionar perfil</string>
+    <string name="pp_launcher_det">Aparência, DNS, diagnóstico</string>
+    <string name="pp_sistema">Sistema</string>
+    <string name="pp_sistema_det">Configurações do Android</string>
+    <string name="pp_bt_det">Parear acessório</string>
+    <string name="pp_audio">Saída de áudio</string>
+    <string name="pp_audio_det">Som e alto-falantes</string>
+    <string name="pp_carregando">Carregando…</string>
+    <string name="pp_conectar">Conectar</string>
+    <string name="pp_conectado">Conectado</string>
+    <!-- CalendarioActivity.kt -->
+    <string name="cal_sem_conta">sem conta Google</string>
+    <string name="cal_dica">◀ ▶ trocam o mês</string>
+    <string name="cal_30">Próximos 30 dias</string>
+    <string name="cal_nenhuma_conta">Nenhuma conta Google na TV</string>
+    <string name="cal_nada">Nada marcado (ou a agenda ainda está sincronizando)</string>
+    <string name="fmt_mes_ano">MMMM \'de\' yyyy</string>
+    <string name="cal_dia_todo">Dia todo</string>
+    <string name="cal_sem_titulo">(sem título)</string>
+    <!-- ProtetorTela.kt -->
+    <string name="pt_chovendo">"  ·  chovendo"</string>
+    <string name="pt_lua">Lua</string>
+    <string name="pt_sol">Sol</string>
+    <string name="pt_umidade">Umidade</string>
+    <string name="pt_chuva">Chuva</string>
+    <!-- IconesClima.kt -->
+    <string name="cl_chuva">Chuva</string>
+    <string name="cl_limpo">Céu limpo</string>
+    <string name="cl_poucas">Poucas nuvens</string>
+    <string name="cl_parcial">Parcialmente nublado</string>
+    <string name="cl_nublado">Nublado</string>
+    <string name="cl_neblina">Neblina</string>
+    <string name="cl_garoa_fraca">Garoa fraca</string>
+    <string name="cl_garoa">Garoa</string>
+    <string name="cl_garoa_forte">Garoa forte</string>
+    <string name="cl_garoa_cong">Garoa congelante</string>
+    <string name="cl_chuva_fraca">Chuva fraca</string>
+    <string name="cl_chuva_forte">Chuva forte</string>
+    <string name="cl_chuva_cong">Chuva congelante</string>
+    <string name="cl_neve_fraca">Neve fraca</string>
+    <string name="cl_neve">Neve</string>
+    <string name="cl_neve_forte">Neve forte</string>
+    <string name="cl_graos">Grãos de neve</string>
+    <string name="cl_panc_fracas">Pancadas fracas</string>
+    <string name="cl_panc">Pancadas de chuva</string>
+    <string name="cl_panc_fortes">Pancadas fortes</string>
+    <string name="cl_panc_neve">Pancadas de neve</string>
+    <string name="cl_tempestade">Tempestade</string>
+    <string name="cl_granizo">Tempestade com granizo</string>
+    <!-- Lua.kt -->
+    <string name="lua_cheia_em">cheia em %1$d d</string>
+    <string name="lua_nova_em">nova em %1$d d</string>
+    <string-array name="fases_lua">
+        <item>Lua nova</item>
+        <item>Lua crescente</item>
+        <item>Quarto crescente</item>
+        <item>Crescente gibosa</item>
+        <item>Lua cheia</item>
+        <item>Minguante gibosa</item>
+        <item>Quarto minguante</item>
+        <item>Lua minguante</item>
+    </string-array>
+    <!-- PrevisaoActivity.kt -->
+    <string name="pv_carregando">Carregando a previsão…</string>
+    <string name="pv_voz_agora">"Agora faz %1$d graus, %2$s. "</string>
+    <string name="pv_voz_hoje">Hoje, máxima de %1$d e mínima de %2$d</string>
+    <string name="pv_voz_chuva">", com %1$d por cento de chance de chuva. "</string>
+    <string name="pv_voz_sem_chuva">", sem previsão de chuva. "</string>
+    <string name="pv_voz_amanha">Amanhã, %1$s, máxima de %2$d e mínima de %3$d</string>
+    <string name="pv_voz_amanha_chuva">, chance de chuva de %1$d por cento</string>
+    <string name="pv_sem">Sem previsão agora (sem internet ou fonte fora do ar).</string>
+    <string name="pv_max_min">máx %1$d°   mín %2$d°   ·   sensação %3$d°</string>
+    <string name="pv_24h">Próximas 24 horas</string>
+    <string name="pv_agora">Agora</string>
+    <string name="pv_chance">Chance de chuva</string>
+    <string name="pv_7d">Próximos 7 dias</string>
+    <string name="pv_hoje">Hoje</string>
+    <string name="pv_mais_quente">Mais quente</string>
+    <string name="pv_mais_frio">Mais frio</string>
+    <string name="pv_igual">Igual à real</string>
+    <string name="pv_detalhes">Detalhes</string>
+    <string name="pv_sensacao">Sensação</string>
+    <string name="pv_vento">Vento</string>
+    <string name="pv_uv">Índice UV</string>
+    <string name="pv_visib">Visibilidade</string>
+    <string name="pv_orvalho">Ponto de orvalho</string>
+    <string name="pv_pressao">Pressão</string>
+    <string name="pv_chuva_hoje">Chuva hoje</string>
+    <string name="pv_ar">Qualidade do ar</string>
+    <string name="pv_sem_dados">Sem dados agora</string>
+    <string name="uv_baixo">Baixo</string>
+    <string name="uv_moderado">Moderado</string>
+    <string name="uv_alto">Alto</string>
+    <string name="uv_muito_alto">Muito alto</string>
+    <string name="uv_extremo">Extremo</string>
+    <string name="aq_boa">Boa</string>
+    <string name="aq_moderada">Moderada</string>
+    <string name="aq_sensiveis">Ruim p/ sensíveis</string>
+    <string name="aq_ruim">Ruim</string>
+    <string name="aq_muito_ruim">Muito ruim</string>
+    <string name="aq_perigosa">Perigosa</string>
+    <string-array name="rosa_ventos">
+        <item>N</item>
+        <item>NE</item>
+        <item>L</item>
+        <item>SE</item>
+        <item>S</item>
+        <item>SO</item>
+        <item>O</item>
+        <item>NO</item>
+    </string-array>
+    <!-- Tema.kt -->
+    <string name="tema_escuro">Escuro</string>
+    <string name="tema_galeria">Galeria</string>
+    <!-- SomAlarme.kt -->
+    <string name="som_suave">Suave</string>
+    <string name="som_classico">Clássico</string>
+    <string name="som_sino">Sino</string>
+    <string name="som_direto">Direto</string>
+    <string name="som_rampa1">Sobe em 1 min</string>
+    <string name="som_rampa2">Sobe em 2 min</string>
+    <!-- Velocidade.kt -->
+    <string name="vel_resultado">Internet: %1$.0f Mbps (baixou %2$.0f MB em %3$.1f s)</string>
+    <string name="vel_falhou">Teste falhou (sem internet ou servidor fora do ar)</string>
+    <!-- Rede.kt -->
+    <!-- EscolherAppActivity.kt -->
+    <string name="esc_atual">"  ·  atual"</string>
+    <string name="esc_botao">Botão %1$s abre:</string>
+    <!-- Config.kt -->
+    <string name="shz_modo_desligado">desligado</string>
+    <string name="shz_modo_sob">sob demanda</string>
+    <string name="shz_modo_sempre">sempre ligado</string>
+    <!-- Fundos.kt -->
+    <string name="fd_nascer">nascer %1$s</string>
+    <string name="fd_por">pôr %1$s</string>
+    <!-- DnsActivity.kt -->
+    <string name="dns_dica">OK: usar   ·   segurar OK em um servidor seu: remover   ·   Voltar: sair</string>
+    <string name="dns_auto">Automático</string>
+    <string name="dns_auto_det">Usa o DNS do roteador e criptografa quando ele aceitar (padrão do Android)</string>
+    <string name="dns_desl">Desligado</string>
+    <string name="dns_desl_det">DNS comum, sem criptografia</string>
+    <string name="dns_publicos">Servidores públicos</string>
+    <string name="dns_meus">Meus servidores</string>
+    <string name="dns_adicionar">+  Adicionar servidor</string>
+    <string name="dns_adicionar_det">Endereço de DNS sobre TLS, como dns.exemplo.com</string>
+    <string name="dns_sem_permissao">"Sem permissão para mudar o DNS. No computador: "</string>
+    <string name="dns_troque_antes">troque de servidor antes de remover este</string>
+    <string name="dns_remover_q">Remover %1$s?</string>
+    <string name="dns_remover">Remover</string>
+    <string name="dns_nome_opc">Nome (opcional)</string>
+    <string name="dns_endereco_ex">Endereço, ex.: dns.exemplo.com</string>
+    <string name="dns_adicionar_tit">Adicionar servidor DNS</string>
+    <string name="dns_salvar_usar">Salvar e usar</string>
+    <string name="dns_invalido">Endereço inválido. Use um nome como dns.exemplo.com (o Android não aceita número de IP).</string>
+    <string name="dns_em_uso">Em uso: %1$s</string>
+    <string name="dns_testando">testando…</string>
+    <string name="dns_falha">FALHA: nenhum nome resolveu. Escolha outro servidor ou Automático.</string>
+    <string name="dns_res_sem_cripto">resolvendo em %1$d ms (sem criptografia)</string>
+    <string name="dns_res_tls">resolvendo em %1$d ms   ·   TLS ativo</string>
+    <string name="dns_res_com">" com %1$s"</string>
+    <string name="dns_res_sem_tls">resolvendo em %1$d ms   ·   sem TLS no momento</string>
+    <!-- Dns.kt -->
+    <string name="dns_adguard_pessoal">AdGuard (pessoal)</string>
+    <string name="dns_personalizado">Personalizado (%1$s)</string>
+    <string name="dns_rot_auto">automático</string>
+    <string name="dns_rot_desl">desligado</string>
+    <!-- Diagnostico.kt -->
+    <string name="diag_resumo">Resumo</string>
+    <string name="diag_wifi_desc">desconectado: a TV não está em nenhuma rede</string>
+    <string name="diag_lat">%1$d ms até a internet</string>
+    <string name="diag_sem_resp">sem resposta da internet</string>
+    <string name="diag_wifi">%1$s · sinal %2$d dBm · %3$d Mbps · %4$s</string>
+    <string name="diag_validou">o Android validou o Wi-Fi</string>
+    <string name="diag_nao_validou">o Android NÃO validou o Wi-Fi</string>
+    <string name="diag_net_ok">funcionando (teste em %1$d ms) · %2$s</string>
+    <string name="diag_net_falhou">o teste não chegou ao Google · %1$s</string>
+    <string name="diag_net_estranha">resposta estranha (%1$d): rede pode estar pedindo login · %2$s</string>
+    <string name="diag_cripto">criptografado ativo</string>
+    <string name="diag_sem_cripto">criptografado NÃO ativo</string>
+    <string name="diag_resolve">resolve nomes (%1$d ms)</string>
+    <string name="diag_nao_resolve">NÃO resolve nomes</string>
+    <string name="diag_caiu">%1$s caiu antes e voltei para o automático</string>
+    <string name="diag_nenhum_app">nenhum app</string>
+    <string name="diag_vpn_nada">nenhuma VPN fixada nem ligada</string>
+    <string name="diag_vpn_desc">%1$s fixada, mas DESCONECTADA (a internet segue sem VPN)</string>
+    <string name="diag_vpn_nao_validada">%1$s conectada, mas o Android não validou o túnel</string>
+    <string name="diag_vpn_ok">%1$s conectada e funcionando</string>
+    <string name="diag_r_sem_wifi">a TV está sem Wi-Fi</string>
+    <string name="diag_r_dns_fora">o DNS não responde: a internet parece fora</string>
+    <string name="diag_r_net_fora">a internet não está chegando (roteador ou operadora)</string>
+    <string name="diag_r_dns">o DNS não resolve nomes: os apps não acham os servidores</string>
+    <string name="diag_r_net">o DNS funciona, mas a internet não responde</string>
+    <string name="diag_r_vpn">rede ok; só a VPN está fora (os apps funcionam sem ela)</string>
+    <string name="diag_r_atencao">rede funcionando, com pontos de atenção abaixo</string>
+    <string name="diag_r_ok">rede ok. Se um app parou, veja o que aconteceu com ele abaixo</string>
+    <string name="diag_usava">" · usava %1$d MB"</string>
+    <string name="diag_texto">Motivo: %1$s\nProcesso: %2$s\nImportância: %3$s</string>
+    <string name="diag_detalhe">\nDetalhe do Android: %1$s</string>
+    <string name="diag_m_memoria">fechado por falta de memória</string>
+    <string name="diag_m_crash">travou com erro</string>
+    <string name="diag_m_nativo">travou com erro nativo</string>
+    <string name="diag_m_anr">parou de responder (ANR)</string>
+    <string name="diag_m_iniciar">não conseguiu iniciar</string>
+    <string name="diag_m_recurso">fechado por usar recurso demais</string>
+    <string name="diag_m_dependencia">fechado porque um app do qual depende morreu</string>
+    <string name="diag_m_sinal">encerrado pelo sistema (sinal)</string>
+    <string name="diag_m_permissao">reiniciado por mudança de permissão</string>
+    <string name="diag_i_tela">estava na tela</string>
+    <string name="diag_i_visivel">visível</string>
+    <string name="diag_i_servico">rodando por trás</string>
+    <string name="diag_i_cache">em segundo plano (cache)</string>
+    <!-- DiagnosticoActivity.kt -->
+    <string name="diag_titulo">Diagnóstico</string>
+    <string name="diag_refazer">Verificar de novo</string>
+    <string name="diag_refazer_det">roda todas as verificações outra vez</string>
+    <string name="diag_verificando">verificando…</string>
+    <string name="diag_apps">Apps (últimos 7 dias)</string>
+    <string name="diag_lendo">Lendo o histórico dos apps</string>
+    <string name="diag_sem_perm">Sem permissão para ler crashes de outros apps</string>
+    <string name="diag_sem_perm_det">o launcher se concede READ_LOGS e DUMP pelo próprio shell; aguarde alguns minutos ou religue a TV</string>
+    <string name="diag_nada">nada registrado</string>
+    <string name="diag_erros">Erros do launcher (gravados por ele)</string>
+    <string name="diag_sem_erros">Nenhum erro gravado</string>
+    <string name="diag_sem_erros_det">o launcher guarda aqui os últimos %1$d crashes dele</string>
+    <string name="diag_erro">Erro do launcher</string>
+    <string name="diag_apagar">Apagar os erros gravados</string>
+    <string name="diag_apagar_det">limpa a lista acima (não mexe em nada mais)</string>
+    <string name="diag_rodape">%1$s · setas rolam · BACK volta</string>
+    <string name="diag_app_ok">Nenhum crash, travada ou encerramento anormal nos últimos 7 dias.\n\nSe o app abre mas não carrega nada, o problema costuma ser rede: veja a seção Rede na tela anterior.</string>
+    <!-- Atualizador.kt -->
+    <string name="atu_nunca">ainda não verificou</string>
+    <string name="atu_android9">precisa do Android 9 ou mais novo</string>
+    <string name="atu_ocupado">já está verificando</string>
+    <string name="atu_erro">erro: %1$s %2$s</string>
+    <string name="atu_em_dia">em dia (instalada %1$d, última %2$d)</string>
+    <string name="atu_sem_apk">Release %1$d sem o APK ou o SHA-256</string>
+    <string name="atu_sha">Release %1$d: SHA-256 não bate, não instalei</string>
+    <string name="atu_ilegivel">Release %1$d: APK ilegível</string>
+    <string name="atu_pacote">Release %1$d: pacote diferente (%2$s)</string>
+    <string name="atu_versao">Release %1$d: versão do APK (%2$d) não bate com a tag</string>
+    <string name="atu_chave">Release %1$d assinado com outra chave: não instalo (normal numa TV atualizada pelo PC)</string>
+    <string name="atu_disponivel">versão %1$d disponível (instalada %2$d)</string>
+    <string name="atu_instalando">instalando %1$d (instalada %2$d)</string>
+    <string name="atu_ok">atualizado</string>
+    <string name="atu_falhou">instalação falhou (%1$d): %2$s</string>
 </resources>
