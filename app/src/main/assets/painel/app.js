@@ -754,6 +754,28 @@ $('chkRoteadorAviso').addEventListener('change', (ev) => salvarRoteador({ avisoN
   ev.target.checked ? 'Ligado. A primeira leitura só anota os aparelhos de agora; o recado vem para os que aparecerem depois.' : 'Desligado.'));
 $('btnAtualizarAparelhos').addEventListener('click', () => carregarAparelhos(true));
 
+const TEXTO_RECONECTAR = {
+  esperando_tv: 'Aperte OK no controle da TV para confirmar (ou Cancelar).',
+  cancelado: 'Cancelado na TV.',
+  fazendo: 'Pedindo ao roteador…',
+  feito: 'Feito: a TV sai do Wi-Fi e volta em alguns segundos. Depois, toque em Diagnosticar de novo.',
+  falhou: 'Não deu certo',
+};
+
+$('btnReconectarTv').addEventListener('click', async () => {
+  const st = $('statusReconectar');
+  try {
+    let r = await chamar('POST', '/api/roteador/reconectar');
+    mostrar(st, TEXTO_RECONECTAR[r.estado] || r.estado);
+    // Acompanha até a TV responder (a confirmação fecha sozinha em 45 s).
+    for (let i = 0; i < 30 && (r.estado === 'esperando_tv' || r.estado === 'fazendo'); i++) {
+      await new Promise((ok) => setTimeout(ok, 2000));
+      try { r = await chamar('GET', '/api/roteador/reconectar'); } catch (e) { continue; }   // a TV pode sumir da rede por uns segundos
+      mostrar(st, (TEXTO_RECONECTAR[r.estado] || r.estado) + (r.estado === 'falhou' && r.detalhe ? `: ${r.detalhe}` : ''));
+    }
+  } catch (e) { mostrar(st, e.message); }
+});
+
 $('btnWifiTv').addEventListener('click', async () => {
   const dicas = $('dicasWifiTv');
   dicas.replaceChildren();
@@ -773,6 +795,13 @@ $('btnWifiTv').addEventListener('click', async () => {
         if (det) partes.push(`${r.ghz.replace('.', ',')} GHz: ${det}`);
       }
     } else if (!w.achadaNoRoteador) partes.push('a TV não apareceu na lista do roteador (sem dados do ponto de acesso)');
+    if (w.peloRoteador) {
+      const r = w.peloRoteador;
+      const visto = [r.sinalDbm != null ? `${r.sinalDbm} dBm` : '', r.banda ? `${r.banda.replace('.', ',')} GHz` : '',
+        r.canal != null ? `canal ${r.canal}` : '', r.txMbps ? `${r.txMbps}/${r.rxMbps} Mbps` : '',
+        r.satisfacao != null ? `nota ${r.satisfacao}/100` : ''].filter(Boolean).join(', ');
+      if (visto) partes.push(`o roteador vê: ${visto}`);
+    } else if (w.falhaApiAntiga) partes.push(`sinal pelo roteador indisponível (${w.falhaApiAntiga})`);
     $('estadoWifiTv').textContent = partes.join(' · ');
     const lista = w.dicas.length ? w.dicas : ['Wi-Fi da TV está bom: nada a ajustar.'];
     for (const d of lista) { const li = document.createElement('li'); li.textContent = d; dicas.appendChild(li); }
