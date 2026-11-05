@@ -133,6 +133,15 @@ class ConfigLauncherActivity : Activity() {
             // A MainActivity só relê o tema no onCreate: ela mesma percebe a troca e se recria ao voltar (ver onResume lá).
         }
         adicionar(linhaTema)
+        // Pilhas automáticas (05/11/2026, Organizacao.agruparPorCategoria): a HOME relê ao voltar (preencherApps no onResume).
+        lateinit var linhaPilhas: TextView
+        fun detalhePilhas() = if (Organizacao.pilhasAutomaticas(this)) "ligadas: apps soltos juntam pela categoria (vídeo, música, jogo…) · OK desliga"
+            else "desligadas · OK liga (as pilhas que você montou continuam)"
+        linhaPilhas = linha("Pilhas automáticas", detalhePilhas()) {
+            Organizacao.definirPilhasAutomaticas(this, !Organizacao.pilhasAutomaticas(this))
+            linhaPilhas.detalhe(detalhePilhas())
+        }
+        adicionar(linhaPilhas)
 
         // ---- Descanso de tela: OK passa para a próxima opção da lista (mesmo jeito do tema), e grava na hora.
         secao("Descanso de tela")
@@ -164,9 +173,23 @@ class ConfigLauncherActivity : Activity() {
             // A HOME relê o modo no onResume (bolinha e apps), então não precisa avisar nada a ela.
         }
         adicionar(linhaVisita)
+        // Rotinas por horário (05/11/2026): ligar, abrir um app ou desligar sozinha (ver Rotinas.kt).
+        adicionar(linha("Rotinas", "ligar, abrir um app ou desligar a TV num horário") {
+            startActivity(Intent(this, RotinasActivity::class.java))
+        })
         val listaVisita = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         lista.addView(listaVisita, LinearLayout.LayoutParams(MATCH, WRAP))
         carregarAppsDaVisita(listaVisita)
+
+        // ---- Atualização (Atualizador.kt): o launcher confere o GitHub a cada 6 h e instala sozinho com a tela apagada.
+        secao("Atualização")
+        lateinit var linhaAtualiza: TextView
+        linhaAtualiza = linha("Procurar versão nova", "versão ${versaoInstalada()} · ${Atualizador.estado(this)} · OK procura agora") {
+            linhaAtualiza.detalhe("procurando no GitHub…")
+            // OK = a pessoa pediu: instala na hora se houver (o launcher reinicia sozinho no fim).
+            Atualizador.verificar(this, instalar = true) { r -> runOnUiThread { linhaAtualiza.detalhe(r) } }
+        }
+        adicionar(linhaAtualiza)
 
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
@@ -276,6 +299,10 @@ class ConfigLauncherActivity : Activity() {
             val fp = try { ShellProprio.impressaoDigital(this) } catch (e: Exception) { "erro: ${e.javaClass.simpleName}" }
             ui.post { if (!isDestroyed) linhaChave.detalhe(fp) }
         }
+        // Licenças (05/11/2026): o texto fica em assets/licencas.txt, o mesmo que o repositório mostra.
+        adicionar(linha("Licenças e créditos", "código, fontes, ícones e dados de terceiros usados aqui") {
+            startActivity(Intent(this, LicencasActivity::class.java))
+        })
 
         return raiz
     }
@@ -361,6 +388,12 @@ class ConfigLauncherActivity : Activity() {
     // ---------------------------------------------------------------- peças
 
     /** Uma linha clicável: título + detalhe, fica clara com foco (igual às linhas do popup e da tela de DNS). */
+    @Suppress("DEPRECATION")
+    private fun versaoInstalada(): Long = try {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+    } catch (e: Exception) { 0L }
+
     private fun linha(titulo: String, detalhe: String, aoClicar: () -> Unit): TextView = TextView(this).apply {
         montarLinha(titulo, detalhe)
         isFocusable = true
