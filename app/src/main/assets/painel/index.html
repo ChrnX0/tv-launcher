@@ -74,6 +74,17 @@
           <button type="submit" class="botao-secundario">Enviar</button>
           <button type="button" data-tecla="apagar_letra" class="botao-secundario">⌫</button>
         </form>
+        <form id="formRecado" class="recado" autocomplete="off">
+          <label for="campoRecado"><strong>Recado na TV</strong> — aparece por cima de qualquer app</label>
+          <textarea id="campoRecado" maxlength="200" rows="2" placeholder="Ex.: O jantar está pronto!"></textarea>
+          <div class="recado-opcoes">
+            <select id="duracaoRecado" aria-label="Quanto tempo fica na tela">
+              <option value="30">30 s na tela</option><option value="60" selected>1 min na tela</option><option value="300">5 min na tela</option>
+            </select>
+            <label><input id="somRecado" type="checkbox" checked> com bipe</label>
+            <button type="submit">Mandar recado</button>
+          </div>
+        </form>
         <p class="aviso-curto">Voltar e Início respondem na hora; as outras teclas levam cerca de 1 s.</p>
         <p id="statusControle" class="aviso" hidden></p>
       </div>

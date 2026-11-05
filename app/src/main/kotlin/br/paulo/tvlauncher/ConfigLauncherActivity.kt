@@ -144,6 +144,19 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaVelocidade)
 
+        // ---- Avisos na tela (05/11/2026): o aviso de chuva por cima de qualquer app (AvisoChuva.kt). O recado vem pelo
+        // painel no navegador e não tem chave aqui: quem manda é quem tem o PIN.
+        secao("Avisos")
+        lateinit var linhaChuva: TextView
+        fun detalheChuva() = if (AvisoChuva.ligado(this))
+            "ligado · avisa por cima do app quando a chance passa de ${AvisoChuva.LIMIAR}% nas próximas ${AvisoChuva.HORAS_A_FRENTE} h · OK desliga"
+        else "desligado · OK liga"
+        linhaChuva = linha("Aviso de chuva", detalheChuva()) {
+            AvisoChuva.definirLigado(this, !AvisoChuva.ligado(this))
+            linhaChuva.detalhe(detalheChuva())
+        }
+        adicionar(linhaChuva)
+
         // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
         // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
         if (Config.APPS_OCULTAR.isNotEmpty()) {

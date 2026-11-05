@@ -32,6 +32,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
         const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
+        const val RECADO = "br.paulo.tvlauncher.RECADO"   // recado na tela da TV (só adb; o painel usa /api/recado)
+        const val CHUVA = "br.paulo.tvlauncher.CHUVA"     // verificar o aviso de chuva agora, ou simular (só adb, testes)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -111,6 +113,23 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
             // Só pelo adb: reinicia o processo do launcher (04/11/2026). O shell não consegue matá-lo (force-stop, am kill
             // e am crash não derrubam: ele segura o serviço de acessibilidade e é Device Owner), e o código recém-compilado
             // (cmd package compile) só vale num processo novo. O sistema sobe a HOME e religa a acessibilidade sozinho.
+            // Só pelo adb. Ex.: am broadcast -a br.paulo.tvlauncher.RECADO --es texto "Jantar pronto" --ei segundos 30
+            //   -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+            RECADO -> if (this is ControleShizukuAdbReceiver) {
+                val t = Recado.limpar(intent.getStringExtra("texto"))
+                resultData = if (t == null) "texto vazio ou com mais de ${Recado.MAX_CARACTERES} caracteres"
+                else AvisoTv.mostrar(ctx, "Recado", t, Recado.duracao(intent.getIntExtra("segundos", 60)),
+                    intent.getBooleanExtra("som", true), guardarSeApagada = true).name.lowercase()
+            }
+            // Só pelo adb: --ez simular true mostra o cartão de teste (sem consultar a previsão nem mexer no silêncio);
+            // sem ele, roda a verificação de verdade e responde o que decidiu (ex.: "sem chuva à vista").
+            CHUVA -> if (this is ControleShizukuAdbReceiver) {
+                if (intent.getBooleanExtra("simular", false)) resultData = AvisoChuva.simular(ctx).name.lowercase()
+                else {
+                    val pendente = goAsync()   // a verificação faz HTTP: fora da thread principal
+                    Thread { try { pendente.resultData = AvisoChuva.verificar(ctx) } finally { pendente.finish() } }.start()
+                }
+            }
             REINICIAR -> {
                 resultData = "reiniciando pid=${android.os.Process.myPid()}"
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
