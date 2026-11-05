@@ -16,6 +16,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import java.util.concurrent.Executors
 
+private const val PEDIDO_RECURSOS = 41   // código do requestPermissions dos recursos (Recursos.kt)
+
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 
@@ -42,6 +44,32 @@ class ConfigLauncherActivity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         trabalho.shutdownNow()
+    }
+
+    /** Voltou das Configurações do Android (uso, sobreposição, acessibilidade): redesenha para mostrar o estado novo. */
+    private var foiLigar = false
+    override fun onRestart() {
+        super.onRestart()
+        if (foiLigar) { foiLigar = false; setContentView(montarTela()) }
+    }
+
+    @Deprecated("Activity simples, sem AndroidX")
+    override fun onRequestPermissionsResult(codigo: Int, permissoes: Array<out String>, resultados: IntArray) {
+        if (codigo == PEDIDO_RECURSOS) setContentView(montarTela())
+    }
+
+    private fun ligarRecurso(r: Recursos.Recurso) {
+        val p = r.pedir
+        if (p == Recursos.PEDIR_PERMISSAO) {
+            val faltam = Recursos.perigosasFaltando(this)
+            if (faltam.isNotEmpty()) requestPermissions(faltam, PEDIDO_RECURSOS)
+        } else if (p is Intent) {
+            // Algumas TVs não têm a tela de uso/sobreposição: cai nas Configurações gerais em vez de travar.
+            foiLigar = true
+            try { startActivity(p) } catch (e: Exception) {
+                try { startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } catch (_: Exception) { foiLigar = false }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- VPN
@@ -183,10 +211,18 @@ class ConfigLauncherActivity : Activity() {
         }
 
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
-        secao("Permissões")
-        val dono = PrivilegioDO.somosDonos(this)
-        adicionar(info("Device Owner", if (dono) "ativo — controla apps e permissões do sistema" else "não ativo"))
-        adicionar(info("Permissões fixas concedidas", Config.PERMISSOES_FIXAS.joinToString { it.substringAfterLast('.') }))
+        // Modo sem Device Owner (Recursos.kt): cada poder com ligado/faltando; OK num que falta tenta ligar sem PC.
+        secao("O que está ligado — " + Recursos.resumo(this))
+        for (r in Recursos.listar(this)) {
+            val detalhe = if (r.ativo) "ligado" else r.sem + when (r.pedir) {
+                null -> " · só com computador (adb)"
+                else -> " · OK tenta ligar"
+            }
+            adicionar(if (r.ativo || r.pedir == null) info((if (r.ativo) "✓ " else "✗ ") + r.nome, detalhe)
+                else linha("✗ " + r.nome, detalhe) { ligarRecurso(r) })
+        }
+        if (PrivilegioDO.somosDonos(this))
+            adicionar(info("Permissões fixas concedidas", Config.PERMISSOES_FIXAS.joinToString { it.substringAfterLast('.') }))
 
         // ---- Shizuku embutido (MARCO S2): estado do servidor e os apps que pediram acesso a ele. OK num app alterna
         // entre permitido e revogado. A lista é lida do servidor (binder) fora da thread da tela.
