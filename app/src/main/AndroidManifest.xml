@@ -269,6 +269,7 @@
                 <!-- Recado na tela e aviso de chuva (teste). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.RECADO" />
                 <action android:name="br.paulo.tvlauncher.CHUVA" />
+                <action android:name="br.paulo.tvlauncher.UNIFI" />
                 <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />
             </intent-filter>
