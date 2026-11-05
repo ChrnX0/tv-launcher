@@ -90,13 +90,13 @@ class PrevisaoActivity : Activity() {
             addView(rolagem, FrameLayout.LayoutParams(-1, -1))
         }
         setContentView(raiz)
-        coluna.addView(texto(18f, textoSuave).apply { text = "Carregando a previsão…" })
+        coluna.addView(texto(18f, textoSuave).apply { text = getString(R.string.pv_carregando) })
 
         // Aberta pelo atalho "Boletim do Tempo" (action MAIN) ou com EXTRA_FALAR: prepara a voz enquanto busca os dados.
         if (intent.action == Intent.ACTION_MAIN || intent.getBooleanExtra(EXTRA_FALAR, false)) {
             voz = TextToSpeech(this) { status ->
                 if (status != TextToSpeech.SUCCESS) return@TextToSpeech
-                val r = voz?.setLanguage(Locale("pt", "BR")) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                val r = voz?.setLanguage(Locale.getDefault()) ?: TextToSpeech.LANG_NOT_SUPPORTED
                 vozPronta = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED
                 android.util.Log.i("TvLauncher.Voz", "TTS pronto, idioma pt-BR: $r")
                 falaPendente?.let { falar(it) }
@@ -128,12 +128,12 @@ class PrevisaoActivity : Activity() {
 
     /** "Agora faz 20 graus, chuva. Hoje, máxima de 27 e mínima de 20, com 86 por cento de chance de chuva. Amanhã, ..." */
     private fun boletim(d: Dados, tempAgora: Int, maxHoje: Int, minHoje: Int, chovendo: Boolean): String {
-        val b = StringBuilder("Agora faz $tempAgora graus, ${IconesClima.texto(d.codigo, chovendo).lowercase()}. ")
-        b.append("Hoje, máxima de $maxHoje e mínima de $minHoje")
-        b.append(if (d.dChuva[0] >= 20) ", com ${d.dChuva[0]} por cento de chance de chuva. " else ", sem previsão de chuva. ")
+        val b = StringBuilder(getString(R.string.pv_voz_agora, tempAgora, IconesClima.texto(d.codigo, chovendo).lowercase()))
+        b.append(getString(R.string.pv_voz_hoje, maxHoje, minHoje))
+        b.append(if (d.dChuva[0] >= 20) getString(R.string.pv_voz_chuva, d.dChuva[0]) else getString(R.string.pv_voz_sem_chuva))
         if (d.dData.size > 1) {
-            b.append("Amanhã, ${IconesClima.texto(d.dCodigo[1]).lowercase()}, máxima de ${Math.round(d.dMax[1])} e mínima de ${Math.round(d.dMin[1])}")
-            if (d.dChuva[1] >= 20) b.append(", chance de chuva de ${d.dChuva[1]} por cento")
+            b.append(getString(R.string.pv_voz_amanha, IconesClima.texto(d.dCodigo[1]).lowercase(), Math.round(d.dMax[1]).toInt(), Math.round(d.dMin[1]).toInt()))
+            if (d.dChuva[1] >= 20) b.append(getString(R.string.pv_voz_amanha_chuva, d.dChuva[1]))
             b.append(".")
         }
         return b.toString()
@@ -205,7 +205,7 @@ class PrevisaoActivity : Activity() {
     private fun montar(d: Dados?, tempTopo: Int?, chovendo: Boolean) {
         coluna.removeAllViews()
         if (d == null) {
-            coluna.addView(texto(20f, Color.WHITE).apply { text = "Sem previsão agora (sem internet ou fonte fora do ar)." })
+            coluna.addView(texto(20f, Color.WHITE).apply { text = getString(R.string.pv_sem) })
             return
         }
         val agoraMin = minutos(d.agoraTexto)
@@ -228,18 +228,18 @@ class PrevisaoActivity : Activity() {
         txt.addView(texto(84f, Color.WHITE, fonteLeve).apply { text = "$tempAgora°"; includeFontPadding = false })
         txt.addView(texto(24f, Color.WHITE, fonteMedia).apply { text = IconesClima.texto(d.codigo, chovendo) })
         txt.addView(texto(16f, textoSuave).apply {
-            text = "máx $maxHoje°   mín $minHoje°   ·   sensação $sensacao°"
+            text = getString(R.string.pv_max_min, maxHoje, minHoje, sensacao)
             setPadding(0, dp(4), 0, 0)
         })
         cabecalho.addView(txt)
         coluna.addView(cabecalho)
 
         // ---- hora a hora
-        val horas = cartao("Próximas 24 horas", focavel = false)
+        val horas = cartao(getString(R.string.pv_24h), focavel = false)
         val faixa = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val fim = min(d.hTempo.size, i0 + 24)
         for (i in i0 until fim) {
-            val hora = if (i == i0) "Agora" else "${d.hTempo[i].substring(11, 13).toInt()}h"
+            val hora = if (i == i0) getString(R.string.pv_agora) else "${d.hTempo[i].substring(11, 13).toInt()}h"
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -263,18 +263,18 @@ class PrevisaoActivity : Activity() {
         coluna.addView(horas, lpCartao())
 
         // ---- gráfico de chuva
-        val grafico = cartao("Chance de chuva")
+        val grafico = cartao(getString(R.string.pv_chance))
         grafico.addView(GraficoChuva(this, (i0 until fim).map { d.hChuva[it] }, (i0 until fim).map { d.hTempo[it].substring(11, 13).toInt() }),
             LinearLayout.LayoutParams(-1, dp(120)).apply { topMargin = dp(6) })
         coluna.addView(grafico, lpCartao())
 
         // ---- 7 dias
         val gMin = d.dMin.minOrNull() ?: 0.0; val gMax = d.dMax.maxOrNull() ?: 1.0
-        val dias = cartao("Próximos 7 dias")
+        val dias = cartao(getString(R.string.pv_7d))
         val entrada = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val saida = SimpleDateFormat("EEEE", Locale("pt", "BR"))
+        val saida = SimpleDateFormat("EEEE", Locale.getDefault())
         for (i in d.dData.indices) {
-            val nome = if (i == 0) "Hoje" else saida.format(entrada.parse(d.dData[i])!!).replaceFirstChar { it.uppercase() }.substringBefore("-feira")
+            val nome = if (i == 0) getString(R.string.pv_hoje) else saida.format(entrada.parse(d.dData[i])!!).replaceFirstChar { it.uppercase() }.substringBefore("-feira")
             val mx = if (i == 0) maxHoje else Math.round(d.dMax[i]).toInt()
             val mn = if (i == 0) minHoje else Math.round(d.dMin[i]).toInt()
             dias.addView(LinearLayout(this).apply {
@@ -293,22 +293,22 @@ class PrevisaoActivity : Activity() {
 
         // ---- detalhes (2 linhas x 4)
         val uv = d.hUv.getOrElse(i0) { 0.0 }
-        val sensTexto = when { sensacao > tempAgora + 1 -> "Mais quente"; sensacao < tempAgora - 1 -> "Mais frio"; else -> "Igual à real" }
+        val sensTexto = when { sensacao > tempAgora + 1 -> getString(R.string.pv_mais_quente); sensacao < tempAgora - 1 -> getString(R.string.pv_mais_frio); else -> getString(R.string.pv_igual) }
         val vis = d.hVisib.getOrElse(i0) { 10000.0 } / 1000
-        val rosa = arrayOf("N", "NE", "L", "SE", "S", "SO", "O", "NO")[((d.ventoDir + 22.5) / 45).toInt() % 8]
-        val detalhes = cartao("Detalhes")
+        val rosa = resources.getStringArray(R.array.rosa_ventos)[((d.ventoDir + 22.5) / 45).toInt() % 8]
+        val detalhes = cartao(getString(R.string.pv_detalhes))
         val linhas = listOf(
             listOf(
-                Triple("Sensação", "$sensacao°", "thermometer" to sensTexto),
-                Triple("Umidade", "${d.umidade}%", "droplet" to ""),
-                Triple("Vento", "${Math.round(d.vento).toInt()} km/h", "wind_face" to rosa),
-                Triple("Índice UV", "${Math.round(uv).toInt()}", "sun" to rotuloUv(uv)),
+                Triple(getString(R.string.pv_sensacao), "$sensacao°", "thermometer" to sensTexto),
+                Triple(getString(R.string.pt_umidade), "${d.umidade}%", "droplet" to ""),
+                Triple(getString(R.string.pv_vento), "${Math.round(d.vento).toInt()} km/h", "wind_face" to rosa),
+                Triple(getString(R.string.pv_uv), "${Math.round(uv).toInt()}", "sun" to rotuloUv(uv)),
             ),
             listOf(
-                Triple("Visibilidade", if (vis >= 10) "10+ km" else "${"%.1f".format(Locale.US, vis)} km", "eye" to ""),
-                Triple("Ponto de orvalho", "${Math.round(d.hOrvalho.getOrElse(i0) { d.temp }).toInt()}°", "droplet" to ""),
-                Triple("Pressão", "${Math.round(d.pressao).toInt()} hPa", "cloud" to ""),
-                Triple("Chuva hoje", "${"%.1f".format(Locale.US, d.dChuvaMm)} mm", "cloud_with_rain" to ""),
+                Triple(getString(R.string.pv_visib), if (vis >= 10) "10+ km" else "${"%.1f".format(Locale.US, vis)} km", "eye" to ""),
+                Triple(getString(R.string.pv_orvalho), "${Math.round(d.hOrvalho.getOrElse(i0) { d.temp }).toInt()}°", "droplet" to ""),
+                Triple(getString(R.string.pv_pressao), "${Math.round(d.pressao).toInt()} hPa", "cloud" to ""),
+                Triple(getString(R.string.pv_chuva_hoje), "${"%.1f".format(Locale.US, d.dChuvaMm)} mm", "cloud_with_rain" to ""),
             ),
         )
         linhas.forEach { l ->
@@ -322,7 +322,7 @@ class PrevisaoActivity : Activity() {
 
         // ---- ar, sol e lua (lado a lado)
         val trio = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
-        val ar = cartao("Qualidade do ar")
+        val ar = cartao(getString(R.string.pv_ar))
         if (d.aqi != null) {
             val (rot, cor) = rotuloAqi(d.aqi)
             ar.addView(LinearLayout(this).apply {
@@ -331,9 +331,9 @@ class PrevisaoActivity : Activity() {
                 addView(texto(18f, Color.WHITE, fonteMedia).apply { text = rot; setPadding(dp(12), 0, 0, 0) })
             })
             ar.addView(BarraAqi(this, d.aqi), LinearLayout.LayoutParams(-1, dp(8)))
-        } else ar.addView(texto(15f, textoSuave).apply { text = "Sem dados agora"; setPadding(0, dp(10), 0, 0) })
+        } else ar.addView(texto(15f, textoSuave).apply { text = getString(R.string.pv_sem_dados); setPadding(0, dp(10), 0, 0) })
 
-        val sol = cartao("Sol")
+        val sol = cartao(getString(R.string.pt_sol))
         val nascerMin = minutos(d.dNascer[0]); val poenteMin = minutos(d.dPoente[0])
         sol.addView(ArcoSol(this, ((agoraMin - nascerMin).toFloat() / (poenteMin - nascerMin)).coerceIn(-0.05f, 1.05f)),
             LinearLayout.LayoutParams(-1, dp(70)).apply { topMargin = dp(4) })
@@ -343,7 +343,7 @@ class PrevisaoActivity : Activity() {
             addView(texto(15f, textoSuave).apply { text = "↓ ${d.dPoente[0].substring(11)}"; gravity = Gravity.END }, LinearLayout.LayoutParams(0, -2, 1f))
         })
 
-        val lua = cartao("Lua")
+        val lua = cartao(getString(R.string.pt_lua))
         val agoraMs = System.currentTimeMillis()
         val partes = Lua.resumo(agoraMs, d.ponto.lat).split("  ·  ")
         lua.addView(LinearLayout(this).apply {
@@ -379,16 +379,16 @@ class PrevisaoActivity : Activity() {
     }
 
     private fun rotuloUv(uv: Double) = when {
-        uv < 3 -> "Baixo"; uv < 6 -> "Moderado"; uv < 8 -> "Alto"; uv < 11 -> "Muito alto"; else -> "Extremo"
+        uv < 3 -> getString(R.string.uv_baixo); uv < 6 -> getString(R.string.uv_moderado); uv < 8 -> getString(R.string.uv_alto); uv < 11 -> getString(R.string.uv_muito_alto); else -> getString(R.string.uv_extremo)
     }
 
     private fun rotuloAqi(a: Int): Pair<String, Int> = when {
-        a <= 50 -> "Boa" to 0xFF7BE0A0.toInt()
-        a <= 100 -> "Moderada" to 0xFFF2E26B.toInt()
-        a <= 150 -> "Ruim p/ sensíveis" to 0xFFFFB566.toInt()
-        a <= 200 -> "Ruim" to 0xFFFF7A6B.toInt()
-        a <= 300 -> "Muito ruim" to 0xFFD08CFF.toInt()
-        else -> "Perigosa" to 0xFFFF5C7A.toInt()
+        a <= 50 -> getString(R.string.aq_boa) to 0xFF7BE0A0.toInt()
+        a <= 100 -> getString(R.string.aq_moderada) to 0xFFF2E26B.toInt()
+        a <= 150 -> getString(R.string.aq_sensiveis) to 0xFFFFB566.toInt()
+        a <= 200 -> getString(R.string.aq_ruim) to 0xFFFF7A6B.toInt()
+        a <= 300 -> getString(R.string.aq_muito_ruim) to 0xFFD08CFF.toInt()
+        else -> getString(R.string.aq_perigosa) to 0xFFFF5C7A.toInt()
     }
 
     /** "2026-11-02T16:15" -> minutos desde a meia-noite (só a hora do lugar; sem fuso, de propósito). */

@@ -64,7 +64,7 @@ class MainActivity : Activity() {
             val daFrente: Item get() = itens[frente]
             val titulo: String get() = itens.joinToString(" + ") { it.nome }
         }
-        class Ocultos(val itens: List<Item>) : Entrada(TOKEN_OCULTOS, "Ocultos (${itens.size})")
+        class Ocultos(val itens: List<Item>, nome: String) : Entrada(TOKEN_OCULTOS, nome)
     }
 
     private val ui = Handler(Looper.getMainLooper())          // roda código na thread da tela
@@ -173,6 +173,7 @@ class MainActivity : Activity() {
         // Shizuku embutido (MARCO S3): sobe o servidor se não estiver de pé e liga o vigia (binder, Wi-Fi, 10 min).
         GuardiaoShizuku.vigiar(this)
         GuardiaoShizuku.garantir(this, "launcher abriu")
+        BoasVindasActivity.talvezMostrar(this)   // 1ª abertura sem Device Owner: assistente (nunca na TV com DO)
     }
 
     override fun onResume() {
@@ -192,6 +193,7 @@ class MainActivity : Activity() {
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
         Despertador.agendar(this)   // garante o proximo alarme agendado (barato: so le as preferencias)
         BackupAutomatico.talvezGravar(this)   // cópia diária das configurações (numa thread; no máximo 1x por dia)
+        Rotinas.agendar(this)   // idem para as rotinas por horário
         // DNS fixo que parou de responder deixa a TV "sem internet": confere ao voltar à HOME (fora da thread; só testa
         // a rede de verdade se o modo é fixo E a rede perdeu a validação — no caso normal custa quase nada).
         rede.execute { Dns.voltarAoAutomaticoSeQuebrado(this) }
@@ -276,8 +278,8 @@ class MainActivity : Activity() {
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
         }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
         blocoHora.addView(TextClock(this).apply {
-            format12Hour = "EEEE, d 'de' MMMM"
-            format24Hour = "EEEE, d 'de' MMMM"
+            format12Hour = getString(R.string.fmt_data_longa)
+            format24Hour = getString(R.string.fmt_data_longa)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             maxLines = 1   // "segunda-feira, 2 de novembro" quebrava em 2 linhas: encolhe a letra até caber (mín. 12 sp)
             setAutoSizeTextTypeUniformWithConfiguration(12, 16, 1, TypedValue.COMPLEX_UNIT_SP)
@@ -288,7 +290,8 @@ class MainActivity : Activity() {
             setPadding(f, f + dp(4), f, f)
             isFocusable = true
             isClickable = true
-            setOnClickListener { startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
+            // No modo visita a agenda (do perfil ativo) não abre.
+            setOnClickListener { if (!ModoVisita.ativo(this@MainActivity)) startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
         }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(-f, -f, -f, -f) })
         topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
@@ -450,7 +453,7 @@ class MainActivity : Activity() {
     /** A bolinha do perfil, no canto superior direito: mostra a foto/inicial da conta ativa e abre o popup (OK). */
     private fun botaoPerfil(): View {
         fotoPerfil = ImageView(this).apply {
-            setImageBitmap(Perfil.avatar(this@MainActivity, dp(44)))
+            setImageBitmap(avatarDaBolinha())
             scaleType = ImageView.ScaleType.CENTER_CROP
             clipToOutline = true
             outlineProvider = object : ViewOutlineProvider() {
@@ -460,7 +463,7 @@ class MainActivity : Activity() {
             }
         }
         return FrameLayout(this).apply {
-            contentDescription = "Perfil"
+            contentDescription = getString(R.string.home_perfil)
             isFocusable = true
             isClickable = true
             setPadding(dp(3), dp(3), dp(3), dp(3))
@@ -496,7 +499,7 @@ class MainActivity : Activity() {
             }
         }
     }.apply {
-        contentDescription = "Painel do Google"
+        contentDescription = getString(R.string.home_painel_google)
         isFocusable = true
         isClickable = true
         background = anel(false)
@@ -511,8 +514,12 @@ class MainActivity : Activity() {
 
     /** Redesenha a bolinha: a conta ativa mudou, ou chegou uma foto nova. */
     private fun atualizarFotoPerfil() {
-        fotoPerfil.setImageBitmap(Perfil.avatar(this, dp(44)))
+        fotoPerfil.setImageBitmap(avatarDaBolinha())
     }
+
+    /** A foto da conta ativa; no modo visita, o boneco genérico (conta = null), para não mostrar quem é o dono. */
+    private fun avatarDaBolinha() =
+        if (ModoVisita.ativo(this)) Perfil.avatar(this, dp(44), conta = null) else Perfil.avatar(this, dp(44))
 
 
     /** Contorno branco dos blocos do topo (hora, clima) quando estao com foco. */
@@ -534,6 +541,8 @@ class MainActivity : Activity() {
 
     /** Abre o menu do perfil (trocar perfil, Configurações, DNS, Wi-Fi). Ver PopupPerfil.kt. */
     private fun abrirPopup() {
+        // No modo visita o popup (perfis, Configurações, Wi-Fi) não abre: só a pergunta para sair do modo.
+        if (ModoVisita.ativo(this)) { perguntarSairDaVisita(); return }
         val menu = popup ?: PopupPerfil(
             tela = this,
             aoTrocarPerfil = { atualizarFotoPerfil() },
@@ -541,6 +550,22 @@ class MainActivity : Activity() {
         ).also { popup = it }
         menu.abrir(ultimaRede)
         atualizarRede()   // uma medição nova chega em instantes e atualiza o menu aberto
+    }
+
+    /** Modo visita: o OK na bolinha pergunta se é para sair. O foco começa em "Continuar", para não sair sem querer. */
+    private fun perguntarSairDaVisita() {
+        val dialogo = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.home_visita_titulo))
+            .setMessage(getString(R.string.home_visita_msg))
+            .setNegativeButton(getString(R.string.home_continuar), null)
+            .setPositiveButton(getString(R.string.home_sair)) { _, _ ->
+                ModoVisita.definir(this, false)
+                atualizarFotoPerfil()
+                reorganizar()   // os apps já estão carregados: só refaz a linha
+            }
+            .show()
+        dialogo.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+        menuAberto = dialogo
     }
 
     /** Anel ao redor da foto: quase invisível normalmente, branco quando o botão está focado. */
@@ -585,9 +610,18 @@ class MainActivity : Activity() {
      * Transforma os apps instalados nos cards da linha: ordem (manual primeiro, depois automática),
      * pilhas (vários apps num card só) e, no fim, o card "Ocultos" se houver algum app oculto.
      */
+    /** Categoria que o app declara (ApplicationInfo.category; -1 = nenhuma). Guardada: não muda enquanto o app existir. */
+    private val categorias = HashMap<String, Int>()
+    private fun categoria(pacote: String): Int = categorias.getOrPut(pacote) {
+        try { packageManager.getApplicationInfo(pacote, 0).category } catch (e: Exception) { -1 }
+    }
+
     private fun montarEntradas(todos: List<Item>): MutableList<Entrada> {
         val ocultos = Organizacao.ocultos(this)
-        val visiveis = todos.filter { it.pacote !in ocultos }
+        // Modo visita (ModoVisita.kt): os apps escolhidos somem também, e o card "Apps ocultos" não aparece.
+        val naVisita = ModoVisita.ativo(this)
+        val daVisita = if (naVisita) ModoVisita.apps(this) else emptySet()
+        val visiveis = todos.filter { it.pacote !in ocultos && it.pacote !in daVisita }
         val porPacote = visiveis.associateBy { it.pacote }
 
         // Pilhas: só valem com 2+ apps instalados e visíveis. Um app nunca fica em duas pilhas.
@@ -598,6 +632,22 @@ class MainActivity : Activity() {
             if (itens.size < 2) continue
             membros[pilha.id] = itens
             for (item in itens) pilhaDe[item.pacote] = pilha
+        }
+
+        // Pilhas AUTOMÁTICAS por categoria (Organizacao.agruparPorCategoria), se ligadas: só os apps que sobraram
+        // soltos. Os FIXOS ficam de fora (têm lugar próprio no começo). A frente é a escolhida com ▲ ou, sem escolha,
+        // o app usado mais recentemente.
+        if (Organizacao.pilhasAutomaticas(this)) {
+            val soltos = visiveis.filter { it.pacote !in pilhaDe && it.pacote !in Config.FIXOS }
+            val grupos = Organizacao.agruparPorCategoria(soltos.map { it.pacote to categoria(it.pacote) }, Organizacao.foraDaAuto(this))
+            val frentes = Organizacao.frentesAuto(this)
+            for ((id, pacotes) in grupos) {
+                val itens = pacotes.mapNotNull { porPacote[it] }
+                val frente = frentes[id]?.takeIf { it in pacotes } ?: pacotes.maxByOrNull { ultimoUso[it] ?: 0L }
+                val pilha = Organizacao.Pilha(id, pacotes.toMutableList(), frente)
+                membros[id] = itens
+                for (item in itens) pilhaDe[item.pacote] = pilha
+            }
         }
 
         // Lido fora da tela por preencherApps (queryAndAggregateUsageStats de 14 dias é caro); aqui só se usa o mapa.
@@ -622,7 +672,7 @@ class MainActivity : Activity() {
             }
         }
         val escondidos = todos.filter { it.pacote in ocultos }.sortedBy { it.nome.lowercase() }
-        if (escondidos.isNotEmpty()) entradas.add(Entrada.Ocultos(escondidos))
+        if (escondidos.isNotEmpty() && !naVisita) entradas.add(Entrada.Ocultos(escondidos, getString(R.string.home_ocultos, escondidos.size)))
         return entradas
     }
 
@@ -974,7 +1024,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             addView(texto(24f, Color.WHITE, fonteLeve).apply {
-                text = if (ehOcultos) "Apps ocultos" else "Qual app sai do grupo?"
+                text = if (ehOcultos) getString(R.string.cfg_sec_ocultos) else getString(R.string.home_qual_sai)
                 gravity = Gravity.CENTER
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
@@ -982,8 +1032,8 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             addView(barra, LinearLayout.LayoutParams(MATCH, WRAP))
             addView(texto(13f, textoSuave).apply {
-                text = if (ehOcultos) "OK abre  ·  segure OK para mostrar na tela inicial  ·  Voltar fecha"
-                       else "OK escolhe o app a remover  ·  Voltar fecha"
+                text = if (ehOcultos) getString(R.string.home_ocultos_dica)
+                       else getString(R.string.home_remover_dica)
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(MATCH, WRAP))
         }
@@ -1013,10 +1063,10 @@ class MainActivity : Activity() {
     /** Pergunta antes de tirar [app] da [pilha]. O foco começa em "Cancelar": confirmar exige escolher "Remover". */
     private fun confirmarRemocao(app: Item, pilha: Entrada.Pilha) {
         val dialogo = AlertDialog.Builder(this)
-            .setTitle("Remover ${app.nome} do grupo?")
-            .setMessage("Ele volta a ser um card solto.")
-            .setNegativeButton("Cancelar", null)
-            .setPositiveButton("Remover") { _, _ ->
+            .setTitle(getString(R.string.home_remover_titulo, app.nome))
+            .setMessage(getString(R.string.home_remover_msg))
+            .setNegativeButton(getString(R.string.comum_cancelar), null)
+            .setPositiveButton(getString(R.string.home_remover)) { _, _ ->
                 Organizacao.tirarDaPilha(this, app.pacote)
                 fecharPasta()
                 reorganizar()
@@ -1079,11 +1129,11 @@ class MainActivity : Activity() {
         val opcoes = mutableListOf<Opcao>()
         if (pastaToken == TOKEN_OCULTOS) {
             titulo = nomeDe(token)
-            opcoes += Opcao("Mostrar na tela inicial") { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
+            opcoes += Opcao(getString(R.string.home_mostrar)) { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
         } else if (pastaToken == null && entrada is Entrada.Pilha) {
             titulo = entrada.titulo
-            opcoes += Opcao("Mover") { iniciarMover(token, porSegurar = false) }
-            opcoes += Opcao("Remover cards do grupo") { abrirPasta(entrada, remover = true) }
+            opcoes += Opcao(getString(R.string.home_mover)) { iniciarMover(token, porSegurar = false) }
+            opcoes += Opcao(getString(R.string.home_remover_cards)) { abrirPasta(entrada, remover = true) }
         } else {
             return
         }
@@ -1238,7 +1288,12 @@ class MainActivity : Activity() {
         if (alvo != null && card is Entrada.App) {
             // Congela a ordem de agora (com o arrastado onde estava) e junta: a pilha ocupa o lugar do alvo.
             Organizacao.salvarOrdem(this, lista.filter { it !is Entrada.Ocultos }.map { it.token })
-            ultimoToken = Organizacao.empilhar(this, card.token, alvo.token)
+            ultimoToken = if (alvo is Entrada.Pilha && alvo.id.startsWith(Organizacao.PREFIXO_AUTO)) {
+                // Soltar em cima de uma pilha automática: ela vira manual, já com o app novo na frente.
+                val token = Organizacao.criarPilha(this, alvo.itens.map { it.pacote } + card.token, card.token)
+                Organizacao.salvarOrdem(this, Organizacao.ordem(this).filter { it != card.token }.map { if (it == alvo.token) token else it })
+                token
+            } else Organizacao.empilhar(this, card.token, alvo.token)
         } else {
             Organizacao.salvarOrdem(this, listaMovendo().filter { it !is Entrada.Ocultos }.map { it.token })
         }
@@ -1282,10 +1337,10 @@ class MainActivity : Activity() {
         }
         val alvo = alvoDeEmpilhar()
         txtDica.text = when {
-            alvo is Entrada.Pilha -> "OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
-            alvo != null -> "OK forma a pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela"
-            arrastado is Entrada.App -> "◀ ▶ mover · OK confirma · Voltar cancela · ▲ ocultar · ▼ ordem automática"
-            else -> "◀ ▶ mover · OK confirma · Voltar cancela · ▼ ordem automática"
+            alvo is Entrada.Pilha -> getString(R.string.home_mover_pilha)
+            alvo != null -> getString(R.string.home_mover_forma)
+            arrastado is Entrada.App -> getString(R.string.home_mover_app)
+            else -> getString(R.string.home_mover_dica)
         }
         txtDica.visibility = View.VISIBLE
     }
@@ -1318,7 +1373,7 @@ class MainActivity : Activity() {
                 val atual = json.getJSONObject("current")
                 val dia = json.getJSONObject("daily")
                 // Temperatura: a MEDIDA na estacao do aeroporto (METAR) vence a do modelo da Open-Meteo. Em 31/10 as 16:15
-                // o modelo dizia 26,6 °C e o aeroporto de Ribeirao Preto mediu 32 °C. Sem METAR recente, fica o modelo.
+                // o modelo dizia 26,6 °C e o aeroporto da cidade mediu 32 °C. Sem METAR recente, fica o modelo.
                 // Se o METAR falhar (timeout acontece), vale a ultima medida boa de ate 60 min, e nao o modelo: em 01/11 as 19:13 e 19:20
                 // o METAR deu timeout e o modelo mostrou 24 C e "chovendo agora" com o aeroporto em 31 C, CAVOK.
                 val nova = medidaAeroporto(ponto) ?: medidaAeroporto(ponto)   // uma segunda tentativa
@@ -1375,9 +1430,9 @@ class MainActivity : Activity() {
                     if (p >= 40) { primeira = i; picoChuva = p; break }
                 }
                 val textoLinha = when {
-                    chovendoAgora -> "Chovendo agora"
-                    primeira == 0 -> "$descricao - Chuva $picoChuva% neste momento"
-                    primeira > 0 -> "$descricao - Chuva $picoChuva% em $primeira h"
+                    chovendoAgora -> getString(R.string.home_chovendo)
+                    primeira == 0 -> getString(R.string.home_chuva_agora, descricao, picoChuva)
+                    primeira > 0 -> getString(R.string.home_chuva_em, descricao, picoChuva, primeira)
                     else -> descricao
                 }
                 // De noite, ceu limpo/poucas nuvens/parcial mostram a lua na fase de hoje no lugar do sol
@@ -1496,15 +1551,9 @@ class MainActivity : Activity() {
         val arrays = modelos.mapNotNull { h.optJSONArray("precipitation_probability_$it") }
         if (arrays.isEmpty()) throw IllegalStateException("sem modelos")
         val datas = (0 until tempo.length()).map { tempo.getString(it) }
-        val mediana = (0 until tempo.length()).map { i ->
-            val vals = arrays.mapNotNull { a -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null }.sorted()
-            when {
-                vals.isEmpty() -> 0
-                vals.size % 2 == 1 -> vals[vals.size / 2]
-                else -> (vals[vals.size / 2 - 1] + vals[vals.size / 2]) / 2
-            }
-        }
-        datas to mediana
+        // A mesma conta do aviso de chuva (AvisoChuva.mediana), para a HOME e o aviso nunca discordarem.
+        val porModelo = arrays.map { a -> (0 until tempo.length()).map { i -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null } }
+        datas to AvisoChuva.mediana(porModelo)
     } catch (e: Exception) {
         Log.w("TvLauncher.Local", "chuva multi-modelo falhou: $e")
         null
@@ -1546,8 +1595,8 @@ class MainActivity : Activity() {
 
     /**
      * Ultimo boletim METAR (todo aeroporto publica, em geral a cada hora) da estacao MAIS PERTO de [ponto] num raio
-     * de ~65 km, com boletim de no maximo 90 min. Em Ribeirao Preto e o aeroporto Leite Lopes (SBRP), a ~6 km; o INMET
-     * nao tem estacao automatica na cidade (a mais perto e Sao Simao, ~35 km). Config.ESTACAO_METAR fixa uma estacao.
+     * de ~65 km, com boletim de no maximo 90 min. Em geral e o aeroporto da cidade ou o mais proximo (METAR existe em
+     * quase todo aeroporto; estacoes meteorologicas automaticas nem sempre). Config.ESTACAO_METAR fixa uma estacao.
      * null se nao houver estacao valida ou a busca falhar: ai fica o modelo. Chamar fora da thread da tela.
      */
     private fun medidaAeroporto(ponto: Localizacao.Ponto): Medida? {

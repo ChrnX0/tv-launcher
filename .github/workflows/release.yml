@@ -5,8 +5,10 @@
 # - Push na main: compila, assina com o segredo ASSINATURA_KEYSTORE_B64 e publica um Release com o APK e o SHA-256.
 #   Sem o segredo, só compila (e avisa), para não publicar um APK que a TV recusaria.
 #
-# Segredo necessário (Settings > Secrets and variables > Actions): ASSINATURA_KEYSTORE_B64 = o debug.keystore do Dell
-# em base64. É a mesma chave que assina a TV hoje; outra chave obrigaria a desinstalar, e isso perde o Device Owner.
+# Segredo necessário (Settings > Secrets and variables > Actions): ASSINATURA_KEYSTORE_B64 = a chave PÚBLICA do
+# projeto em base64 (+ ASSINATURA_SENHA / ASSINATURA_ALIAS se não forem os padrões). NUNCA o debug.keystore do Dell:
+# decisão do Paulo (04/11/2026, opção A) — a TV da Sala fica com a chave do Dell e é atualizada pelo Dell; quem tivesse
+# essa chave poderia assinar uma "atualização" aceita por cima do Device Owner. O Release daqui é para instalação nova.
 name: Build e Release
 
 on:
@@ -59,6 +61,9 @@ jobs:
           fi
 
       - name: Compilar o release
+        env:
+          ASSINATURA_SENHA: ${{ secrets.ASSINATURA_SENHA }}
+          ASSINATURA_ALIAS: ${{ secrets.ASSINATURA_ALIAS }}
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleRelease --no-daemon --stacktrace
