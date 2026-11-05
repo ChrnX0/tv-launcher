@@ -4,18 +4,21 @@
 # Nunca desinstala: só "install -r". Se o install der erro de assinatura, PARE (desinstalar perde o Device Owner).
 #
 # 04/11/2026: com o Shizuku embutido (shizuku/) o projeto usa AGP 8.11 + Gradle 8.14 (wrapper do repo, gradlew.bat)
-# e JDK 21. O gradle-8.9 de C:\Users\rockx\tools nao roda mais este projeto.
+# e JDK 21. O gradle-8.9 de %USERPROFILE%\tools nao roda mais este projeto.
 param([switch]$Release)
 $env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-21.0.13.9-hotspot'
 $env:ANDROID_HOME=$env:USERPROFILE+'\android-sdk'
 $adb=$env:USERPROFILE+'\android-sdk\platform-tools\adb.exe'
-# A porta da depuracao sem fio muda a cada boot: pega a atual pelo mDNS (_adb-tls-connect) da TV 192.168.1.153.
-$porta = (& $adb mdns services | Select-String '192\.168\.1\.153:(\d+)' | ? { $_ -match 'tls-connect' } | Select-Object -First 1).Matches.Groups[1].Value
-$s="192.168.1.153:$porta"
-cd C:\Users\rockx\tv-launcher
+Set-Location $PSScriptRoot   # a raiz do repo (onde este script fica)
 # 05/11/2026: cidade, coordenadas, apps preferidos e eclipses saíram do Config.kt (repo público) para o pessoal.properties,
 # que fica fora do git. Sem ele o APK sai com padrões neutros e a TV perderia a configuração dela: o build PARA aqui.
 if (-not (Test-Path .\pessoal.properties)) { "FALTA o pessoal.properties na raiz do repo (modelo: pessoal.properties.exemplo). Build cancelado."; exit 1 }
+# O IP da TV também mora lá (chave tv_ip), para não ficar no repositório público.
+$tvIp = ((Get-Content .\pessoal.properties | Select-String '^\s*tv_ip\s*=\s*(\S+)').Matches | Select-Object -First 1).Groups[1].Value
+if (-not $tvIp) { "FALTA tv_ip=<ip da TV> no pessoal.properties. Build cancelado."; exit 1 }
+# A porta da depuracao sem fio muda a cada boot: pega a atual pelo mDNS (_adb-tls-connect) da TV.
+$porta = (& $adb mdns services | Select-String ([regex]::Escape($tvIp) + ':(\d+)') | ? { $_ -match 'tls-connect' } | Select-Object -First 1).Matches.Groups[1].Value
+$s="${tvIp}:$porta"
 & $adb connect $s
 $tarefa = if ($Release) { ':app:assembleRelease' } else { 'assembleDebug' }
 .\gradlew.bat $tarefa -q 2>&1 | ? { $_ -notmatch 'SDK XML|NativeCommandError|RemoteException|SDK processing|CategoryInfo|FullyQualified|^\s*$|gradle :|\+ ' } | Select-Object -Last 40
@@ -46,5 +49,5 @@ Start-Sleep -Milliseconds 500
 & $adb -s $s shell "input keyevent DPAD_CENTER"
 Start-Sleep 1
 & $adb -s $s shell screencap -p /sdcard/pop5.png
-& $adb -s $s pull /sdcard/pop5.png C:\Users\rockx\tv-launcher\.shots\pop5.png | Out-Null
+& $adb -s $s pull /sdcard/pop5.png $PSScriptRoot\.shots\pop5.png | Out-Null
 & $adb -s $s shell rm /sdcard/pop5.png

@@ -21,7 +21,7 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 | `Perfil.kt` | Contas Google da TV, perfil ativo do launcher e a imagem de cada perfil (foto ou inicial) |
 | `Eclipse.kt` | Dos horários da tabela de eclipses (`Config.kt`) calcula onde a lua está em relação ao sol e quanto dele ela cobre, no minuto |
 | `SinalWifi.kt`, `IconeEclipse.kt` | Ícones desenhados em código: barras de Wi-Fi e sol coberto pela lua (este só aparece durante um eclipse solar real) |
-| `Localizacao.kt` | Onde a TV está: Wi-Fi do Android (±56 m na Sala) > IP (ipwho.is) > coordenadas do `Config.kt`. O clima usa: tempo **agora** (temperatura, umidade, chuva/garoa/trovoada/neblina) do METAR do aeroporto mais perto (SBRP, 6 km), e previsão (mínima/máxima, céu) da Open-Meteo no ponto exato; **chance de chuva = mediana de ECMWF+ICON+GFS** (o best_match sozinho, ≈ECMWF, exagerava: medido no CSV de comparação). Atualiza a cada 5 min |
+| `Localizacao.kt` | Onde a TV está: Wi-Fi do Android (±56 m na Sala) > IP (ipwho.is) > coordenadas do `Config.kt`. O clima usa: tempo **agora** (temperatura, umidade, chuva/garoa/trovoada/neblina) do METAR do aeroporto mais perto, e previsão (mínima/máxima, céu) da Open-Meteo no ponto exato; **chance de chuva = mediana de ECMWF+ICON+GFS** (o best_match sozinho, ≈ECMWF, exagerava: medido no CSV de comparação). Atualiza a cada 5 min |
 | `Despertador.kt`, `AlarmesActivity.kt`, `AlarmeTocandoActivity.kt`, `SomAlarme.kt` | Despertador: OK no relógio abre a lista/editor; na hora, acorda o Chromecast (testado: em standby acordou e mandou o comando HDMI-CEC de ligar a TV) e toca até Parar/Soneca (Voltar = soneca; para sozinho em 10 min). 3 sons próprios (Suave, Clássico, Sino, em `assets/alarmes/`) e rampa opcional de volume (1 ou 2 min). Toca como mídia: nesta TV o stream de alarme vai para o "speaker" (volume 1/7, sem alto-falante) e saía mudo. É o app de despertador do Android (`SET_ALARM`): testado por adb, cria e agenda; por voz, não testado |
 | `PrevisaoActivity.kt` | OK no clima: previsão em tela cheia (agora, 24 h, gráfico de chuva, 7 dias, detalhes, qualidade do ar, sol, lua). Ícones 3D Fluent Emoji (MIT) em `assets/clima3d/`. O atalho **Boletim do Tempo** (activity-alias) abre esta tela e lê a previsão em voz alta (TTS pt-BR, testado); serve para "Ok Google, abrir Boletim do Tempo" (por voz, não testado) |
 | `ProtetorTela.kt` | Protetor de tela proprio (DreamService): relogio + data + o clima que o launcher guardou em cache, com anti-burn-in (a coluna desliza devagar). Apontamos o `screensaver_components` do sistema para ele e aposentamos o `dreamx` de fabrica (~59 MB), que fica oculto pelo Device Owner. Testado na TV |
@@ -31,7 +31,7 @@ e a Play Store, com hora, data, clima, fase da lua e, no canto superior direito,
 | `Uso.kt` | Quando cada app foi usado pela última vez (ordem por uso recente) |
 | `BootReceiver.kt` | Abre um app quando a TV **reinicia** (não quando acorda do standby) |
 | `restaurar-tv.ps1` | Refaz o setup numa TV nova ou depois de factory reset |
-| `dist/tv-launcher.apk` | Build de debug pronto para instalar |
+| `pessoal.properties.exemplo` | Modelo do `pessoal.properties` (fora do git): cidade, coordenadas, apps preferidos, eclipses, IP da TV |
 
 ## Reorganizar os apps
 
@@ -53,9 +53,9 @@ Topo, da esquerda para a direita: **hora e data** · **temperatura com o ícone 
 
 **Ícone do clima:** ☀️ céu limpo · 🌤️ poucas nuvens · ⛅ parcialmente nublado · ☁️ nublado · 🌫️ neblina · 🌧️ garoa e chuva · ⛈️ tempestade. De noite, céu limpo, poucas nuvens e parcialmente nublado mostram a lua na fase do dia; chuva, tempestade e neblina ficam iguais ao dia. Se a Open-Meteo informa precipitação agora e o código diz "limpo/nublado", vale o ícone de chuva.
 
-**Eclipse solar (só quando existe de verdade):** dentro dos horários da tabela `ECLIPSES_SOLARES` (`Config.kt`) e com o céu visível, o ícone do clima vira o sol coberto pela lua, com a cobertura do minuto (atualiza a cada 60 s), e a linha da fase da lua mostra "Eclipse solar parcial · NN%" (NN = % da **área** do sol coberta). Com nuvem ou chuva (código do clima acima de 2) o ícone continua o do clima e a linha ganha "(encoberto)". Fora desses horários o ícone nunca aparece.
+**Eclipse solar (só quando existe de verdade):** dentro dos horários da tabela de eclipses (chave `eclipses` do `pessoal.properties`) e com o céu visível, o ícone do clima vira o sol coberto pela lua, com a cobertura do minuto (atualiza a cada 60 s), e a linha da fase da lua mostra "Eclipse solar parcial · NN%" (NN = % da **área** do sol coberta). Com nuvem ou chuva (código do clima acima de 2) o ícone continua o do clima e a linha ganha "(encoberto)". Fora desses horários o ícone nunca aparece.
 
-- **Fonte da tabela:** [timeanddate.com](https://www.timeanddate.com/eclipse/in/brazil/ribeirao-preto), lida em 31/10/2026. Os 4 eclipses visíveis de Ribeirão Preto até 2034 são todos parciais: 06/02/2027 (máximo 13:25 BRT, magnitude 0,778), 26/01/2028 (11:32, 0,330), 09/05/2032 (09:18, 0,055) e 12/09/2034 (14:26, 0,694). **A tabela termina em 2034**; depois disso (ou em outra cidade) é preciso trocar/acrescentar linhas em `ECLIPSES_SOLARES`: 1º contato, máximo e último contato em **UTC** (Brasília + 3 h) e a magnitude.
+- **Fonte da tabela:** [timeanddate.com](https://www.timeanddate.com/eclipse/), página da sua cidade (`/eclipse/in/<país>/<cidade>`). Cada eclipse vai na chave `eclipses` do `pessoal.properties`: 1º contato, máximo e último contato em **UTC** e a magnitude (formato no `pessoal.properties.exemplo`). Sem a chave, o ícone de eclipse nunca aparece.
 - **A conta** (`Eclipse.kt`): sol e lua são dois discos e a lua passa em linha reta. A magnitude dá a distância mínima entre os centros; os 3 horários dão a velocidade; a cobertura é a área da interseção dos discos. A razão entre os tamanhos aparentes da lua e do sol não vem na tabela: usei 1,0. Para razões de 0,90 a 1,03 o percentual mudaria no máximo 3,1 pontos (calculado em Python).
 - **Não calculado:** de que lado a lua entra. O desenho a faz passar da esquerda para a direita, por baixo do sol; o lado real depende de onde o sol está no céu e não foi calculado.
 
@@ -81,9 +81,9 @@ adb -s IP:PORTA shell pm grant br.paulo.tvlauncher android.permission.GET_ACCOUN
 
 A foto nao vem sozinha da conta: le-la exige OAuth numa API da Google. As fotos (`perfil.*` e `perfil-*`) estao no `.gitignore`; o `.gitignore` antigo tinha `perfil.*`, que no Windows também ignorava o `Perfil.kt` (o arquivo nunca foi commitado até 31/10/2026).
 
-## Mudar para os EUA
+## Configurar a sua cidade e os seus apps
 
-Em `Config.kt`: `CIDADE`, `LATITUDE`, `LONGITUDE`, `USAR_FAHRENHEIT = true` e a tabela `ECLIPSES_SOLARES` (os horários são de Ribeirão Preto; apague as linhas se não tiver a tabela da nova cidade, assim nunca aparece eclipse). Depois recompile e reinstale.
+Copie `pessoal.properties.exemplo` para `pessoal.properties` (raiz do repo; está no `.gitignore`) e ajuste `cidade`, `latitude`, `longitude`, `fahrenheit`, `estacao_metar`, `apps_fixos`, `apps_ordem`, `botao_netflix`, `eclipses` e `tv_ip`. Depois recompile e reinstale. Sem o arquivo, o build usa padrões neutros (o `build3.ps1` exige o arquivo).
 
 ## Compilar
 
@@ -103,16 +103,16 @@ Crie `local.properties` com `sdk.dir=C:/caminho/do/android-sdk`.
 
 ```powershell
 # 1ª vez: abra "Depuração sem fio > Parear dispositivo com código" na TV e deixe a janela aberta
-.\restaurar-tv.ps1 -Ip 192.168.1.153 -CodigoPareamento 123456 -PularHome
+.\restaurar-tv.ps1 -Ip <ip-da-tv> -CodigoPareamento 123456 -PularHome
 
 # Trocar o Home (com rollback automático se o foco não cair no launcher novo)
-.\restaurar-tv.ps1 -Ip 192.168.1.153
+.\restaurar-tv.ps1 -Ip <ip-da-tv>
 
 # Voltar ao Google TV Home original
-.\restaurar-tv.ps1 -Ip 192.168.1.153 -Desfazer
+.\restaurar-tv.ps1 -Ip <ip-da-tv> -Desfazer
 
 # Só mostrar os comandos
-.\restaurar-tv.ps1 -Ip 192.168.1.153 -DryRun
+.\restaurar-tv.ps1 -Ip <ip-da-tv> -DryRun
 ```
 
 ## Por que o Home exige desativar o `setupwraith`

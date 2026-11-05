@@ -13,7 +13,7 @@ plugins {
 // pessoal.properties.exemplo. Cada valor vira um campo da classe BuildConfig, que o Config.kt lê.
 val pessoal = java.util.Properties().apply {
     val f = rootProject.file("pessoal.properties")
-    if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }   // UTF-8: "Ribeirão" com til sai certo
+    if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }   // UTF-8: acentos (ã, ç) saem certos
 }
 // Texto Java entre aspas, com \ e " escapados (senão um valor com aspas quebra a compilação do BuildConfig).
 fun textoJava(v: String) = "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
