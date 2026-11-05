@@ -103,12 +103,16 @@ object HistoricoRede {
         val cm = app.getSystemService(ConnectivityManager::class.java)
         try {
             cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+                // O Android chama onAvailable logo no registro com a rede que já estava de pé: esse não é "voltou".
+                private var primeira = true
                 override fun onAvailable(network: Network) {
                     ultimoValidado = null
+                    if (primeira) { primeira = false; return }
                     evento(app, "rede conectada")
                 }
                 override fun onLost(network: Network) {
                     ultimoValidado = null
+                    primeira = false
                     evento(app, "rede caiu")
                     // Mede já (e a cada 30 s, se continuar fora) em vez de esperar até 5 min.
                     exec?.schedule({ amostrarAvulsa(app) }, 5, TimeUnit.SECONDS)
@@ -268,7 +272,7 @@ object ResumoRede {
             medicoes = amostras.size, coberturaMs = cobertura, foraMs = fora, quedas = quedas,
             maiorQuedaMs = quedas.maxOfOrNull { it.duracao } ?: 0,
             latMedia = if (lats.isEmpty()) null else lats.average().toInt(),
-            latP95 = if (lats.isEmpty()) null else lats[((lats.size - 1) * 95) / 100],
+            latP95 = if (lats.isEmpty()) null else lats[((lats.size * 95 + 99) / 100 - 1).coerceIn(0, lats.size - 1)],   // posto mais próximo
             dbmMedio = if (dbms.isEmpty()) null else dbms.average().toInt(),
         )
     }

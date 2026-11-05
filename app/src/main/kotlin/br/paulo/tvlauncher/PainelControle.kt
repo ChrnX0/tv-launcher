@@ -89,7 +89,10 @@ object PainelControle {
     /** Aperta uma tecla. Devolve null se deu certo, ou o motivo. */
     fun tecla(ctx: Context, nome: String): String? {
         val codigo = TECLAS[nome] ?: return "tecla desconhecida"
-        AutoDesligar.atividade()   // tecla pelo painel também é alguém usando a TV
+        // Tecla pelo painel também é alguém usando a TV. Com o aviso de desligar na tela, ela só o cancela (igual ao controle).
+        val cancelouAviso = AutoDesligar.avisoNaTela()
+        AutoDesligar.atividade()
+        if (cancelouAviso) return null
         val servico = AutorizaShizukuService.instancia
         // VOLTAR e INÍCIO pela acessibilidade: imediatos e sem shell.
         if (servico != null && nome == "voltar") return if (servico.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)) null else "o Android recusou"
