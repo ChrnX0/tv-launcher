@@ -395,22 +395,17 @@ reabrir a discussão. Antes de tarefa grande/cara, dizer escopo e custo em núme
 código: ele é iniciante aprendendo ao vivo — explicar o que o código faz e por quê, inline
 e curto. Commits/push: branch própria + PR em rascunho (permissão global de 04/11/2026; ver topo).
 
-## IA na nuvem + aba Falar do painel (bloco 6, 05/11/2026)
+## IA na nuvem: REMOVIDA (05/11/2026); catálogo guardado para o MCP
 
-- Fluxo: aba **Falar** do painel (voz do teclado do celular) -> `POST /api/ia/pedir` -> `PedidoIa` chama a IA escolhida com a
-  chave DO DONO (`IaNuvem`) -> `ComandosIa.conferir` -> `ConfirmarIaActivity` na TV (foco em
-  Cancelar, 60 s e cancela) -> executa. Nada roda sem OK no controle.
-- Catálogo FECHADO (`ComandosIa`): abrir app da HOME, abrir tela (previsão, agenda, despertador, configurações, início),
-  despertador, volume, mídia, modo visita. Sem shell/desinstalar/rede. Máx. 5 ações; 1 pedido a cada 3 s, 30/h.
-- Desligada por padrão; **liga só nas Configurações da TV** (o painel não tem rota para ligar). Chave cifrada com o Android
-  Keystore em `ia_seguro` (fora do backup); o painel só vê os 4 últimos caracteres. Cadastrar/apagar chave exige PIN de novo.
-- **Multi-provedor (05/11/2026):** Gemini (`generateContent` + `responseSchema`, chave "AQ." ou "AIza"), Claude (Messages API,
-  `output_config.format` json_schema, `anthropic-version: 2026-10-21`, sem temperature), OpenAI e Perplexity (`chat/completions` +
-  `response_format` json_schema). `ComandosIa.Provedor` (id, nome, modelo padrão: `gemini-flash-latest`, `claude-haiku-5-5`,
-  `gpt-5.4-mini`, `sonar`). Uma chave e um modelo POR provedor em `ia_seguro` (`chave_cifrada_<id>`, `modelo_<id>`); provedor ativo
-  em `provedor` (padrão gemini). Rotas: `/api/ia` lista os provedores; `/api/ia/provedor` troca (sem PIN: só entre chaves já
-  cadastradas); `chave`/`modelo` recebem `provedor`. Ao colar, o provedor é detectado pelo começo (sk-ant-, sk-, pplx-, AQ./AIza), só
-  como aviso: formato desconhecido de 20 a 300 caracteres `[A-Za-z0-9._-]` é aceito; a 1ª chamada é o teste real. Chave e modelo gravados
-  antes do multi-provedor (sem sufixo) migram sozinhos para `_gemini` (`IaArmazem.migrar`). Teste sem chave e sem nuvem (só adb):
-  `am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "teste" --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}' -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver`
-  e `-a br.paulo.tvlauncher.IA_ESTADO`.
+- O bloco 6 (aba Falar do painel, chave do dono para Gemini/Claude/OpenAI/Perplexity, `IaNuvem.kt`, `IaArmazem.kt`) saiu por
+  decisão do Paulo: o Gemini do controle e os atalhos de voz já fazem o mesmo. Estudo e decisão (A + E):
+  https://claude.ai/artifact/XYGCQ9U4YC8Paoz1iGSDbS. Ver o git (commit f7f80c5) se precisar do código antigo.
+- Ficaram, como base do futuro servidor MCP (Claude de fora chamando ferramentas da TV): `ComandosIa` (catálogo FECHADO e
+  conferência: abrir app da HOME, abrir tela, despertador, volume, mídia, modo visita), `PedidoIa.propor` (limite 1 a cada 3 s e
+  30/h) e `ConfirmarIaActivity` (foco em Cancelar, 60 s e cancela). Nada roda sem OK no controle.
+- `PedidoIa.apagarRestosDaNuvem` (chamado no `LauncherApp.onCreate`) apaga na TV as prefs `ia_seguro` e a chave `ia_chave_api` do
+  Keystore. A do UniFi (`unifi_chave_api`) é outra e fica.
+- Teste só pelo adb: `am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "teste" --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}' -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver`
+  e `-a br.paulo.tvlauncher.IA_ESTADO` (último pedido).
+- MCP pela nuvem (decidido, não começado): Cloudflare Tunnel na TV ou Tailscale Funnel no Dell (escolha do Paulo pendente) + OAuth
+  com DCR no launcher (login = PIN), porta própria só em 127.0.0.1; o painel :8080 NÃO passa pelo túnel.

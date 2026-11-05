@@ -481,7 +481,7 @@
                 <action android:name="br.paulo.tvlauncher.ROTINA" />
                 <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.DEBLOAT" />
-                <!-- IA na nuvem: testar a confirmação sem chave e ver o estado (só adb, ver PedidoIa). -->
+                <!-- Pedidos do catálogo: testar a confirmação e ver o último pedido (só adb, ver PedidoIa). -->
                 <action android:name="br.paulo.tvlauncher.IA_TESTE" />
                 <action android:name="br.paulo.tvlauncher.IA_ESTADO" />
                 <!-- Desligar sozinha: ver/definir/testar o aviso (testes). Só neste receiver (DUMP). -->
@@ -508,7 +508,7 @@
             android:name=".ResultadoDesinstalarReceiver"
             android:exported="false" />
 
-        <!-- Confirmação NA TV de um pedido à IA na nuvem (bloco 6, ver PedidoIa.kt). Só o próprio launcher abre.
+        <!-- Confirmação NA TV de um pedido de ações do catálogo (ver PedidoIa.kt). Só o próprio launcher abre.
              taskAffinity vazio: abre numa tarefa própria. Na tarefa da HOME, ela traria a HOME para a frente e, ao
              fechar, a pessoa cairia na tela inicial em vez de voltar ao app que estava vendo (ex.: "pausa"). -->
         <activity

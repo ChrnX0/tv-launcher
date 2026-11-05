@@ -39,8 +39,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val TESTE_ERRO = "br.paulo.tvlauncher.TESTE_ERRO" // gravar um erro de teste no registro (só adb)
         const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
         const val DEBLOAT = "br.paulo.tvlauncher.DEBLOAT"       // candidatos da limpeza e o estado deles (só adb)
-        const val IA_TESTE = "br.paulo.tvlauncher.IA_TESTE"     // confirmação da IA com resposta falsa, sem nuvem (só adb)
-        const val IA_ESTADO = "br.paulo.tvlauncher.IA_ESTADO"   // situação da IA e do último pedido (só adb)
+        const val IA_TESTE = "br.paulo.tvlauncher.IA_TESTE"     // confirmação de ações do catálogo, sem MCP (só adb)
+        const val IA_ESTADO = "br.paulo.tvlauncher.IA_ESTADO"   // situação do último pedido (só adb)
         const val AUTO_DESLIGAR = "br.paulo.tvlauncher.AUTO_DESLIGAR"   // desligar sozinha: ver/definir/testar (só adb)
         const val UNIFI = "br.paulo.tvlauncher.UNIFI"     // verificar aparelho novo no roteador agora (só adb, testes)
         private val fila = Executors.newSingleThreadExecutor()
@@ -102,20 +102,19 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     }.start()
                 }
             }
-            // Só pelo adb: testa a tela de confirmação e a execução SEM nuvem e sem chave. A "resposta" faz o papel do
-            // JSON da IA e passa pela mesma conferência (ComandosIa.conferir). Ex.:
+            // Só pelo adb: testa a tela de confirmação e a execução do catálogo (ComandosIa). A "resposta" é o JSON das
+            // ações, que passa pela mesma conferência que o servidor MCP vai usar. Ex.:
             //   am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "abre a previsão"
             //     --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}'
             //     -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
             IA_TESTE -> if (this is ControleShizukuAdbReceiver) {
                 val r = intent.getStringExtra("resposta")
-                resultData = if (r == null) "falta --es resposta" else PedidoIa.pedir(ctx, intent.getStringExtra("frase") ?: "teste", "adb", r).let {
+                resultData = if (r == null) "falta --es resposta" else PedidoIa.propor(ctx, intent.getStringExtra("frase") ?: "teste", "adb", r).let {
                     "id=${it.id} situacao=${it.situacao} ${it.mensagem}"
                 }
             }
             IA_ESTADO -> if (this is ControleShizukuAdbReceiver) {
-                resultData = "ligada=${IaArmazem.ligada(ctx)} provedor=${IaArmazem.provedor(ctx).id} chave=${IaArmazem.finalDaChave(ctx) ?: "nenhuma"} modelo=${IaArmazem.modelo(ctx)} " +
-                    "ultimo=${PedidoIa.ultimo()?.json() ?: "nenhum"}"
+                resultData = "ultimo=${PedidoIa.ultimo()?.json() ?: "nenhum"}"
             }
             // Só chega pelo receiver do adb (o filtro de ROTULOS está só nele): o painel do PC pergunta o nome real
             // dos apps, que o adb não sabe dizer. Resposta: JSON {pacote: nome}.
