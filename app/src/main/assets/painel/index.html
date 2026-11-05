@@ -60,7 +60,8 @@
 
     <section id="abaControle" class="painel-aba" hidden>
       <div class="tela-tv">
-        <img id="fotoTela" alt="Tela da TV">
+        <img id="fotoTela" alt="Tela da TV" hidden>
+        <div id="semFoto" class="sem-foto">Carregando a tela…</div>
         <p id="statusTela" class="aviso-curto"></p>
       </div>
       <div class="controle">
@@ -135,6 +136,8 @@
         </form>
         <p id="statusChave" class="aviso" hidden></p>
       </div>
+    </section>
+
     <section id="abaRede" class="painel-aba" hidden>
       <div class="barra-acoes">
         <button type="button" class="botao-secundario periodo ativo" data-horas="24">Últimas 24 h</button>
