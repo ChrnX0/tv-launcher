@@ -11,9 +11,9 @@ O demo oficial do Shizuku-API não compila com o AGP atual (falta `namespace` no
 
 ```powershell
 .\gradlew.bat :cliente-shizuku:assembleDebug
-adb -s 192.168.1.153:<porta> install -r -t ferramentas\cliente-shizuku\build\outputs\apk\debug\cliente-shizuku-debug.apk
-adb -s 192.168.1.153:<porta> shell am start -n br.paulo.clienteshizuku/.TesteActivity
-adb -s 192.168.1.153:<porta> logcat -s TesteShizuku
+adb -s <ip-da-tv>:<porta> install -r -t ferramentas\cliente-shizuku\build\outputs\apk\debug\cliente-shizuku-debug.apk
+adb -s <ip-da-tv>:<porta> shell am start -n br.paulo.clienteshizuku/.TesteActivity
+adb -s <ip-da-tv>:<porta> logcat -s TesteShizuku
 ```
 
 Sem permissão, ele pede e o launcher mostra a tela "Permitir / Negar". Com permissão, ele roda `id` pelo servidor

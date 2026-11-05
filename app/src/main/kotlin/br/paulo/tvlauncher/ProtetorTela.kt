@@ -85,7 +85,7 @@ class ProtetorTela : DreamService() {
 
         // ---- data
         coluna.addView(TextClock(this).apply {
-            format12Hour = "EEEE, d 'de' MMMM"; format24Hour = "EEEE, d 'de' MMMM"
+            format12Hour = getString(R.string.fmt_data_longa); format24Hour = getString(R.string.fmt_data_longa)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
             setTextColor(0x99E8EEEA.toInt())
             typeface = fonteMedia
@@ -138,7 +138,7 @@ class ProtetorTela : DreamService() {
                 addView(IconesClima.imagem(this@ProtetorTela, IconesClima.chave(codigo, eDia, chovendo)),
                     LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(8) })
                 addView(TextView(this@ProtetorTela).apply {
-                    text = "$temp°" + if (chovendo) "  ·  chovendo" else ""
+                    text = "$temp°" + if (chovendo) getString(R.string.pt_chovendo) else ""
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
                     setTextColor(0x99E8EEEA.toInt())
                     typeface = fonteLeve
@@ -166,7 +166,7 @@ class ProtetorTela : DreamService() {
         // resumoCurto = "🌔  Minguante gibosa  ·  75%": a 1ª parte (sem o emoji) é o nome da fase, que vira o rótulo.
         val luaPartes = Lua.resumoCurto(agoraMs, lat).split("  ·  ")
         val luaIluminada = luaPartes.getOrElse(1) { "—" }
-        val luaFase = luaPartes[0].substringAfter("  ").trim().ifEmpty { "Lua" }
+        val luaFase = luaPartes[0].substringAfter("  ").trim().ifEmpty { getString(R.string.pt_lua) }
 
         fun tile(emoji: String, valor: String, rotulo: String) = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -188,9 +188,9 @@ class ProtetorTela : DreamService() {
         }
 
         val itens = listOf(
-            "🌅" to (solTexto to "Sol"),
-            "💧" to (umidadeTexto to "Umidade"),
-            "🌧" to (chuvaTexto to "Chuva"),
+            "🌅" to (solTexto to getString(R.string.pt_sol)),
+            "💧" to (umidadeTexto to getString(R.string.pt_umidade)),
+            "🌧" to (chuvaTexto to getString(R.string.pt_chuva)),
             Lua.emoji(agoraMs, lat) to (luaIluminada to luaFase),
         )
         val ladoTile = dp(132)
