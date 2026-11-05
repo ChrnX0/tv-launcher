@@ -152,6 +152,16 @@ class ConfigLauncherActivity : Activity() {
         lista.addView(listaVisita, LinearLayout.LayoutParams(MATCH, WRAP))
         carregarAppsDaVisita(listaVisita)
 
+        // ---- Atualização (Atualizador.kt): o launcher confere o GitHub a cada 6 h e instala sozinho com a tela apagada.
+        secao("Atualização")
+        lateinit var linhaAtualiza: TextView
+        linhaAtualiza = linha("Procurar versão nova", "versão ${versaoInstalada()} · ${Atualizador.estado(this)} · OK procura agora") {
+            linhaAtualiza.detalhe("procurando no GitHub…")
+            // OK = a pessoa pediu: instala na hora se houver (o launcher reinicia sozinho no fim).
+            Atualizador.verificar(this, instalar = true) { r -> runOnUiThread { linhaAtualiza.detalhe(r) } }
+        }
+        adicionar(linhaAtualiza)
+
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
         // Se o DNS fixo caiu e o launcher voltou para o automático (Dns.voltarAoAutomaticoSeQuebrado), avisa aqui.
@@ -416,6 +426,12 @@ class ConfigLauncherActivity : Activity() {
     // ---------------------------------------------------------------- peças
 
     /** Uma linha clicável: título + detalhe, fica clara com foco (igual às linhas do popup e da tela de DNS). */
+    @Suppress("DEPRECATION")
+    private fun versaoInstalada(): Long = try {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+    } catch (e: Exception) { 0L }
+
     private fun linha(titulo: String, detalhe: String, aoClicar: () -> Unit): TextView = TextView(this).apply {
         montarLinha(titulo, detalhe)
         isFocusable = true
