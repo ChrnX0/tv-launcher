@@ -7,6 +7,19 @@ plugins {
 // VPN própria (vpn.* ali dentro) iam em texto puro para o APK via BuildConfig; com a troca para o app AdGuard VPN
 // elas saíram do build. O local.properties do Paulo continua como está.
 
+// 05/11/2026: dados PESSOAIS (cidade, coordenadas, apps preferidos, eclipses da cidade) saíram do Config.kt, porque o
+// repositório é público. Eles vêm do arquivo pessoal.properties, na raiz do repo, que NÃO vai para o git (.gitignore).
+// Sem o arquivo (quem baixa do GitHub, ou o build do GitHub Actions), valem padrões neutros. Modelo comentado em
+// pessoal.properties.exemplo. Cada valor vira um campo da classe BuildConfig, que o Config.kt lê.
+val pessoal = java.util.Properties().apply {
+    val f = rootProject.file("pessoal.properties")
+    if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }   // UTF-8: "Ribeirão" com til sai certo
+}
+// Texto Java entre aspas, com \ e " escapados (senão um valor com aspas quebra a compilação do BuildConfig).
+fun textoJava(v: String) = "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+fun pessoalTexto(chave: String, padrao: String = "") = textoJava(pessoal.getProperty(chave, padrao).trim())
+fun pessoalNumero(chave: String, padrao: Double) = (pessoal.getProperty(chave)?.trim()?.toDoubleOrNull() ?: padrao).toString()
+
 android {
     namespace = "br.paulo.tvlauncher"
     // 36 (antes 34): exigido pelos módulos do Shizuku embutido (androidx.core 1.16 pede compileSdk >= 35).
@@ -28,10 +41,22 @@ android {
         // 04/11/2026). Sem isto o conscrypt entrava em 4 ABIs: ~7 MB de libs que a TV nunca carrega (medido no dist/).
         // Se um dia instalar numa TV de 64 bits, acrescente "arm64-v8a" aqui.
         ndk { abiFilters += listOf("armeabi-v7a") }
+
+        // Dados pessoais (ver pessoal.properties no topo). Padrões neutros entre aspas ou como número.
+        buildConfigField("String", "CIDADE", pessoalTexto("cidade"))
+        buildConfigField("double", "LATITUDE", pessoalNumero("latitude", 0.0))
+        buildConfigField("double", "LONGITUDE", pessoalNumero("longitude", 0.0))
+        buildConfigField("boolean", "USAR_FAHRENHEIT", (pessoal.getProperty("fahrenheit")?.trim() == "true").toString())
+        buildConfigField("String", "ESTACAO_METAR", pessoalTexto("estacao_metar"))
+        buildConfigField("String", "APPS_FIXOS", pessoalTexto("apps_fixos"))
+        buildConfigField("String", "APPS_ORDEM", pessoalTexto("apps_ordem",
+            "com.google.android.youtube.tv,com.google.android.youtube.tvmusic,com.netflix.ninja,com.android.vending"))
+        buildConfigField("String", "BOTAO_NETFLIX", pessoalTexto("botao_netflix", "com.netflix.ninja"))
+        buildConfigField("String", "ECLIPSES", pessoalTexto("eclipses"))
     }
 
     buildFeatures {
-        buildConfig = true   // gera a classe BuildConfig (sem campos próprios desde que a VPN própria saiu)
+        buildConfig = true   // gera a classe BuildConfig (campos do pessoal.properties, ver defaultConfig)
     }
 
     // Extrai as .so para a pasta lib/arm do app instalado (como o app Shizuku original faz). Necessário porque o
