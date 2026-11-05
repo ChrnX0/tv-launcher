@@ -42,6 +42,7 @@
       <button class="aba" data-aba="shizuku">Shizuku</button>
       <button class="aba" data-aba="rede">Rede</button>
       <button class="aba" data-aba="roteador">Roteador</button>
+      <button class="aba" data-aba="claude">Claude</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -247,6 +248,33 @@
         </div>
         <p id="estadoRoteador" class="aviso"></p>
         <div id="listaAparelhos" class="lista-registro"></div>
+      </div>
+    </section>
+
+    <section id="abaClaude" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Claude pela internet (MCP)</h2>
+        <p class="aviso">O Claude (claude.ai ou o app) consulta a TV e PEDE ações: abrir app, despertador, volume, mídia.
+          Nada acontece sem OK no controle. O login do Claude é este mesmo PIN. O painel não fica na internet: só o MCP.</p>
+        <p id="estadoMcp" class="aviso"></p>
+        <label><input id="chkMcpLigado" type="checkbox"> Ligar o acesso pelo Claude</label>
+      </div>
+      <div class="cartao">
+        <h2>Chave do Tailscale</h2>
+        <p class="aviso">No console do Tailscale: Settings → Keys → Generate auth key (pode ser de uso único). Antes, em
+          Access controls, deixe o Funnel liberado e, em DNS, ligue o HTTPS. A chave fica cifrada na TV e é apagada
+          sozinha depois do primeiro login.</p>
+        <form id="formMcp" autocomplete="off">
+          <input id="campoChaveMcp" type="password" maxlength="200" autocomplete="off" placeholder="tskey-auth-...">
+          <button type="submit" class="botao-primario">Salvar</button>
+        </form>
+        <p id="statusMcp" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Acessos</h2>
+        <p id="loginsMcp" class="aviso-curto"></p>
+        <button type="button" class="botao-secundario" id="btnRevogarMcp">Revogar os logins do Claude</button>
+        <button type="button" class="link" id="btnEsquecerMcp">Esquecer o Tailscale (para entrar com outra conta)</button>
       </div>
     </section>
 

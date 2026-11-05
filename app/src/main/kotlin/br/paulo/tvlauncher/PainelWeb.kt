@@ -399,6 +399,8 @@ object PainelWeb {
                 "POST" -> return mudarClima(req, ip)
             }
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
+            "/api/mcp" -> if (req.metodo == "GET") return json(200, mcpEstado())
+            "/api/mcp/config" -> if (req.metodo == "POST") return mcpConfig(req, token, ip)
             "/api/roteador" -> if (req.metodo == "GET") return json(200, roteadorEstado())
             "/api/roteador/config" -> if (req.metodo == "POST") return roteadorConfig(req, ip)
             "/api/roteador/certificado" -> if (req.metodo == "POST") return roteadorCertificado(ip)
@@ -852,5 +854,41 @@ object PainelWeb {
         UnifiCliente.limparCache()
         PainelArmazem.registrar(app, ip, "roteador: esquecer", "ok")
         return json(200, roteadorEstado())
+    }
+
+    // ---------------------------------------------------------------- Claude pela internet (MCP + túnel Tailscale)
+
+    private fun mcpEstado(): JSONObject = JSONObject()
+        .put("ligado", McpServidor.ligado(app))
+        .put("tunelConfigurado", TunelTailscale.configurado(app))
+        .put("tunelRodando", TunelTailscale.rodando())
+        .put("temChave", TunelTailscale.temChave(app))
+        .put("endereco", TunelTailscale.nome(app)?.let { "https://$it/mcp" } ?: JSONObject.NULL)
+        .put("erro", TunelTailscale.ultimoErro(app) ?: JSONObject.NULL)
+        .put("logins", McpServidor.logins(app))
+        .put("binario", TunelTailscale.binario(app).exists())
+
+    /** Ligar/desligar, colar a chave do Tailscale (PIN de novo), revogar logins, esquecer o Tailscale (PIN de novo). */
+    private fun mcpConfig(req: Requisicao, token: String?, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val mudou = ArrayList<String>()
+        if (o.has("chave")) {
+            if (!sessoes.elevada(token)) return precisaPin()
+            val c = o.optString("chave").trim()
+            if (!TunelTailscale.chaveValida(c)) return erro(400, "chave inválida: cole a chave inteira, que começa com tskey-")
+            if (!TunelTailscale.definirChave(app, c)) return erro(500, "não consegui guardar a chave cifrada")
+            mudou.add("chave do Tailscale")
+        }
+        if (o.optBoolean("esquecer")) {
+            if (!sessoes.elevada(token)) return precisaPin()
+            TunelTailscale.esquecer(app); mudou.add("esquecer Tailscale")
+        }
+        if (o.optBoolean("revogar")) { McpServidor.revogar(app); mudou.add("revogar logins") }
+        if (o.has("ligado")) {
+            if (o.optBoolean("ligado") && !PainelArmazem.temPin(app)) return erro(400, "defina o PIN antes")
+            McpServidor.definirLigado(app, o.optBoolean("ligado")); mudou.add("ligado=${o.optBoolean("ligado")}")
+        } else if (mudou.isNotEmpty()) TunelTailscale.ajustar(app)
+        if (mudou.isNotEmpty()) PainelArmazem.registrar(app, ip, "mcp: ${mudou.joinToString(", ")}", "ok")
+        return json(200, mcpEstado())
     }
 }

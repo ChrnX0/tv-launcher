@@ -32,7 +32,8 @@ object ShizukuSobDemanda {
     @Volatile private var clientes: Set<String> = emptySet()
     @Volatile private var sequencia = -1          // PackageManager.getChangedPackages: só recalcula se algo mudou
     @Volatile private var ultimoCliente = 0L      // elapsedRealtime da última vez que um cliente esteve na frente
-    @Volatile private var pacoteNaFrente: String? = null
+    @Volatile var pacoteNaFrente: String? = null   // lido também pelo MCP (estado_tv)
+        private set
     private var desligarAgendado: Runnable? = null
 
     /** true se um app cliente esteve na frente há menos de [OCIOSO_MS] (ou está na frente agora). */
