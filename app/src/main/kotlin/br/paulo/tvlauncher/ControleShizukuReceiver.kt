@@ -112,7 +112,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 }
             }
             IA_ESTADO -> if (this is ControleShizukuAdbReceiver) {
-                resultData = "ligada=${IaArmazem.ligada(ctx)} chave=${IaArmazem.finalDaChave(ctx) ?: "nenhuma"} modelo=${IaArmazem.modelo(ctx)} " +
+                resultData = "ligada=${IaArmazem.ligada(ctx)} provedor=${IaArmazem.provedor(ctx).id} chave=${IaArmazem.finalDaChave(ctx) ?: "nenhuma"} modelo=${IaArmazem.modelo(ctx)} " +
                     "ultimo=${PedidoIa.ultimo()?.json() ?: "nenhum"}"
             }
             // Só chega pelo receiver do adb (o filtro de ROTULOS está só nele): o painel do PC pergunta o nome real

@@ -397,13 +397,20 @@ e curto. Commits/push: branch própria + PR em rascunho (permissão global de 04
 
 ## IA na nuvem + aba Falar do painel (bloco 6, 05/11/2026)
 
-- Fluxo: aba **Falar** do painel (voz do teclado do celular) -> `POST /api/ia/pedir` -> `PedidoIa` chama o Gemini com a
-  chave DO DONO (`IaNuvem`, cabeçalho `x-goog-api-key`) -> `ComandosIa.conferir` -> `ConfirmarIaActivity` na TV (foco em
+- Fluxo: aba **Falar** do painel (voz do teclado do celular) -> `POST /api/ia/pedir` -> `PedidoIa` chama a IA escolhida com a
+  chave DO DONO (`IaNuvem`) -> `ComandosIa.conferir` -> `ConfirmarIaActivity` na TV (foco em
   Cancelar, 60 s e cancela) -> executa. Nada roda sem OK no controle.
 - Catálogo FECHADO (`ComandosIa`): abrir app da HOME, abrir tela (previsão, agenda, despertador, configurações, início),
   despertador, volume, mídia, modo visita. Sem shell/desinstalar/rede. Máx. 5 ações; 1 pedido a cada 3 s, 30/h.
 - Desligada por padrão; **liga só nas Configurações da TV** (o painel não tem rota para ligar). Chave cifrada com o Android
   Keystore em `ia_seguro` (fora do backup); o painel só vê os 4 últimos caracteres. Cadastrar/apagar chave exige PIN de novo.
-- Modelo padrão `gemini-flash-latest` (trocável no painel). Teste sem chave e sem nuvem (só adb):
+- **Multi-provedor (05/11/2026):** Gemini (`generateContent` + `responseSchema`, chave "AQ." ou "AIza"), Claude (Messages API,
+  `output_config.format` json_schema, `anthropic-version: 2026-10-21`, sem temperature), OpenAI e Perplexity (`chat/completions` +
+  `response_format` json_schema). `ComandosIa.Provedor` (id, nome, modelo padrão: `gemini-flash-latest`, `claude-haiku-5-5`,
+  `gpt-5.4-mini`, `sonar`). Uma chave e um modelo POR provedor em `ia_seguro` (`chave_cifrada_<id>`, `modelo_<id>`); provedor ativo
+  em `provedor` (padrão gemini). Rotas: `/api/ia` lista os provedores; `/api/ia/provedor` troca (sem PIN: só entre chaves já
+  cadastradas); `chave`/`modelo` recebem `provedor`. Ao colar, o provedor é detectado pelo começo (sk-ant-, sk-, pplx-, AQ./AIza), só
+  como aviso: formato desconhecido de 20 a 300 caracteres `[A-Za-z0-9._-]` é aceito; a 1ª chamada é o teste real. Chave e modelo gravados
+  antes do multi-provedor (sem sufixo) migram sozinhos para `_gemini` (`IaArmazem.migrar`). Teste sem chave e sem nuvem (só adb):
   `am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "teste" --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}' -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver`
   e `-a br.paulo.tvlauncher.IA_ESTADO`.
