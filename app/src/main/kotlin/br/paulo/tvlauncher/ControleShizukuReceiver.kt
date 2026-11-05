@@ -145,16 +145,21 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 else AvisoTv.mostrar(ctx, "Recado", t, Recado.duracao(intent.getIntExtra("segundos", 60)),
                     intent.getBooleanExtra("som", true), guardarSeApagada = true).name.lowercase()
             }
-            // Só pelo adb: o lugar do clima (LocalClima.kt). Sem --es coordenadas, volta para a localização automática.
-            // Ex.: am broadcast -a br.paulo.tvlauncher.LOCAL_CLIMA --es nome "Centro" --es coordenadas "-21.18,-47.81"
+            // Só pelo adb: o endereço do clima (LocalClima.kt) pelo CEP e o número. Sem --es cep, apaga o endereço.
+            // Ex.: am broadcast -a br.paulo.tvlauncher.LOCAL_CLIMA --es cep 14015060 --es numero 100
             //   -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
             LOCAL_CLIMA -> if (this is ControleShizukuAdbReceiver) {
-                val texto = intent.getStringExtra("coordenadas")
-                resultData = if (texto.isNullOrBlank()) { LocalClima.limpar(ctx); "automatico" }
-                else LocalClima.lerCoordenadas(texto)?.let { (lat, lon) ->
-                    val nome = LocalClima.limparNome(intent.getStringExtra("nome"))
-                    LocalClima.gravar(ctx, LocalClima.Lugar(nome, lat, lon)); "fixo $nome $lat,$lon"
-                } ?: "coordenadas inválidas (ex.: -21.18,-47.81)"
+                val cep = intent.getStringExtra("cep")
+                if (cep.isNullOrBlank()) { LocalClima.limpar(ctx); resultData = "endereço apagado" }
+                else {
+                    val pendente = goAsync()   // ViaCEP + Nominatim: rede, fora da thread principal
+                    Thread {
+                        try {
+                            pendente.resultData = LocalClima.definirPorCep(ctx, cep, intent.getStringExtra("numero")).fold(
+                                { "ok ${LocalClima.descrever(it)} ${it.lat},${it.lon}" }, { "erro: ${it.message}" })
+                        } finally { pendente.finish() }
+                    }.start()
+                }
             }
             // Só pelo adb: --ez simular true mostra o cartão de teste (sem consultar a previsão nem mexer no silêncio);
             // sem ele, roda a verificação de verdade e responde o que decidiu (ex.: "sem chuva à vista").

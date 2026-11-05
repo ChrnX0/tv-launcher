@@ -172,7 +172,7 @@ class PrevisaoActivity : Activity() {
     )
 
     private fun carregar(): Dados? {
-        val ponto = Localizacao.atual(this) { httpGet(it) }
+        val ponto = Localizacao.atual(this) { httpGet(it) } ?: return null
         val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
         val j = JSONObject(httpGet(
             "https://api.open-meteo.com/v1/forecast?latitude=${ponto.lat}&longitude=${ponto.lon}" +

@@ -1310,10 +1310,10 @@ $('formRecado').addEventListener('submit', async (ev) => {
 // ---------- lugar do clima (LocalClima.kt na TV) ----------
 
 function mostrarClima(c) {
-  $('estadoClima').textContent = c.fixo
-    ? `fixo em "${c.fixo.nome}" (${c.fixo.lat.toFixed(4)}, ${c.fixo.lon.toFixed(4)})`
-    : 'automático (pela rede da TV)' + (c.usado ? `, agora em ${c.usado.lat.toFixed(4)}, ${c.usado.lon.toFixed(4)}` : '');
-  if (c.fixo) { $('nomeClima').value = c.fixo.nome; $('coordClima').value = `${c.fixo.lat}, ${c.fixo.lon}`; }
+  // A TV usa o Wi-Fi primeiro; o endereço vale quando o Wi-Fi não dá a posição (e antes do IP da internet).
+  $('estadoClima').textContent = (c.fixo ? `cadastrado: ${c.fixo.descricao}` : 'nenhum cadastrado (a TV se acha pelo Wi-Fi ou pela internet)') +
+    (c.usado ? ` · última posição usada: ${c.usado.lat.toFixed(3)}, ${c.usado.lon.toFixed(3)}` : '');
+  if (c.fixo) { $('cepClima').value = c.fixo.cep; $('numeroClima').value = c.fixo.numero; }
   $('faixaClima').checked = !!c.faixa;
 }
 
@@ -1324,16 +1324,17 @@ async function carregarClima() {
 $('formClima').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   try {
-    mostrarClima(await chamar('POST', '/api/clima', { nome: $('nomeClima').value.trim(), coordenadas: $('coordClima').value.trim() }));
-    mostrar($('statusControle'), 'Lugar salvo: o clima da TV atualiza em alguns segundos.');
+    mostrar($('statusControle'), 'Procurando o endereço…');
+    mostrarClima(await chamar('POST', '/api/clima', { cep: $('cepClima').value.trim(), numero: $('numeroClima').value.trim() }));
+    mostrar($('statusControle'), 'Endereço salvo.');
   } catch (e) { mostrar($('statusControle'), e.message); }
 });
 
 $('btnClimaAuto').addEventListener('click', async () => {
   try {
     mostrarClima(await chamar('POST', '/api/clima', { automatico: true }));
-    $('nomeClima').value = ''; $('coordClima').value = '';
-    mostrar($('statusControle'), 'O clima volta a seguir a localização da TV.');
+    $('cepClima').value = ''; $('numeroClima').value = '';
+    mostrar($('statusControle'), 'Endereço apagado: a TV se acha só pelo Wi-Fi ou pela internet.');
   } catch (e) { mostrar($('statusControle'), e.message); }
 });
 
