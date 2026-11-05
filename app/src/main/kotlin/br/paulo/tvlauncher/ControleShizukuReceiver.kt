@@ -34,6 +34,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
         const val RECADO = "br.paulo.tvlauncher.RECADO"   // recado na tela da TV (só adb; o painel usa /api/recado)
         const val CHUVA = "br.paulo.tvlauncher.CHUVA"     // verificar o aviso de chuva agora, ou simular (só adb, testes)
+        const val ERROS = "br.paulo.tvlauncher.ERROS"           // listar o registro local de erros (só adb)
+        const val TESTE_ERRO = "br.paulo.tvlauncher.TESTE_ERRO" // gravar um erro de teste no registro (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -135,6 +137,21 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }, 500)
+            }
+            // Só pelo adb (05/11/2026): o registro local de erros (RegistroErros.kt). Resposta: um erro por linha.
+            ERROS -> resultData = RegistroErros.listar(ctx).joinToString("\n") { "${it.arquivo.name} ${it.resumo}" }.ifEmpty { "nenhum" }
+            // Só pelo adb: testar o registro. Sem extra, grava um erro de mentira (nada cai). Com --ez derrubar true,
+            // lança a exceção numa thread de verdade: o processo do launcher CAI (como um crash real) e o sistema o
+            // sobe de novo, igual ao REINICIAR. Serve para provar que o tratador grava antes do Android fechar o app.
+            TESTE_ERRO -> {
+                val erro = IllegalStateException("teste do registro de erros (adb)")
+                if (intent.getBooleanExtra("derrubar", false)) {
+                    resultData = "derrubando pid=${android.os.Process.myPid()}"
+                    Thread({ throw erro }, "teste-erro").start()
+                } else {
+                    RegistroErros.gravar(ctx, "adb", erro)
+                    resultData = "gravado"
+                }
             }
         }
     }

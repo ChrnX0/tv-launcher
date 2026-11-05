@@ -92,7 +92,9 @@
         <package android:name="com.google.android.apps.tv.launcherx" />
     </queries>
 
+    <!-- android:name: LauncherApp liga o registro local de erros (RegistroErros.kt) em todo processo do app. -->
     <application
+        android:name=".LauncherApp"
         android:allowBackup="false"
         android:icon="@android:drawable/sym_def_app_icon"
         android:banner="@android:drawable/sym_def_app_icon"
@@ -271,6 +273,9 @@
                 <action android:name="br.paulo.tvlauncher.CHUVA" />
                 <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />
+                <!-- Registro local de erros: listar e gravar um de teste (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.ERROS" />
+                <action android:name="br.paulo.tvlauncher.TESTE_ERRO" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama

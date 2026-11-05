@@ -145,8 +145,45 @@ class DiagnosticoActivity : Activity() {
                 }
                 for ((pacote, nome) in apps) if (pacote !in ocorr)
                     adicionar(linha(nome, "nada registrado", 0) { mostrarDetalhe(nome, pacote, emptyList()) })
+                mostrarErrosDoLauncher()
             }
         }
+    }
+
+    /**
+     * Seção do registro local de erros (RegistroErros.kt): os crashes do PRÓPRIO launcher, gravados por ele mesmo.
+     * Fica por último, depois dos apps, porque a lista dos apps chega depois (lida numa thread).
+     */
+    private fun mostrarErrosDoLauncher() {
+        secao("Erros do launcher (gravados por ele)")
+        val erros = RegistroErros.listar(this)
+        if (erros.isEmpty()) { adicionar(info("Nenhum erro gravado", "o launcher guarda aqui os últimos ${RegistroErros.MAXIMO} crashes dele", 0)); return }
+        for (e in erros) {
+            val quando = DateUtils.getRelativeTimeSpanString(e.quando, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
+            adicionar(linha(e.resumo, quando.toString(), 2) { mostrarTexto("Erro do launcher", e.arquivo.name, e.texto) })
+        }
+        adicionar(linha("Apagar os erros gravados", "limpa a lista acima (não mexe em nada mais)", -1) {
+            RegistroErros.apagarTodos(this)
+            verificar()
+        })
+    }
+
+    /** Mostra um texto longo (a pilha de um erro) na mesma tela de detalhe dos apps. */
+    private fun mostrarTexto(titulo: String, subtitulo: String, conteudo: String) {
+        focoAntes = currentFocus
+        val raiz = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = resources.getDrawable(R.drawable.fundo, theme)
+            setPadding(dp(96), dp(48), dp(96), dp(32))
+        }
+        raiz.addView(texto(32f, textoClaro, fonteLeve).apply { text = titulo })
+        raiz.addView(texto(14f, textoSuave).apply { text = "$subtitulo · setas rolam · BACK volta" })
+        val corpo = texto(15f, textoClaro, Typeface.MONOSPACE).apply { text = conteudo; setPadding(dp(8), dp(8), dp(8), dp(8)) }
+        val rolagem = ScrollView(this).apply { isFocusable = true; addView(corpo) }
+        raiz.addView(rolagem, LinearLayout.LayoutParams(MATCH, 0, 1f).apply { topMargin = dp(16) })
+        noDetalhe = true
+        setContentView(raiz)
+        rolagem.requestFocus()
     }
 
     // ---------------------------------------------------------------- detalhe de um app
