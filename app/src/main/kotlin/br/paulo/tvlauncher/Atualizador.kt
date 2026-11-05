@@ -45,11 +45,11 @@ object Atualizador {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /** Texto curto para a tela de Configurações: o que aconteceu na última verificação. */
-    fun estado(ctx: Context): String = prefs(ctx).getString(ESTADO, null) ?: "ainda não verificou"
+    fun estado(ctx: Context): String = prefs(ctx).getString(ESTADO, null) ?: txt(R.string.atu_nunca)
 
     private fun anotar(ctx: Context, t: String) {
         Log.i(TAG, t)
-        val hora = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale("pt", "BR")).format(java.util.Date())
+        val hora = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
         prefs(ctx).edit().putString(ESTADO, "$hora · $t").apply()
     }
 
@@ -68,11 +68,11 @@ object Atualizador {
      */
     fun verificar(ctx: Context, instalar: Boolean, fim: ((String) -> Unit)? = null) {
         val app = ctx.applicationContext
-        if (android.os.Build.VERSION.SDK_INT < 28) { fim?.invoke("precisa do Android 9 ou mais novo"); return }
-        if (ocupado) { fim?.invoke("já está verificando"); return }
+        if (android.os.Build.VERSION.SDK_INT < 28) { fim?.invoke(txt(R.string.atu_android9)); return }
+        if (ocupado) { fim?.invoke(txt(R.string.atu_ocupado)); return }
         ocupado = true
         Thread {
-            val r = try { verificarAgora(app, instalar) } catch (e: Exception) { "erro: ${e.javaClass.simpleName} ${e.message}" }
+            val r = try { verificarAgora(app, instalar) } catch (e: Exception) { txt(R.string.atu_erro, e.javaClass.simpleName, e.message.orEmpty()) }
             ocupado = false
             prefs(app).edit().putLong(ULTIMA, System.currentTimeMillis()).apply()
             anotar(app, r)
@@ -85,7 +85,7 @@ object Atualizador {
         // A tag é "v<versionCode>" (o workflow cria assim).
         val codigo = json.optString("tag_name").removePrefix("v").toLongOrNull() ?: return "Release sem versão na tag"
         val meu = instalado(app).longVersionCode
-        if (codigo <= meu) return "em dia (instalada $meu, última $codigo)"
+        if (codigo <= meu) return txt(R.string.atu_em_dia, meu, codigo)
 
         var urlApk: String? = null
         var urlSha: String? = null
@@ -97,25 +97,25 @@ object Atualizador {
                 "$NOME_APK.sha256" -> urlSha = a.optString("browser_download_url")
             }
         }
-        if (urlApk == null || urlSha == null) return "Release $codigo sem o APK ou o SHA-256"
+        if (urlApk == null || urlSha == null) return txt(R.string.atu_sem_apk, codigo)
 
         val esperado = baixarTexto(urlSha).trim().split(Regex("\\s+")).first().lowercase()
         val arquivo = File(app.cacheDir, "atualizacao.apk")
         baixarArquivo(urlApk, arquivo)
         var entregue = false   // true = o PackageInstaller ficou com o arquivo (o Resultado apaga depois)
         try {
-            if (sha256(arquivo) != esperado) return "Release $codigo: SHA-256 não bate, não instalei"
+            if (sha256(arquivo) != esperado) return txt(R.string.atu_sha, codigo)
 
             val novo = app.packageManager.getPackageArchiveInfo(arquivo.path, PackageManager.GET_SIGNING_CERTIFICATES)
-                ?: return "Release $codigo: APK ilegível"
-            if (novo.packageName != app.packageName) return "Release $codigo: pacote diferente (${novo.packageName})"
-            if (novo.longVersionCode != codigo) return "Release $codigo: versão do APK (${novo.longVersionCode}) não bate com a tag"
-            if (!mesmaChave(instalado(app), novo)) return "Release $codigo assinado com outra chave: não instalo (normal numa TV atualizada pelo PC)"
+                ?: return txt(R.string.atu_ilegivel, codigo)
+            if (novo.packageName != app.packageName) return txt(R.string.atu_pacote, codigo, novo.packageName)
+            if (novo.longVersionCode != codigo) return txt(R.string.atu_versao, codigo, novo.longVersionCode)
+            if (!mesmaChave(instalado(app), novo)) return txt(R.string.atu_chave, codigo)
 
-            if (!instalar) return "versão $codigo disponível (instalada $meu)"
+            if (!instalar) return txt(R.string.atu_disponivel, codigo, meu)
             instalarApk(app, arquivo)
             entregue = true
-            return "instalando $codigo (instalada $meu)"
+            return txt(R.string.atu_instalando, codigo, meu)
         } finally {
             if (!entregue) arquivo.delete()
         }
@@ -195,7 +195,7 @@ object Atualizador {
             }
             File(ctx.cacheDir, "atualizacao.apk").delete()
             val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-            anotar(ctx, if (status == PackageInstaller.STATUS_SUCCESS) "atualizado" else "instalação falhou ($status): $msg")
+            anotar(ctx, if (status == PackageInstaller.STATUS_SUCCESS) txt(R.string.atu_ok) else txt(R.string.atu_falhou, status, msg.toString()))
         }
     }
 }
