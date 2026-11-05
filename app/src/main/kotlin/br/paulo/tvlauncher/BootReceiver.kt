@@ -29,6 +29,7 @@ class BootReceiver : BroadcastReceiver() {
         // Shizuku embutido (MARCO S3): sobe o servidor sozinho (espera o Wi-Fi e a depuração sem fio) e fica vigiando.
         GuardiaoShizuku.vigiar(context)
         GuardiaoShizuku.garantir(context, "boot")
+        PainelWeb.ajustar(context)   // painel no navegador (se ligado): já de pé antes de alguém abrir a HOME
         if (Config.ABRIR_AO_LIGAR.isEmpty()) return
         val abrir = context.packageManager.getLeanbackLaunchIntentForPackage(Config.ABRIR_AO_LIGAR)
         if (abrir == null) {
