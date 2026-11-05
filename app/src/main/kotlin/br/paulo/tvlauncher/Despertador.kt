@@ -38,8 +38,11 @@ object Despertador {
     fun listar(ctx: Context): List<Alarme> {
         val texto = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alarmes", "[]") ?: "[]"
         val arr = try { JSONArray(texto) } catch (e: Exception) { JSONArray() }
-        return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.map {
-            Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true), it.optInt("som", 0), it.optInt("rampa", 0), it.optBoolean("bom_dia", true))
+        // Um item estragado (sem id/hora/minuto) é pulado, em vez de derrubar a HOME inteira (revisão do painel, 04/11/2026).
+        return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.mapNotNull {
+            try {
+                Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true), it.optInt("som", 0), it.optInt("rampa", 0), it.optBoolean("bom_dia", true))
+            } catch (e: org.json.JSONException) { null }
         }.sortedWith(compareBy({ it.hora }, { it.minuto }))
     }
 
@@ -144,11 +147,11 @@ object Despertador {
     fun horaTexto(a: Alarme) = "%02d:%02d".format(a.hora, a.minuto)
 
     /** "Todo dia", "Seg a sex", "Só uma vez", ou os dias marcados ("S T Q"). */
-    fun diasTexto(dias: Int): String = when (dias) {
-        0 -> "Uma vez"
-        0b1111111 -> "Todo dia"
-        0b0111110 -> "Seg a sex"
-        0b1000001 -> "Fim de semana"
-        else -> listOf("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb").filterIndexed { i, _ -> dias and (1 shl i) != 0 }.joinToString(" ")
+    fun diasTexto(ctx: Context, dias: Int): String = when (dias) {
+        0 -> ctx.getString(R.string.dia_uma_vez)
+        0b1111111 -> ctx.getString(R.string.dia_todo)
+        0b0111110 -> ctx.getString(R.string.dia_seg_sex)
+        0b1000001 -> ctx.getString(R.string.dia_fim)
+        else -> ctx.resources.getStringArray(R.array.dias_curtos).filterIndexed { i, _ -> dias and (1 shl i) != 0 }.joinToString(" ")
     }
 }
