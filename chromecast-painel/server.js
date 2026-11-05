@@ -271,7 +271,7 @@ const PORTA_SCRCPY_NO_APARELHO = 8886; // fixo no ws-scrcpy (SERVER_PORT em comm
 // 04/11/2026: matei o servidor e nem abrir o stream nem abrir a lista do ws-scrcpy o religou).
 // Então o painel confere e, se faltar, sobe ele mesmo, com o MESMO comando que o ws-scrcpy usa (visto no log dele).
 const SCRCPY_JAR = '/data/local/tmp/scrcpy-server.jar';
-const JAR_LOCAL = 'C:\\Users\\rockx\\ws-scrcpy\\vendor\\Genymobile\\scrcpy\\scrcpy-server.jar';
+const JAR_LOCAL = path.join(os.homedir(), 'ws-scrcpy', 'vendor', 'Genymobile', 'scrcpy', 'scrcpy-server.jar');
 const SCRCPY_ARGS = `com.genymobile.scrcpy.Server 1.19-ws8 web ERROR ${8886} true`;
 async function scrcpyRodando(endpoint) {
     const ps = await adbShell(endpoint, "ps -A -o ARGS | grep 'app_process / com.genymobile.scrcpy.Server' | grep -v grep; true");
@@ -309,7 +309,7 @@ app.get('/api/dispositivos/:id/tela', envolver(async (req, res) => {
 
 // Copia a página auxiliar da tela para a pasta pública do ws-scrcpy (dist/public é saída de build dele, fora do git;
 // o código-fonte do ws-scrcpy continua intacto). Feito a cada início, porque um rebuild do ws-scrcpy apaga a cópia.
-const PASTA_PUBLICA_WS_SCRCPY = 'C:\\Users\\rockx\\ws-scrcpy\\dist\\public';
+const PASTA_PUBLICA_WS_SCRCPY = path.join(os.homedir(), 'ws-scrcpy', 'dist', 'public');
 let paginaTelaInstalada = false;
 try {
     fs.copyFileSync(path.join(__dirname, 'ws-scrcpy-extra', 'painel-tela.html'), path.join(PASTA_PUBLICA_WS_SCRCPY, 'painel-tela.html'));
