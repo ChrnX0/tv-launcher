@@ -441,4 +441,20 @@
     <string name="diag_apagar_det">limpa a lista acima (não mexe em nada mais)</string>
     <string name="diag_rodape">%1$s · setas rolam · BACK volta</string>
     <string name="diag_app_ok">Nenhum crash, travada ou encerramento anormal nos últimos 7 dias.\n\nSe o app abre mas não carrega nada, o problema costuma ser rede: veja a seção Rede na tela anterior.</string>
+    <!-- Atualizador.kt -->
+    <string name="atu_nunca">ainda não verificou</string>
+    <string name="atu_android9">precisa do Android 9 ou mais novo</string>
+    <string name="atu_ocupado">já está verificando</string>
+    <string name="atu_erro">erro: %1$s %2$s</string>
+    <string name="atu_em_dia">em dia (instalada %1$d, última %2$d)</string>
+    <string name="atu_sem_apk">Release %1$d sem o APK ou o SHA-256</string>
+    <string name="atu_sha">Release %1$d: SHA-256 não bate, não instalei</string>
+    <string name="atu_ilegivel">Release %1$d: APK ilegível</string>
+    <string name="atu_pacote">Release %1$d: pacote diferente (%2$s)</string>
+    <string name="atu_versao">Release %1$d: versão do APK (%2$d) não bate com a tag</string>
+    <string name="atu_chave">Release %1$d assinado com outra chave: não instalo (normal numa TV atualizada pelo PC)</string>
+    <string name="atu_disponivel">versão %1$d disponível (instalada %2$d)</string>
+    <string name="atu_instalando">instalando %1$d (instalada %2$d)</string>
+    <string name="atu_ok">atualizado</string>
+    <string name="atu_falhou">instalação falhou (%1$d): %2$s</string>
 </resources>
