@@ -163,6 +163,11 @@ object PrivilegioDO {
         } catch (e: Exception) { Log.w(TAG, "reforcarVpn falhou: $e") }
     }
 
+    /** Pacote fixado hoje como "VPN sempre ativa" (null = nenhum ou sem Device Owner). Usado pelo Diagnóstico. */
+    fun vpnFixada(ctx: Context): String? = try {
+        if (somosDonos(ctx)) dpm(ctx).getAlwaysOnVpnPackage(admin(ctx)) else null
+    } catch (e: Exception) { null }
+
     private fun vpnDePe(ctx: Context): Boolean = try {
         val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
         @Suppress("DEPRECATION")

@@ -112,13 +112,16 @@ object GuardiaoShizuku {
     }
 
     /** true se falta algo que só o shell concede (hoje: a janela flutuante). Faz o guardião passar no adb uma vez. */
-    private fun precisaCurar(app: Context) = !android.provider.Settings.canDrawOverlays(app)
+    private fun precisaCurar(app: Context) = !android.provider.Settings.canDrawOverlays(app) ||
+        Diagnostico.PERMISSOES_SHELL.any { app.checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
 
     /**
      * Com o shell (uid 2000) na mão, o launcher se concede o que o Device Owner não alcança e antes exigia o PC:
      *  - SYSTEM_ALERT_WINDOW (janela flutuante do pareamento sem PC, ver PareamentoNaTv);
      *  - WRITE_SECURE_SETTINGS (religar acessibilidade e depuração sem fio, DNS) — caso tenha sido revogada;
-     *  - GET_USAGE_STATS (ordenar apps por uso). Só escreve se ainda não estiver concedido.
+     *  - GET_USAGE_STATS (ordenar apps por uso);
+     *  - READ_LOGS e DUMP (tela de Diagnóstico: ler os crashes de outros apps e por que o Android os fechou).
+     *  Só escreve se ainda não estiver concedido.
      */
     private fun autocurar(app: Context, m: AdbConnectionManager) {
         val p = app.packageName
@@ -127,6 +130,9 @@ object GuardiaoShizuku {
             ServidorShizuku.executar(app, m, "pm grant $p android.permission.WRITE_SECURE_SETTINGS")
         val uso = ServidorShizuku.executar(app, m, "appops get $p GET_USAGE_STATS") ?: ""
         if (!uso.contains("allow")) ServidorShizuku.executar(app, m, "appops set $p GET_USAGE_STATS allow")
+        for (perm in Diagnostico.PERMISSOES_SHELL)
+            if (app.checkSelfPermission(perm) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                ServidorShizuku.executar(app, m, "pm grant $p $perm")
         anotar(app, "autocura: sobreposicao=${android.provider.Settings.canDrawOverlays(app)}")
     }
 
