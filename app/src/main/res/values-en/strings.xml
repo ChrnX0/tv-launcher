@@ -231,4 +231,90 @@
     <string name="pt_sol">Sun</string>
     <string name="pt_umidade">Humidity</string>
     <string name="pt_chuva">Rain</string>
+    <!-- IconesClima.kt -->
+    <string name="cl_chuva">Rain</string>
+    <string name="cl_limpo">Clear sky</string>
+    <string name="cl_poucas">Few clouds</string>
+    <string name="cl_parcial">Partly cloudy</string>
+    <string name="cl_nublado">Cloudy</string>
+    <string name="cl_neblina">Fog</string>
+    <string name="cl_garoa_fraca">Light drizzle</string>
+    <string name="cl_garoa">Drizzle</string>
+    <string name="cl_garoa_forte">Heavy drizzle</string>
+    <string name="cl_garoa_cong">Freezing drizzle</string>
+    <string name="cl_chuva_fraca">Light rain</string>
+    <string name="cl_chuva_forte">Heavy rain</string>
+    <string name="cl_chuva_cong">Freezing rain</string>
+    <string name="cl_neve_fraca">Light snow</string>
+    <string name="cl_neve">Snow</string>
+    <string name="cl_neve_forte">Heavy snow</string>
+    <string name="cl_graos">Snow grains</string>
+    <string name="cl_panc_fracas">Light showers</string>
+    <string name="cl_panc">Rain showers</string>
+    <string name="cl_panc_fortes">Heavy showers</string>
+    <string name="cl_panc_neve">Snow showers</string>
+    <string name="cl_tempestade">Thunderstorm</string>
+    <string name="cl_granizo">Thunderstorm with hail</string>
+    <!-- Lua.kt -->
+    <string name="lua_cheia_em">full in %1$d d</string>
+    <string name="lua_nova_em">new in %1$d d</string>
+    <string-array name="fases_lua">
+        <item>New moon</item>
+        <item>Waxing crescent</item>
+        <item>First quarter</item>
+        <item>Waxing gibbous</item>
+        <item>Full moon</item>
+        <item>Waning gibbous</item>
+        <item>Last quarter</item>
+        <item>Waning crescent</item>
+    </string-array>
+    <!-- PrevisaoActivity.kt -->
+    <string name="pv_carregando">Loading the forecast…</string>
+    <string name="pv_voz_agora">It is now %1$d degrees, %2$s. </string>
+    <string name="pv_voz_hoje">Today, a high of %1$d and a low of %2$d</string>
+    <string name="pv_voz_chuva">, with a %1$d percent chance of rain. </string>
+    <string name="pv_voz_sem_chuva">, no rain expected. </string>
+    <string name="pv_voz_amanha">Tomorrow, %1$s, a high of %2$d and a low of %3$d</string>
+    <string name="pv_voz_amanha_chuva">, a %1$d percent chance of rain</string>
+    <string name="pv_sem">No forecast now (no internet or source down).</string>
+    <string name="pv_max_min">high %1$d°   low %2$d°   ·   feels like %3$d°</string>
+    <string name="pv_24h">Next 24 hours</string>
+    <string name="pv_agora">Now</string>
+    <string name="pv_chance">Chance of rain</string>
+    <string name="pv_7d">Next 7 days</string>
+    <string name="pv_hoje">Today</string>
+    <string name="pv_mais_quente">Warmer</string>
+    <string name="pv_mais_frio">Colder</string>
+    <string name="pv_igual">Same as actual</string>
+    <string name="pv_detalhes">Details</string>
+    <string name="pv_sensacao">Feels like</string>
+    <string name="pv_vento">Wind</string>
+    <string name="pv_uv">UV index</string>
+    <string name="pv_visib">Visibility</string>
+    <string name="pv_orvalho">Dew point</string>
+    <string name="pv_pressao">Pressure</string>
+    <string name="pv_chuva_hoje">Rain today</string>
+    <string name="pv_ar">Air quality</string>
+    <string name="pv_sem_dados">No data now</string>
+    <string name="uv_baixo">Low</string>
+    <string name="uv_moderado">Moderate</string>
+    <string name="uv_alto">High</string>
+    <string name="uv_muito_alto">Very high</string>
+    <string name="uv_extremo">Extreme</string>
+    <string name="aq_boa">Good</string>
+    <string name="aq_moderada">Moderate</string>
+    <string name="aq_sensiveis">Unhealthy for sensitive</string>
+    <string name="aq_ruim">Unhealthy</string>
+    <string name="aq_muito_ruim">Very unhealthy</string>
+    <string name="aq_perigosa">Hazardous</string>
+    <string-array name="rosa_ventos">
+        <item>N</item>
+        <item>NE</item>
+        <item>E</item>
+        <item>SE</item>
+        <item>S</item>
+        <item>SW</item>
+        <item>W</item>
+        <item>NW</item>
+    </string-array>
 </resources>

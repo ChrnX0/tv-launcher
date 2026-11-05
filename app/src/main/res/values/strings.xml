@@ -237,4 +237,90 @@
     <string name="pt_sol">Sol</string>
     <string name="pt_umidade">Umidade</string>
     <string name="pt_chuva">Chuva</string>
+    <!-- IconesClima.kt -->
+    <string name="cl_chuva">Chuva</string>
+    <string name="cl_limpo">Céu limpo</string>
+    <string name="cl_poucas">Poucas nuvens</string>
+    <string name="cl_parcial">Parcialmente nublado</string>
+    <string name="cl_nublado">Nublado</string>
+    <string name="cl_neblina">Neblina</string>
+    <string name="cl_garoa_fraca">Garoa fraca</string>
+    <string name="cl_garoa">Garoa</string>
+    <string name="cl_garoa_forte">Garoa forte</string>
+    <string name="cl_garoa_cong">Garoa congelante</string>
+    <string name="cl_chuva_fraca">Chuva fraca</string>
+    <string name="cl_chuva_forte">Chuva forte</string>
+    <string name="cl_chuva_cong">Chuva congelante</string>
+    <string name="cl_neve_fraca">Neve fraca</string>
+    <string name="cl_neve">Neve</string>
+    <string name="cl_neve_forte">Neve forte</string>
+    <string name="cl_graos">Grãos de neve</string>
+    <string name="cl_panc_fracas">Pancadas fracas</string>
+    <string name="cl_panc">Pancadas de chuva</string>
+    <string name="cl_panc_fortes">Pancadas fortes</string>
+    <string name="cl_panc_neve">Pancadas de neve</string>
+    <string name="cl_tempestade">Tempestade</string>
+    <string name="cl_granizo">Tempestade com granizo</string>
+    <!-- Lua.kt -->
+    <string name="lua_cheia_em">cheia em %1$d d</string>
+    <string name="lua_nova_em">nova em %1$d d</string>
+    <string-array name="fases_lua">
+        <item>Lua nova</item>
+        <item>Lua crescente</item>
+        <item>Quarto crescente</item>
+        <item>Crescente gibosa</item>
+        <item>Lua cheia</item>
+        <item>Minguante gibosa</item>
+        <item>Quarto minguante</item>
+        <item>Lua minguante</item>
+    </string-array>
+    <!-- PrevisaoActivity.kt -->
+    <string name="pv_carregando">Carregando a previsão…</string>
+    <string name="pv_voz_agora">Agora faz %1$d graus, %2$s. </string>
+    <string name="pv_voz_hoje">Hoje, máxima de %1$d e mínima de %2$d</string>
+    <string name="pv_voz_chuva">, com %1$d por cento de chance de chuva. </string>
+    <string name="pv_voz_sem_chuva">, sem previsão de chuva. </string>
+    <string name="pv_voz_amanha">Amanhã, %1$s, máxima de %2$d e mínima de %3$d</string>
+    <string name="pv_voz_amanha_chuva">, chance de chuva de %1$d por cento</string>
+    <string name="pv_sem">Sem previsão agora (sem internet ou fonte fora do ar).</string>
+    <string name="pv_max_min">máx %1$d°   mín %2$d°   ·   sensação %3$d°</string>
+    <string name="pv_24h">Próximas 24 horas</string>
+    <string name="pv_agora">Agora</string>
+    <string name="pv_chance">Chance de chuva</string>
+    <string name="pv_7d">Próximos 7 dias</string>
+    <string name="pv_hoje">Hoje</string>
+    <string name="pv_mais_quente">Mais quente</string>
+    <string name="pv_mais_frio">Mais frio</string>
+    <string name="pv_igual">Igual à real</string>
+    <string name="pv_detalhes">Detalhes</string>
+    <string name="pv_sensacao">Sensação</string>
+    <string name="pv_vento">Vento</string>
+    <string name="pv_uv">Índice UV</string>
+    <string name="pv_visib">Visibilidade</string>
+    <string name="pv_orvalho">Ponto de orvalho</string>
+    <string name="pv_pressao">Pressão</string>
+    <string name="pv_chuva_hoje">Chuva hoje</string>
+    <string name="pv_ar">Qualidade do ar</string>
+    <string name="pv_sem_dados">Sem dados agora</string>
+    <string name="uv_baixo">Baixo</string>
+    <string name="uv_moderado">Moderado</string>
+    <string name="uv_alto">Alto</string>
+    <string name="uv_muito_alto">Muito alto</string>
+    <string name="uv_extremo">Extremo</string>
+    <string name="aq_boa">Boa</string>
+    <string name="aq_moderada">Moderada</string>
+    <string name="aq_sensiveis">Ruim p/ sensíveis</string>
+    <string name="aq_ruim">Ruim</string>
+    <string name="aq_muito_ruim">Muito ruim</string>
+    <string name="aq_perigosa">Perigosa</string>
+    <string-array name="rosa_ventos">
+        <item>N</item>
+        <item>NE</item>
+        <item>L</item>
+        <item>SE</item>
+        <item>S</item>
+        <item>SO</item>
+        <item>O</item>
+        <item>NO</item>
+    </string-array>
 </resources>
