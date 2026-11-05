@@ -38,4 +38,13 @@ class MenuAppTest {
         assertEquals(listOf(Acao.MOSTRAR, Acao.DESINSTALAR), MenuApp.acoes(naPastaOcultos = true, desinstalavel = true))
         assertEquals(listOf(Acao.MOSTRAR), MenuApp.acoes(naPastaOcultos = true, desinstalavel = false))
     }
+
+    @Test fun pilhaFrentePrimeiroESoOsQuePodem() = assertEquals(
+        listOf("com.netflix.ninja", "com.disney.plus"),
+        MenuApp.desinstalaveisDaPilha(listOf("com.disney.plus", "com.google.android.youtube.tv", "com.netflix.ninja"), 2) {
+            it != "com.google.android.youtube.tv"
+        })
+
+    @Test fun pilhaSemNinguemDesinstalavel() =
+        assertEquals(emptyList<String>(), MenuApp.desinstalaveisDaPilha(listOf("a", "b"), 0) { false })
 }

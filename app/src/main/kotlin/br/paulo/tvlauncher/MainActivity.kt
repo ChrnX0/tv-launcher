@@ -1208,6 +1208,10 @@ class MainActivity : Activity() {
             titulo = entrada.titulo
             opcoes += Opcao(getString(R.string.home_mover)) { iniciarMover(token, porSegurar = false) }
             opcoes += Opcao(getString(R.string.home_remover_cards)) { abrirPasta(entrada, remover = true) }
+            // Uma linha "Desinstalar <app>" por app da pilha que pode sair (o da frente primeiro). App de fábrica não entra.
+            val pacotes = entrada.itens.map { it.pacote }
+            for (p in MenuApp.desinstalaveisDaPilha(pacotes, entrada.frente) { PainelApps.podeDesinstalar(this, it) })
+                opcoes += Opcao(getString(R.string.home_desinstalar_app, nomeDe(p))) { confirmarDesinstalar(p) }
         } else {
             return
         }

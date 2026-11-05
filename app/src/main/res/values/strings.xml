@@ -176,6 +176,7 @@
     <string name="home_remover">Remover</string>
     <string name="home_mostrar">Mostrar na tela inicial</string>
     <string name="home_ocultar">Ocultar da tela inicial</string>
+    <string name="home_desinstalar_app">Desinstalar %1$s</string>
     <string name="home_desinstalar">Desinstalar</string>
     <string name="home_app_sistema"> (app do sistema)</string>
     <string name="home_desinstalar_titulo">Desinstalar %1$s?</string>
