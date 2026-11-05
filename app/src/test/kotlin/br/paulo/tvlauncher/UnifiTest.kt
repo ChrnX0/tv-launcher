@@ -55,8 +55,10 @@ class UnifiTest {
     }
 
     @Test fun lerSite() {
-        assertEquals("b", Unifi.lerSite("""{"data":[{"id":"a","internalReference":"x","name":"X"},{"id":"b","internalReference":"default","name":"Default"}]}"""))
-        assertEquals("a", Unifi.lerSite("""{"data":[{"id":"a","internalReference":"x","name":"X"}]}"""))
+        assertEquals(Unifi.Site("b", "default"), Unifi.lerSite("""{"data":[{"id":"a","internalReference":"x","name":"X"},{"id":"b","internalReference":"default","name":"Default"}]}"""))
+        assertEquals(Unifi.Site("a", "x1"), Unifi.lerSite("""{"data":[{"id":"a","internalReference":"x1","name":"X"}]}"""))
+        // internalReference estranho não entra no caminho da API antiga.
+        assertEquals(Unifi.Site("a", "default"), Unifi.lerSite("""{"data":[{"id":"a","internalReference":"../x","name":"X"}]}"""))
         assertNull(Unifi.lerSite("""{"data":[]}"""))
     }
 
@@ -110,5 +112,30 @@ class UnifiTest {
     @Test fun pontoDeAcessoDoAparelho() {
         val (lista, _) = Unifi.lerPaginaAparelhos("""{"totalCount":1,"data":[{"type":"WIRELESS","id":"a","name":"TV","ipAddress":"192.168.0.9","uplinkDeviceId":"ap1"}]}""")
         assertEquals("ap1", lista[0].pontoDeAcesso)
+    }
+
+    @Test fun estacaoPelaApiAntiga() {
+        val sta = """{"meta":{"rc":"ok"},"data":[
+            {"mac":"aa:bb:cc:00:00:09","ip":"192.168.0.8","signal":-48,"radio":"na","channel":36,"tx_rate":866000,"rx_rate":780000,"satisfaction":97,"essid":"Casa"},
+            {"mac":"AA:BB:CC:00:00:10","ip":"192.168.0.9","signal":-71,"radio":"ng","channel":6,"tx_rate":72000,"rx_rate":65000,"satisfaction":41}]}"""
+        val tv = Unifi.lerEstacao(sta, "192.168.0.9")!!
+        assertEquals("aa:bb:cc:00:00:10", tv.mac)
+        assertEquals(-71, tv.sinalDbm)
+        assertEquals("2.4", Unifi.bandaDoRadio(tv.radio))
+        assertEquals(72, tv.txMbps)
+        assertEquals(41, tv.satisfacao)
+        assertTrue(Unifi.dicaSatisfacao(tv)!!.contains("nota 41"))
+        assertNull(Unifi.dicaSatisfacao(Unifi.lerEstacao(sta, "192.168.0.8")))
+        assertNull(Unifi.lerEstacao(sta, "192.168.0.99"))
+        assertNull(Unifi.lerEstacao("""{"data":[{"mac":"x; rm -rf","ip":"192.168.0.9"}]}""", "192.168.0.9"))   // MAC estranho: ignora
+    }
+
+    @Test fun validacoesDoComando() {
+        assertTrue(Unifi.macValida("aa:bb:cc:dd:ee:ff"))
+        assertTrue(!Unifi.macValida("aa:bb:cc:dd:ee"))
+        assertTrue(!Unifi.macValida("aa:bb:cc:dd:ee:ff\""))
+        assertTrue(Unifi.refValida("default"))
+        assertTrue(!Unifi.refValida("../api"))
+        assertTrue(!Unifi.refValida(""))
     }
 }

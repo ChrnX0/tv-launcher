@@ -518,6 +518,15 @@
             android:launchMode="singleTop"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- Confirmação no controle do "Reconectar a TV" pedido pelo painel (UnifiCliente). Mesma receita da ConfirmarIa. -->
+        <activity
+            android:name=".ConfirmarRoteadorActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTop"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Device owner (ver AdminReceiver.kt). Exportado porque o sistema precisa chamá-lo; só o sistema tem BIND_DEVICE_ADMIN. -->
         <receiver
             android:name=".AdminReceiver"

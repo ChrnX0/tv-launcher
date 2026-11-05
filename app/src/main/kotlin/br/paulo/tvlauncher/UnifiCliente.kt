@@ -48,7 +48,7 @@ object UnifiCliente {
     data class Leitura(val versao: String?, val respostaMs: Long, val aparelhos: List<Unifi.Aparelho>, val em: Long)
 
     @Volatile private var ultima: Leitura? = null
-    @Volatile private var site: Pair<String, String>? = null   // (endereço, id do site): refaz se o endereço mudar
+    @Volatile private var site: Pair<String, Unifi.Site>? = null   // (endereço, site): refaz se o endereço mudar
 
     /** Esquece o que está em memória (o painel chama ao trocar endereço, chave ou certificado). */
     fun limparCache() { ultima = null; site = null }
@@ -101,9 +101,9 @@ object UnifiCliente {
         val respostaMs = (System.nanoTime() - t0) / 1_000_000
         val versao = try { org.json.JSONObject(info).optString("applicationVersion").takeIf { it.isNotEmpty() } } catch (e: Exception) { null }
 
-        val idSite = site?.takeIf { it.first == endereco }?.second
+        val idSite = (site?.takeIf { it.first == endereco }?.second
             ?: (Unifi.lerSite(pegar(app, endereco, cert, chave, "/sites")) ?: throw Falha("o roteador não tem nenhum site"))
-                .also { site = endereco to it }
+                .also { site = endereco to it }).id
 
         val todos = ArrayList<Unifi.Aparelho>()
         var offset = 0
@@ -118,7 +118,8 @@ object UnifiCliente {
 
     /** O Wi-Fi da TV medido pelo Android, junto com o ponto de acesso dela no roteador e as dicas. */
     data class WifiDaTv(val conectadaNoWifi: Boolean, val dbm: Int, val mhz: Int, val mbps: Int, val ip: String?,
-                        val ap: Unifi.PontoDeAcesso?, val achadaNoRoteador: Boolean, val dicas: List<String>)
+                        val ap: Unifi.PontoDeAcesso?, val achadaNoRoteador: Boolean, val dicas: List<String>,
+                        val peloRoteador: Unifi.SinalRoteador? = null, val falhaApiAntiga: String? = null)
 
     /**
      * Diagnóstico do Wi-Fi da TV (só leitura). Sinal, banda e velocidade do link vêm do Android (a API de integração
@@ -143,30 +144,143 @@ object UnifiCliente {
             val endereco = UnifiArmazem.endereco(app) ?: return@let null
             val cert = UnifiArmazem.certificado(app) ?: return@let null
             val chave = UnifiArmazem.chave(app) ?: return@let null
-            val idSite = site?.second ?: return@let null
+            val idSite = site?.second?.id ?: return@let null
             try {
                 val detalhes = pegar(app, endereco, cert, chave, "/sites/$idSite/devices/$id")
                 val estat = try { pegar(app, endereco, cert, chave, "/sites/$idSite/devices/$id/statistics/latest") } catch (e: Falha) { null }
                 Unifi.lerPontoDeAcesso(detalhes, estat)
             } catch (e: Falha) { null } catch (e: org.json.JSONException) { null }
         }
-        return WifiDaTv(true, dbm, mhz, mbps, ip, ap, euNoRoteador != null, Unifi.dicas(dbm, mhz, mbps, ap))
+        // Bônus pela API antiga: o sinal como o ROTEADOR vê a TV e a nota de satisfação. Se ela recusar a chave, segue sem.
+        var falhaAntiga: String? = null
+        val peloRoteador = ip?.let { meu -> try { estacao(app, meu) } catch (e: Falha) { falhaAntiga = e.message; null } }
+        val dicas = Unifi.dicas(dbm, mhz, mbps, ap) + listOfNotNull(Unifi.dicaSatisfacao(peloRoteador))
+        return WifiDaTv(true, dbm, mhz, mbps, ip, ap, euNoRoteador != null, dicas, peloRoteador, falhaAntiga)
     }
 
-    private fun pegar(ctx: Context, endereco: String, cert: String, chave: String, caminho: String): String {
-        val c = abrir(ctx, URL("https://$endereco${Unifi.BASE}$caminho"), ConfiaSoNoFixado(cert))
+    /** IP da TV no Wi-Fi ("192.168.x.y") ou null. */
+    @Suppress("DEPRECATION")
+    fun ipDaTv(ctx: Context): String? {
+        val n = (ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager).connectionInfo?.ipAddress ?: 0
+        return if (n == 0) null else "${n and 255}.${n shr 8 and 255}.${n shr 16 and 255}.${n shr 24 and 255}"
+    }
+
+    /** A estação de IP [ip] pela API antiga (stat/sta). Null se o roteador não a listar. */
+    private fun estacao(app: Context, ip: String): Unifi.SinalRoteador? {
+        val (endereco, cert, chave) = credenciais(app)
+        val ref = siteAtual(app).ref
+        return Unifi.lerEstacao(pegar(app, endereco, cert, chave, "/api/s/$ref/stat/sta", base = BASE_ANTIGA), ip)
+    }
+
+    private fun credenciais(app: Context): Triple<String, String, String> {
+        if (!UnifiArmazem.ligado(app)) throw Falha("a integração com o roteador está desligada")
+        return Triple(UnifiArmazem.endereco(app) ?: throw Falha("falta o endereço do roteador"),
+            UnifiArmazem.certificado(app) ?: throw Falha("confirme o certificado do roteador primeiro"),
+            UnifiArmazem.chave(app) ?: throw Falha("falta a chave de API do roteador"))
+    }
+
+    private fun siteAtual(app: Context): Unifi.Site {
+        val endereco = UnifiArmazem.endereco(app)
+        site?.takeIf { it.first == endereco }?.let { return it.second }
+        ler(app, forcar = true)
+        return site?.second ?: throw Falha("o roteador não tem nenhum site")
+    }
+
+    // ---------------------------------------------------------------- "Reconectar a TV" (a ÚNICA ação no roteador)
+
+    /**
+     * Pede ao roteador para desconectar a TV do Wi-Fi ("kick-sta"): ela volta sozinha em poucos segundos e, ao voltar,
+     * escolhe de novo o ponto de acesso e a banda (sai de um AP distante ou do 2,4 GHz preso). Nada é gravado no
+     * roteador. Só roda depois do OK no controle da TV ([ConfirmarRoteadorActivity]); no máximo 1 vez a cada 2 min.
+     * O MAC é o que o ROTEADOR vê para o IP da TV (o Android esconde o MAC dela dos apps).
+     */
+    fun reconectarTv(ctx: Context): String {
+        val app = ctx.applicationContext
+        val ip = ipDaTv(app) ?: throw Falha("a TV não está no Wi-Fi")
+        val est = estacao(app, ip) ?: throw Falha("o roteador não mostra a TV na lista de Wi-Fi")
+        if (!Unifi.macValida(est.mac)) throw Falha("MAC inválido")
+        val (endereco, cert, chave) = credenciais(app)
+        val corpo = org.json.JSONObject().put("cmd", "kick-sta").put("mac", est.mac).toString()
+        pegar(app, endereco, cert, chave, "/api/s/${siteAtual(app).ref}/cmd/stamgr", base = BASE_ANTIGA, corpoPost = corpo)
+        Log.i(TAG, "reconectar a TV: pedido aceito pelo roteador")
+        return "pedido aceito: a TV sai do Wi-Fi e volta em alguns segundos"
+    }
+
+    enum class EstadoReconectar { NADA, ESPERANDO_TV, CANCELADO, FAZENDO, FEITO, FALHOU }
+    @Volatile var estadoReconectar = EstadoReconectar.NADA; private set
+    @Volatile var detalheReconectar: String? = null; private set
+    @Volatile private var ultimoPedido = 0L
+    private const val INTERVALO_RECONECTAR_MS = 120_000L
+    const val ESPERA_CONFIRMAR_MS = 45_000L
+
+    /** O painel pediu: abre a confirmação na TV. Devolve null se abriu, ou o motivo de não abrir. */
+    @Synchronized fun pedirReconectar(ctx: Context): String? {
+        val app = ctx.applicationContext
+        if (!UnifiArmazem.pronto(app)) return "a integração com o roteador não está pronta"
+        if (estadoReconectar == EstadoReconectar.ESPERANDO_TV || estadoReconectar == EstadoReconectar.FAZENDO) return "já tem um pedido em andamento"
+        val agora = System.currentTimeMillis()
+        if (agora - ultimoPedido < INTERVALO_RECONECTAR_MS) return "espere ${(INTERVALO_RECONECTAR_MS - (agora - ultimoPedido)) / 1000 + 1} s para pedir de novo"
+        ultimoPedido = agora
+        estadoReconectar = EstadoReconectar.ESPERANDO_TV
+        detalheReconectar = null
+        app.startActivity(android.content.Intent(app, ConfirmarRoteadorActivity::class.java)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        return null
+    }
+
+    /** Resposta da tela de confirmação (OK = [sim]). Roda o pedido numa thread de fundo. */
+    @Synchronized fun responderReconectar(ctx: Context, sim: Boolean) {
+        if (estadoReconectar != EstadoReconectar.ESPERANDO_TV) return
+        if (!sim) { estadoReconectar = EstadoReconectar.CANCELADO; return }
+        estadoReconectar = EstadoReconectar.FAZENDO
+        val app = ctx.applicationContext
+        rede.execute {
+            try { detalheReconectar = reconectarTv(app); estadoReconectar = EstadoReconectar.FEITO }
+            catch (e: Falha) {
+                // A TV sai do Wi-Fi assim que o roteador aceita: às vezes a resposta não chega. Isso é o comando funcionando.
+                val caiu = e.message?.let { it.contains("não respondeu") || it.contains("não consegui falar") } == true
+                detalheReconectar = if (caiu) "a TV saiu do Wi-Fi antes da resposta do roteador (é o esperado)" else e.message
+                estadoReconectar = if (caiu) EstadoReconectar.FEITO else EstadoReconectar.FALHOU
+            }
+            catch (e: Exception) { detalheReconectar = e.javaClass.simpleName; estadoReconectar = EstadoReconectar.FALHOU }
+        }
+    }
+
+    private const val BASE_ANTIGA = "/proxy/network"
+
+    /** GET (ou POST com [corpoPost]) em https://[endereco][base][caminho], com a chave e o certificado fixado. */
+    private fun pegar(ctx: Context, endereco: String, cert: String, chave: String, caminho: String,
+                      base: String = Unifi.BASE, corpoPost: String? = null): String {
+        val antiga = base == BASE_ANTIGA
+        val c = abrir(ctx, URL("https://$endereco$base$caminho"), ConfiaSoNoFixado(cert))
         try {
             c.setRequestProperty("X-API-Key", chave)
             c.setRequestProperty("Accept", "application/json")
+            if (corpoPost != null) {
+                c.requestMethod = "POST"
+                c.doOutput = true
+                c.setRequestProperty("Content-Type", "application/json")
+                c.outputStream.use { it.write(corpoPost.toByteArray()) }
+            }
             val codigo = try { c.responseCode } catch (e: Exception) { throw Falha(traduzir(e)) }
             when (codigo) {
                 200 -> {}
-                401, 403 -> throw Falha("o roteador recusou a chave de API (confira em Configurações → Integrações do UniFi)")
-                404 -> throw Falha("essa API não existe no roteador (precisa do UniFi Network 9 ou mais novo)")
+                401 -> throw Falha(if (antiga) "a API antiga do roteador não aceitou a chave (só a de integração funciona)"
+                    else "o roteador recusou a chave de API (confira em Configurações → Integrações do UniFi)")
+                403 -> throw Falha(if (corpoPost != null) "o roteador recusou a ação: a chave é de um usuário só de leitura"
+                    else "o roteador recusou a chave de API (sem permissão)")
+                404 -> throw Falha(if (antiga) "a API antiga não respondeu nesse caminho"
+                    else "essa API não existe no roteador (precisa do UniFi Network 9 ou mais novo)")
                 else -> throw Falha("o roteador respondeu com erro $codigo")
             }
             val texto = lerLimitado(c)
             if (!ChecagensPainel.jsonRaso(texto)) throw Falha("resposta estranha do roteador")
+            if (antiga) {
+                // A API antiga responde {"meta":{"rc":"ok"|"error","msg":"api.err.…"},"data":[…]}.
+                val meta = try { org.json.JSONObject(texto).optJSONObject("meta") } catch (e: Exception) { null }
+                if (meta != null && meta.optString("rc") != "ok")
+                    throw Falha("o roteador recusou: ${meta.optString("msg").take(80).ifEmpty { "erro sem detalhe" }}")
+            }
             return texto
         } finally { c.disconnect() }
     }

@@ -409,6 +409,7 @@ object PainelWeb {
             "/api/roteador/aparelhos" -> if (req.metodo == "GET") return roteadorAparelhos(req)
             "/api/roteador/esquecer" -> if (req.metodo == "POST") return roteadorEsquecer(ip)
             "/api/roteador/wifi-tv" -> if (req.metodo == "GET") return roteadorWifiTv()
+            "/api/roteador/reconectar" -> return if (req.metodo == "POST") roteadorReconectar(ip) else json(200, estadoReconectar())
         }
 
         // /api/apps/<pacote>/<ação>
@@ -873,7 +874,25 @@ object PainelWeb {
             o.put("pontoDeAcesso", JSONObject().put("nome", ap.nome).put("modelo", ap.modelo ?: JSONObject.NULL)
                 .put("cpuPct", ap.cpuPct ?: JSONObject.NULL).put("radios", radios))
         }
+        w.peloRoteador?.let { r ->
+            o.put("peloRoteador", JSONObject().put("sinalDbm", r.sinalDbm ?: JSONObject.NULL)
+                .put("banda", Unifi.bandaDoRadio(r.radio) ?: JSONObject.NULL).put("canal", r.canal ?: JSONObject.NULL)
+                .put("txMbps", r.txMbps ?: JSONObject.NULL).put("rxMbps", r.rxMbps ?: JSONObject.NULL)
+                .put("satisfacao", r.satisfacao ?: JSONObject.NULL).put("rede", r.rede ?: JSONObject.NULL))
+        }
+        w.falhaApiAntiga?.let { o.put("falhaApiAntiga", it) }
         return json(200, o)
+    }
+
+    private fun estadoReconectar(): JSONObject = JSONObject()
+        .put("estado", UnifiCliente.estadoReconectar.name.lowercase())
+        .put("detalhe", UnifiCliente.detalheReconectar ?: JSONObject.NULL)
+
+    /** Só ABRE a confirmação na TV: quem decide é quem está com o controle (ConfirmarRoteadorActivity). */
+    private fun roteadorReconectar(ip: String): Resposta {
+        UnifiCliente.pedirReconectar(app)?.let { return erro(409, it) }
+        PainelArmazem.registrar(app, ip, "roteador: reconectar a TV", "esperando OK na TV")
+        return json(200, estadoReconectar())
     }
 
     private fun roteadorEsquecer(ip: String): Resposta {
