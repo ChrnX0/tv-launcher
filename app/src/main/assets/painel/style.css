@@ -143,3 +143,10 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .dpad .ok { border-radius: 50%; font-weight: 700; }
 .teclas { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 8px; width: 100%; max-width: 420px; }
 .acoes-app { justify-content: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+
+/* Aba Saúde: os números em blocos (05/11/2026). */
+.numeros-saude { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.numero { background: var(--superficie2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.numero strong { font-size: 17px; }
+.numero span { color: var(--texto-fraco); font-size: 13px; }
+.numero.ruim strong { color: var(--perigo); }
