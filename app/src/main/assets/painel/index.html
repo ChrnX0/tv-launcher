@@ -36,6 +36,7 @@
       <button class="aba ativa" data-aba="apps">Aplicativos</button>
       <button class="aba" data-aba="controle">Controle</button>
       <button class="aba" data-aba="arquivos">Arquivos</button>
+      <button class="aba" data-aba="saude">Saúde</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -94,6 +95,20 @@
       <p id="espacoArquivos" class="aviso-curto"></p>
       <p id="statusArquivos" class="aviso" hidden></p>
       <div id="listaArquivos" class="lista-apps"></div>
+    </section>
+
+    <section id="abaSaude" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Como a TV está</h2>
+        <div id="numerosSaude" class="numeros-saude"></div>
+        <button type="button" class="botao-primario" id="btnLiberar">Liberar memória</button>
+        <p class="aviso-curto">Fecha os apps em segundo plano (o da frente continua). Nada é apagado; o app fechado abre do zero.</p>
+        <p id="statusSaude" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Quem mais ocupa memória</h2>
+        <div id="listaMemoria" class="lista-registro"></div>
+      </div>
     </section>
 
     <section id="abaBackup" class="painel-aba" hidden>

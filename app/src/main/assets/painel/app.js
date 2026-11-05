@@ -109,6 +109,8 @@ function mudarAba(nome) {
   $('abaControle').hidden = nome !== 'controle';
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
+  $('abaSaude').hidden = nome !== 'saude';
+  if (nome === 'saude') carregarSaude();
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
@@ -414,6 +416,69 @@ async function baixar(caminho, nome, status) {
 }
 $('btnBaixar').addEventListener('click', () => baixar('/api/backup', 'launcher-backup.json', $('statusBaixar')));
 $('btnBaixarAnterior').addEventListener('click', () => baixar('/api/backup/anterior', 'launcher-antes-de-restaurar.json', $('statusBackup')));
+
+// ---------- saúde (PainelSaude.kt) ----------
+
+function mb(b) { return `${Math.round(b / 1048576).toLocaleString('pt-BR')} MB`; }
+function gb(b) { return `${(b / 1073741824).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} GB`; }
+function duracao(ms) {
+  const min = Math.floor(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
+  return d ? `${d} d ${h % 24} h` : h ? `${h} h ${min % 60} min` : `${min} min`;
+}
+
+function desenharNumeros(s) {
+  const caixa = $('numerosSaude');
+  caixa.replaceChildren();
+  const item = (rotulo, valor, ruim) => {
+    const d = document.createElement('div');
+    d.className = 'numero' + (ruim ? ' ruim' : '');
+    const v = document.createElement('strong'); v.textContent = valor;
+    const r = document.createElement('span'); r.textContent = rotulo;
+    d.append(v, r); caixa.appendChild(d);
+  };
+  item('RAM livre', `${mb(s.ramLivre)} de ${mb(s.ramTotal)}`, s.poucaMemoria);
+  if (s.swapTotal) item('swap livre', `${mb(s.swapLivre)} de ${mb(s.swapTotal)}`, s.swapLivre < s.swapTotal * 0.1);
+  if (s.discoTotal) item('espaço livre', `${gb(s.discoLivre)} de ${gb(s.discoTotal)}`, s.discoLivre < s.discoTotal * 0.1);
+  const maisQuente = (s.temperaturas || []).reduce((a, t) => (!a || t.celsius > a.celsius ? t : a), null);
+  if (maisQuente) item('temperatura', `${maisQuente.celsius.toLocaleString('pt-BR')} °C`, maisQuente.celsius >= 80);
+  if (s.termico) item('estado térmico', s.termico, !['normal', 'desconhecido'].includes(s.termico));
+  item('ligada há', duracao(s.ligadaHa), false);
+}
+
+async function carregarSaude() {
+  const status = $('statusSaude');
+  const lista = $('listaMemoria');
+  mostrar(status, '');
+  try {
+    desenharNumeros(await chamar('GET', '/api/saude?rapido=1'));   // os números na hora; a lista leva uns segundos
+    lista.replaceChildren(Object.assign(document.createElement('p'), { className: 'aviso', textContent: 'Lendo…' }));
+    const s = await chamar('GET', '/api/saude');
+    desenharNumeros(s);
+    lista.replaceChildren();
+    if (s.semShell) { mostrar(status, 'O shell do launcher não respondeu: sem a lista de memória e sem liberar (a depuração sem fio está ligada?).'); return; }
+    for (const a of s.apps || []) {
+      const linha = document.createElement('div');
+      linha.className = 'linha-registro';
+      const q = document.createElement('span'); q.className = 'quando'; q.textContent = mb(a.kb * 1024);
+      linha.append(q, ' ', a.nome);
+      if (a.nome !== a.processo) { const p = document.createElement('span'); p.className = 'aviso-curto'; p.textContent = ` ${a.processo}`; linha.appendChild(p); }
+      lista.appendChild(linha);
+    }
+  } catch (e) { mostrar(status, e.message); }
+}
+
+$('btnLiberar').addEventListener('click', async () => {
+  const b = $('btnLiberar');
+  b.disabled = true;
+  mostrar($('statusSaude'), 'Liberando…');
+  try {
+    const r = await chamar('POST', '/api/saude/liberar');
+    mostrar($('statusSaude'), r.ganho > 0 ? `Pronto: ${mb(r.ganho)} a mais de RAM livre.` : 'Pronto. Não havia muito o que fechar.');
+    await carregarSaude().catch(() => {});
+    if (r.ganho > 0) mostrar($('statusSaude'), `Pronto: ${mb(r.ganho)} a mais de RAM livre.`);
+  } catch (e) { mostrar($('statusSaude'), e.message); }
+  b.disabled = false;
+});
 
 // ---------- acessos ----------
 
