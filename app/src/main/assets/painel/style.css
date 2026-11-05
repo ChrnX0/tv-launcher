@@ -135,6 +135,8 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .tela-tv { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
 .tela-tv img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; }
 .tela-tv .aviso-curto { padding: 6px 10px; margin: 0; }
+/* No lugar da foto enquanto ela não chega ou a TV está em espera (sem o ícone de imagem quebrada). */
+.sem-foto { aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px; color: #9aa3b2; }
 .controle { display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .controle button { background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); border-radius: 10px;
   padding: 10px 14px; font-size: 15px; cursor: pointer; }
