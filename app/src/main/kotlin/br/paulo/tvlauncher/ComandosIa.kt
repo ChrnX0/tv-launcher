@@ -16,6 +16,32 @@ object ComandosIa {
     const val MAX_ACOES = 5
     const val MAX_FRASE = 300
 
+    /**
+     * Os provedores de IA aceitos (05/11/2026, pedido do Paulo). Cada um com a chave DO DONO; o catálogo, a conferência e a
+     * confirmação na TV são os mesmos para todos. [prefixos]: começo típico da chave, só para o painel adivinhar o provedor
+     * ao colar (não barra nada). Modelos padrão: Gemini e Claude pelos nomes atuais das docs; OpenAI e Perplexity pelos
+     * modelos baratos que as docs deles listam. Todos trocáveis no painel.
+     */
+    enum class Provedor(val id: String, val nome: String, val modeloPadrao: String) {
+        GEMINI("gemini", "Gemini (Google)", "gemini-flash-latest"),
+        CLAUDE("claude", "Claude (Anthropic)", "claude-haiku-5-5"),
+        OPENAI("openai", "OpenAI (ChatGPT)", "gpt-5.4-mini"),
+        PERPLEXITY("perplexity", "Perplexity", "sonar");
+
+        companion object {
+            fun porId(id: String?): Provedor? = entries.firstOrNull { it.id == id }
+
+            /** Adivinha pelo começo da chave. "sk-ant-" antes de "sk-" (a da Anthropic também começa com "sk-"). */
+            fun detectar(chave: String): Provedor? = when {
+                chave.startsWith("sk-ant-") -> CLAUDE
+                chave.startsWith("pplx-") -> PERPLEXITY
+                chave.startsWith("sk-") -> OPENAI
+                chave.startsWith("AQ.") || chave.startsWith("AIza") -> GEMINI
+                else -> null
+            }
+        }
+    }
+
     val TELAS = mapOf(
         "previsao" to "a previsão do tempo",
         "agenda" to "a agenda",
@@ -55,27 +81,31 @@ object ComandosIa {
      * resposta curta. Cada ação é plana (todos os campos opcionais menos "tipo"): é o formato que o Gemini segue
      * melhor, e a conferência abaixo decide quais campos valem para cada tipo.
      */
-    fun esquema(): JSONObject {
-        fun texto(desc: String, enum: Collection<String>? = null) = JSONObject().put("type", "STRING").put("description", desc)
+    fun esquema(openApi: Boolean = true): JSONObject {
+        // Gemini usa o OpenAPI (tipos em MAIÚSCULAS); Claude, OpenAI e Perplexity usam JSON Schema (minúsculas) e
+        // pedem additionalProperties=false em cada objeto.
+        fun t(nome: String) = if (openApi) nome else nome.lowercase()
+        fun objeto() = JSONObject().put("type", t("OBJECT")).apply { if (!openApi) put("additionalProperties", false) }
+        fun texto(desc: String, enum: Collection<String>? = null) = JSONObject().put("type", t("STRING")).put("description", desc)
             .apply { if (enum != null) put("enum", JSONArray(enum.toList())) }
-        fun inteiro(desc: String) = JSONObject().put("type", "INTEGER").put("description", desc)
-        val acao = JSONObject().put("type", "OBJECT")
+        fun inteiro(desc: String) = JSONObject().put("type", t("INTEGER")).put("description", desc)
+        val acao = objeto()
             .put("properties", JSONObject()
                 .put("tipo", texto("o que fazer", listOf("abrir_app", "abrir_tela", "despertador", "volume", "midia", "modo_visita")))
                 .put("pacote", texto("abrir_app: o pacote, copiado exatamente da lista de apps"))
                 .put("tela", texto("abrir_tela", TELAS.keys))
                 .put("hora", inteiro("despertador: hora de 0 a 23"))
                 .put("minuto", inteiro("despertador: minuto de 0 a 59"))
-                .put("dias", JSONObject().put("type", "ARRAY").put("items", JSONObject().put("type", "INTEGER"))
+                .put("dias", JSONObject().put("type", t("ARRAY")).put("items", JSONObject().put("type", t("INTEGER")))
                     .put("description", "despertador: dias da semana que repete, 0=domingo ... 6=sábado; vazio = uma vez só"))
                 .put("nome", texto("despertador: nome curto, opcional"))
                 .put("acao", texto("volume: subir|descer|mudo; midia: pausar|tocar|proxima|anterior", VOLUME.keys + MIDIA.keys))
                 .put("vezes", inteiro("volume: quantos passos, de 1 a 10"))
-                .put("ligado", JSONObject().put("type", "BOOLEAN").put("description", "modo_visita: true liga, false desliga")))
+                .put("ligado", JSONObject().put("type", t("BOOLEAN")).put("description", "modo_visita: true liga, false desliga")))
             .put("required", JSONArray(listOf("tipo")))
-        return JSONObject().put("type", "OBJECT")
+        return objeto()
             .put("properties", JSONObject()
-                .put("acoes", JSONObject().put("type", "ARRAY").put("items", acao))
+                .put("acoes", JSONObject().put("type", t("ARRAY")).put("items", acao))
                 .put("resposta", texto("uma frase curta em português para a pessoa; se não der para fazer, explique por quê")))
             .put("required", JSONArray(listOf("acoes", "resposta")))
     }
@@ -97,7 +127,11 @@ object ComandosIa {
      * [apps]: pacote -> nome dos apps que podem ser abertos (os mesmos mandados nas instruções).
      */
     fun conferir(texto: String, apps: Map<String, String>): Plano {
-        val raiz = try { JSONObject(texto) } catch (e: Exception) { return Plano(emptyList(), "", listOf("a IA respondeu algo que não é JSON")) }
+        // Alguns provedores embrulham o JSON em ```json ... ``` ou põem texto antes: tenta o trecho entre a 1ª { e a última }.
+        val raiz = try { JSONObject(texto) } catch (e: Exception) {
+            val i = texto.indexOf('{'); val f = texto.lastIndexOf('}')
+            try { if (i >= 0 && f > i) JSONObject(texto.substring(i, f + 1)) else null } catch (e2: Exception) { null }
+        } ?: return Plano(emptyList(), "", listOf("a IA respondeu algo que não é JSON"))
         val resposta = raiz.optString("resposta").take(300)
         val lista = raiz.optJSONArray("acoes") ?: JSONArray()
         val acoes = ArrayList<Acao>()
@@ -166,10 +200,18 @@ object ComandosIa {
         return t.ifEmpty { null }
     }
 
-    /** Formato de chave de API do Google (AI Studio): letras, números, - e _, de 20 a 100 caracteres. */
-    fun chaveValida(c: String?): Boolean = c != null && c.length in 20..100 && c.all { it.isLetterOrDigit() || it == '-' || it == '_' } &&
-        c.all { it.code < 128 }
+    /**
+     * Chave de API de qualquer provedor: "AQ.…"/"AIza…" (Google), "sk-ant-…" (Anthropic), "sk-…"/"sk-proj-…" (OpenAI),
+     * "pplx-…" (Perplexity). Não barramos pelo prefixo (os formatos mudam: o Google trocou em 2026): só tamanho e
+     * caracteres seguros para um cabeçalho HTTP. Se o provedor recusar, o 1º pedido diz por quê.
+     */
+    fun chaveValida(c: String?): Boolean = c != null && c.length in 20..300 &&
+        c.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_' || it == '.' }
 
-    /** Nome de modelo seguro para ir no caminho da URL (ex.: gemini-flash-latest). */
-    fun modeloValido(m: String?): Boolean = m != null && m.length in 3..64 && m.all { it in 'a'..'z' || it in '0'..'9' || it == '-' || it == '.' }
+    /** O que o painel recebe: tira espaços e quebras de linha que vêm junto ao copiar e colar. */
+    fun limparChave(c: String?): String = c?.filter { !it.isWhitespace() } ?: ""
+
+    /** Nome de modelo seguro para ir no caminho da URL do Gemini e no JSON dos outros (ex.: gemini-flash-latest, gpt-5.4-mini). */
+    fun modeloValido(m: String?): Boolean = m != null && m.length in 2..80 &&
+        m.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '.' || it == '_' }
 }

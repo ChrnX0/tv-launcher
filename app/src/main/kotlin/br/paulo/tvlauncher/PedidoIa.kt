@@ -76,7 +76,7 @@ object PedidoIa {
         if (frase == null) return falhar("frase vazia")
         if (respostaTeste == null) {
             if (!IaArmazem.ligada(app)) return falhar("a IA está desligada. Ligue em Configurações do launcher, na TV.")
-            if (!IaArmazem.temChave(app)) return falhar("falta cadastrar a chave de API")
+            if (!IaArmazem.temChave(app)) return falhar("falta cadastrar a chave de API do ${IaArmazem.provedor(app).nome}")
             IaArmazem.reservarVez()?.let { return falhar("muitos pedidos seguidos; espere $it s") }
         }
         Log.i(TAG, "pedido ${p.id} de $origem (${frase.length} caracteres)")
@@ -84,9 +84,11 @@ object PedidoIa {
             try {
                 val apps = appsDaHome(app)
                 val texto = respostaTeste ?: run {
-                    val chave = IaArmazem.chave(app) ?: throw IaNuvem.Falha("a chave guardada não abriu; cadastre de novo")
+                    // Provedor lido UMA vez: se trocarem no painel no meio do pedido, chave e modelo continuam do mesmo.
+                    val prov = IaArmazem.provedor(app)
+                    val chave = IaArmazem.chave(app, prov) ?: throw IaNuvem.Falha("a chave guardada não abriu; cadastre de novo")
                     val agora = SimpleDateFormat("EEEE, dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
-                    IaNuvem.perguntar(chave, IaArmazem.modelo(app), ComandosIa.instrucoes(apps, agora), frase)
+                    IaNuvem.perguntar(prov, chave, IaArmazem.modelo(app, prov), ComandosIa.instrucoes(apps, agora), frase)
                 }
                 val plano = ComandosIa.conferir(texto, apps)
                 p.plano = plano
