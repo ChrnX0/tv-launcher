@@ -19,30 +19,30 @@ object IconesClima {
 
     /** Texto em português do código WMO ("Chuva fraca", "Tempestade"...). */
     fun texto(codigo: Int, chovendo: Boolean = false): String = when {
-        chovendo && codigo < 51 -> "Chuva"
-        codigo == 0 -> "Céu limpo"
-        codigo == 1 -> "Poucas nuvens"
-        codigo == 2 -> "Parcialmente nublado"
-        codigo == 3 -> "Nublado"
-        codigo == 45 || codigo == 48 -> "Neblina"
-        codigo == 51 -> "Garoa fraca"
-        codigo == 53 -> "Garoa"
-        codigo == 55 -> "Garoa forte"
-        codigo == 56 || codigo == 57 -> "Garoa congelante"
-        codigo == 61 -> "Chuva fraca"
-        codigo == 63 -> "Chuva"
-        codigo == 65 -> "Chuva forte"
-        codigo == 66 || codigo == 67 -> "Chuva congelante"
-        codigo == 71 -> "Neve fraca"
-        codigo == 73 -> "Neve"
-        codigo == 75 -> "Neve forte"
-        codigo == 77 -> "Grãos de neve"
-        codigo == 80 -> "Pancadas fracas"
-        codigo == 81 -> "Pancadas de chuva"
-        codigo == 82 -> "Pancadas fortes"
-        codigo == 85 || codigo == 86 -> "Pancadas de neve"
-        codigo == 95 -> "Tempestade"
-        codigo == 96 || codigo == 99 -> "Tempestade com granizo"
+        chovendo && codigo < 51 -> txt(R.string.cl_chuva)
+        codigo == 0 -> txt(R.string.cl_limpo)
+        codigo == 1 -> txt(R.string.cl_poucas)
+        codigo == 2 -> txt(R.string.cl_parcial)
+        codigo == 3 -> txt(R.string.cl_nublado)
+        codigo == 45 || codigo == 48 -> txt(R.string.cl_neblina)
+        codigo == 51 -> txt(R.string.cl_garoa_fraca)
+        codigo == 53 -> txt(R.string.cl_garoa)
+        codigo == 55 -> txt(R.string.cl_garoa_forte)
+        codigo == 56 || codigo == 57 -> txt(R.string.cl_garoa_cong)
+        codigo == 61 -> txt(R.string.cl_chuva_fraca)
+        codigo == 63 -> txt(R.string.cl_chuva)
+        codigo == 65 -> txt(R.string.cl_chuva_forte)
+        codigo == 66 || codigo == 67 -> txt(R.string.cl_chuva_cong)
+        codigo == 71 -> txt(R.string.cl_neve_fraca)
+        codigo == 73 -> txt(R.string.cl_neve)
+        codigo == 75 -> txt(R.string.cl_neve_forte)
+        codigo == 77 -> txt(R.string.cl_graos)
+        codigo == 80 -> txt(R.string.cl_panc_fracas)
+        codigo == 81 -> txt(R.string.cl_panc)
+        codigo == 82 -> txt(R.string.cl_panc_fortes)
+        codigo == 85 || codigo == 86 -> txt(R.string.cl_panc_neve)
+        codigo == 95 -> txt(R.string.cl_tempestade)
+        codigo == 96 || codigo == 99 -> txt(R.string.cl_granizo)
         else -> "—"
     }
 

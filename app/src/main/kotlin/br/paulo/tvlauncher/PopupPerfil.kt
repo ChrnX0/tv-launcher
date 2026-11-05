@@ -57,7 +57,7 @@ class PopupPerfil(
             setTextColor(textoSuave)
             gravity = Gravity.CENTER
             maxLines = 1
-            text = ativa?.let { Perfil.usuario(it) } ?: "Sem conta Google"
+            text = ativa?.let { Perfil.usuario(it) } ?: tela.getString(R.string.pp_sem_conta)
         }
 
         // ---- Bolinhas dos perfis + "+".
@@ -79,7 +79,7 @@ class PopupPerfil(
             bolinha.setOnFocusChangeListener { v, temFoco ->
                 v.background = anel(temFoco, eAtiva)
                 escalar(v, temFoco, 1.12f)
-                if (temFoco) legenda.text = Perfil.usuario(conta) + if (eAtiva) "  ·  ativo" else ""
+                if (temFoco) legenda.text = Perfil.usuario(conta) + if (eAtiva) tela.getString(R.string.pp_ativo) else ""
             }
             if (eAtiva || focoInicial == null) focoInicial = bolinha
             bolinhas.addView(bolinha, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginEnd = dp(10) })
@@ -90,7 +90,7 @@ class PopupPerfil(
         mais.setOnFocusChangeListener { v, temFoco ->
             v.background = anel(temFoco, false)
             escalar(v, temFoco, 1.12f)
-            if (temFoco) legenda.text = "Adicionar perfil"
+            if (temFoco) legenda.text = tela.getString(R.string.pp_adicionar)
         }
         val rolagem = HorizontalScrollView(tela).apply {
             isHorizontalScrollBarEnabled = false
@@ -102,23 +102,23 @@ class PopupPerfil(
         }
 
         // ---- Grade de cards: Launcher, Sistema, Wi-Fi, Bluetooth, Saída de áudio.
-        val cardLauncher = card("launcher", "Launcher", "Aparência, DNS, diagnóstico") {
+        val cardLauncher = card("launcher", "Launcher", tela.getString(R.string.pp_launcher_det)) {
             fechar()
             tela.startActivity(Intent(tela, ConfigLauncherActivity::class.java))
         }
-        val cardSistema = card("sistema", "Sistema", "Configurações do Android") {
+        val cardSistema = card("sistema", tela.getString(R.string.pp_sistema), tela.getString(R.string.pp_sistema_det)) {
             fechar()
             aoAbrirConfig()
         }
         val icone = SinalWifi(tela)
         val cardWifi = cardWifi(icone) { fechar(); abrirWifi() }
-        val cardBluetooth = card("bluetooth", "Bluetooth", "Parear acessório") {
+        val cardBluetooth = card("bluetooth", "Bluetooth", tela.getString(R.string.pp_bt_det)) {
             fechar()
             // Tela de pareamento do sistema (ver conversa: a lista "Controles remotos e acessórios" é um fragmento
             // interno do MainSettings, sem Activity própria — esta aqui é a mesma seção, já no fluxo de busca).
             abrirComponente("com.android.tv.settings", "com.android.tv.settings.accessories.AddAccessoryActivity")
         }
-        val cardAudio = card("audio", "Saída de áudio", "Som e alto-falantes") {
+        val cardAudio = card("audio", tela.getString(R.string.pp_audio), tela.getString(R.string.pp_audio_det)) {
             fechar()
             try {
                 tela.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -208,17 +208,17 @@ class PopupPerfil(
         when {
             r == null -> {
                 txtRedeTitulo?.text = "Wi-Fi"
-                txtRedeDetalhe?.text = "Carregando…"
+                txtRedeDetalhe?.text = tela.getString(R.string.pp_carregando)
             }
             !r.conectado -> {
                 sinal?.definir(0, textoSuave)
                 txtRedeTitulo?.text = "Wi-Fi"
-                txtRedeDetalhe?.text = "Conectar"
+                txtRedeDetalhe?.text = tela.getString(R.string.pp_conectar)
             }
             else -> {
                 sinal?.definir(r.barras, corDoNivel(r.nivel))
                 txtRedeTitulo?.text = r.nome
-                txtRedeDetalhe?.text = if (r.mbps > 0) "${r.mbps} Mbps" else "Conectado"
+                txtRedeDetalhe?.text = if (r.mbps > 0) "${r.mbps} Mbps" else tela.getString(R.string.pp_conectado)
             }
         }
     }
@@ -284,7 +284,7 @@ class PopupPerfil(
         return FrameLayout(tela).apply {
             isFocusable = true
             isClickable = true
-            contentDescription = "Adicionar perfil"
+            contentDescription = tela.getString(R.string.pp_adicionar)
             setPadding(dp(4), dp(4), dp(4), dp(4))
             background = anel(false, false)
             addView(sinalMais, FrameLayout.LayoutParams(dp(56), dp(56)))

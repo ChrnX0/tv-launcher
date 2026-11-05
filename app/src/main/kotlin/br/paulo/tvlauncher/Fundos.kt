@@ -110,8 +110,8 @@ class FundoEscuro(ctx: Context, private val comArco: Boolean = true) : View(ctx)
         val np = Astronomia.nascerEPor(est.agoraMs, est.lat, est.lon)
         if (np != null) {
             val fmt = SimpleDateFormat("HH:mm", Locale.US)
-            c.drawText("nascer " + fmt.format(np.first), x0 - context.dpf(30f), hor + context.dpf(16f), texto)
-            c.drawText("pôr " + fmt.format(np.second), x1 - context.dpf(20f), hor + context.dpf(16f), texto)
+            c.drawText(context.getString(R.string.fd_nascer, fmt.format(np.first)), x0 - context.dpf(30f), hor + context.dpf(16f), texto)
+            c.drawText(context.getString(R.string.fd_por, fmt.format(np.second)), x1 - context.dpf(20f), hor + context.dpf(16f), texto)
             val nasc = horaDecimal(np.first); val por = horaDecimal(np.second); val agora = horaDecimal(est.agoraMs)
             val ponto = { horaNoArco: Double ->
                 val t = ((horaNoArco - nasc) / (por - nasc)).toFloat()

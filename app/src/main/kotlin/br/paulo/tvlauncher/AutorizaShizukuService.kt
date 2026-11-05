@@ -40,6 +40,7 @@ class AutorizaShizukuService : AccessibilityService() {
         if (Log.isLoggable("TvLauncher.Tecla", Log.DEBUG))
             Log.d("TvLauncher.Tecla", "tecla=${KeyEvent.keyCodeToString(e.keyCode)} (${e.keyCode}) scan=${e.scanCode} " +
                 "acao=${if (e.action == KeyEvent.ACTION_DOWN) "desce" else "sobe"} repete=${e.repeatCount}")
+        Rotinas.tecla()   // rotina "desligar se ninguém mexeu há N min" (só grava a hora; ver Rotinas.kt)
         return BotoesControle.tratar(this, e)
     }
 
