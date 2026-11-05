@@ -109,6 +109,8 @@ function mudarAba(nome) {
   $('abaControle').hidden = nome !== 'controle';
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
+  $('abaFotos').hidden = nome !== 'fotos';
+  if (nome === 'fotos') carregarFotos();
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
@@ -414,6 +416,57 @@ async function baixar(caminho, nome, status) {
 }
 $('btnBaixar').addEventListener('click', () => baixar('/api/backup', 'launcher-backup.json', $('statusBaixar')));
 $('btnBaixarAnterior').addEventListener('click', () => baixar('/api/backup/anterior', 'launcher-antes-de-restaurar.json', $('statusBackup')));
+
+// ---------- fotos do protetor (FotosProtetor.kt) ----------
+
+/** Nome que a TV aceita: troca o que não for letra/número/espaço/.-_ por "_" e garante a extensão. */
+function nomeDeFoto(nome) {
+  const ext = (/\.(jpe?g|png|webp)$/i.exec(nome) || ['.jpg'])[0].toLowerCase();
+  let base = nome.replace(/\.[^.]*$/, '').replace(/[^\p{L}\p{N} ._-]/gu, '_').replace(/^\.+/, '').slice(0, 90);
+  if (base.length < 1) base = 'foto';
+  return base + ext;
+}
+
+async function carregarFotos() {
+  const grade = $('gradeFotos');
+  grade.replaceChildren();
+  let r;
+  try { r = await chamar('GET', '/api/fotos'); } catch (e) { mostrar($('statusFotos'), e.message); return; }
+  if (!r.fotos.length) { mostrar($('statusFotos'), 'Nenhuma foto ainda: o protetor mostra só o relógio.'); return; }
+  mostrar($('statusFotos'), `${r.fotos.length} foto(s) na TV.`);
+  for (const f of r.fotos) {
+    const caixa = document.createElement('figure');
+    caixa.className = 'foto';
+    const img = document.createElement('img');
+    img.loading = 'lazy'; img.alt = f.nome;
+    img.src = `/api/fotos/ver?nome=${encodeURIComponent(f.nome)}`;
+    const legenda = document.createElement('figcaption');
+    const apagar = document.createElement('button');
+    apagar.type = 'button'; apagar.className = 'link'; apagar.textContent = 'apagar';
+    apagar.addEventListener('click', async () => {
+      try { await chamar('POST', `/api/fotos/apagar?nome=${encodeURIComponent(f.nome)}`); carregarFotos(); }
+      catch (e) { mostrar($('statusFotos'), e.message); }
+    });
+    legenda.append(f.nome, ' · ', apagar);
+    caixa.append(img, legenda);
+    grade.appendChild(caixa);
+  }
+}
+
+$('arquivoFotos').addEventListener('change', async (ev) => {
+  const arquivos = [...ev.target.files];
+  ev.target.value = '';
+  let ok = 0;
+  for (const [i, a] of arquivos.entries()) {
+    try {
+      await enviarComProgresso(`/api/fotos/enviar?nome=${encodeURIComponent(nomeDeFoto(a.name))}`, a, (p) =>
+        mostrar($('statusFotos'), `Enviando ${i + 1} de ${arquivos.length}… ${Math.round(p * 100)}%`));
+      ok++;
+    } catch (e) { mostrar($('statusFotos'), `${a.name}: ${e.message}`); await new Promise((r) => setTimeout(r, 1500)); }
+  }
+  await carregarFotos();
+  if (arquivos.length) mostrar($('statusFotos'), `${ok} de ${arquivos.length} foto(s) enviada(s).`);
+});
 
 // ---------- acessos ----------
 
