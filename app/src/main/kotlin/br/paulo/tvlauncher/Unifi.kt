@@ -74,18 +74,25 @@ object Unifi {
         return lista to o.optInt("totalCount", lista.size)
     }
 
-    /** O id do site da casa em /sites: o de internalReference "default" ou, se não houver, o primeiro. */
-    fun lerSite(texto: String): String? {
+    /** O site da casa: [id] para a API de integração e [ref] (internalReference, ex.: "default") para a API antiga. */
+    data class Site(val id: String, val ref: String)
+
+    /** O site da casa em /sites: o de internalReference "default" ou, se não houver, o primeiro. */
+    fun lerSite(texto: String): Site? {
         val dados = JSONObject(texto).getJSONArray("data")
-        var primeiro: String? = null
+        var primeiro: Site? = null
         for (i in 0 until dados.length()) {
             val s = dados.optJSONObject(i) ?: continue
             val id = s.optString("id").takeIf { it.isNotEmpty() } ?: continue
-            if (s.optString("internalReference") == "default") return id
-            if (primeiro == null) primeiro = id
+            val ref = s.optString("internalReference").takeIf { refValida(it) } ?: "default"
+            if (s.optString("internalReference") == "default") return Site(id, ref)
+            if (primeiro == null) primeiro = Site(id, ref)
         }
         return primeiro
     }
+
+    /** O nome curto do site vai no caminho da API antiga: só letras minúsculas e números, para não montar caminho estranho. */
+    fun refValida(ref: String): Boolean = ref.length in 1..32 && ref.all { it in 'a'..'z' || it in '0'..'9' }
 
     /** Os aparelhos de [atuais] que não estão em [conhecidos] (comparando por [Aparelho.chave]). */
     fun novos(conhecidos: Set<String>, atuais: List<Aparelho>): List<Aparelho> =
@@ -188,5 +195,41 @@ object Unifi {
         if (mbps in 1 until LINK_BAIXO_MBPS && dbm >= DBM_RAZOAVEL)
             r.add("Velocidade do link baixa ($mbps Mbps) mesmo com sinal bom: costuma ser canal estreito (20 MHz) ou padrão antigo na rede Wi-Fi.")
         return r
+    }
+
+    // ---------------------------------------------------------------- API antiga (sinal visto pelo roteador)
+
+    /**
+     * A TV como o ROTEADOR a vê, de /proxy/network/api/s/{site}/stat/sta (API antiga, a do próprio app do UniFi; a chave de
+     * integração costuma funcionar nela, mas isso não é documentado). [sinalDbm]: "signal"; [radio]: "ng" = 2,4 GHz,
+     * "na" = 5 GHz, "6e" = 6 GHz; taxas em Mbps; [satisfacao]: nota de 0 a 100 do próprio UniFi.
+     */
+    data class SinalRoteador(val mac: String, val sinalDbm: Int?, val radio: String?, val canal: Int?, val txMbps: Int?,
+                             val rxMbps: Int?, val satisfacao: Int?, val rede: String?)
+
+    /** Procura o aparelho de IP [ip] na resposta de stat/sta. Null se não estiver lá. */
+    fun lerEstacao(texto: String, ip: String): SinalRoteador? {
+        val dados = JSONObject(texto).optJSONArray("data") ?: return null
+        for (i in 0 until dados.length()) {
+            val a = dados.optJSONObject(i) ?: continue
+            if (a.optString("ip") != ip) continue
+            val mac = a.optString("mac").takeIf { macValida(it) } ?: return null
+            fun int(n: String) = if (a.has(n) && !a.isNull(n)) a.optInt(n) else null
+            return SinalRoteador(mac.lowercase(), int("signal"), a.optString("radio").takeIf { it.isNotEmpty() }, int("channel"),
+                int("tx_rate")?.let { it / 1000 }, int("rx_rate")?.let { it / 1000 }, int("satisfaction"),
+                a.optString("essid").takeIf { it.isNotEmpty() }?.take(40))
+        }
+        return null
+    }
+
+    /** "aa:bb:cc:dd:ee:ff". O MAC vai no corpo do único comando que mandamos ao roteador: nada além disso passa. */
+    fun macValida(mac: String?): Boolean = mac != null && Regex("^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$").matches(mac)
+
+    /** "ng" → "2.4", "na" → "5", "6e" → "6". */
+    fun bandaDoRadio(radio: String?): String? = when (radio) { "ng" -> "2.4"; "na" -> "5"; "6e" -> "6"; else -> null }
+
+    /** Dica a mais quando o roteador dá nota baixa para a conexão da TV (a "satisfação" do UniFi). */
+    fun dicaSatisfacao(s: SinalRoteador?): String? = s?.satisfacao?.takeIf { it in 0..59 }?.let {
+        "O próprio UniFi dá nota $it de 100 para a conexão da TV. Experimente \"Reconectar a TV\": ela escolhe de novo o melhor ponto de acesso."
     }
 }
