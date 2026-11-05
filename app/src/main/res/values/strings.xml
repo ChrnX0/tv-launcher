@@ -323,4 +323,28 @@
         <item>O</item>
         <item>NO</item>
     </string-array>
+    <!-- Tema.kt -->
+    <string name="tema_escuro">Escuro</string>
+    <string name="tema_galeria">Galeria</string>
+    <!-- SomAlarme.kt -->
+    <string name="som_suave">Suave</string>
+    <string name="som_classico">Clássico</string>
+    <string name="som_sino">Sino</string>
+    <string name="som_direto">Direto</string>
+    <string name="som_rampa1">Sobe em 1 min</string>
+    <string name="som_rampa2">Sobe em 2 min</string>
+    <!-- Velocidade.kt -->
+    <string name="vel_resultado">Internet: %1$.0f Mbps (baixou %2$.0f MB em %3$.1f s)</string>
+    <string name="vel_falhou">Teste falhou (sem internet ou servidor fora do ar)</string>
+    <!-- Rede.kt -->
+    <!-- EscolherAppActivity.kt -->
+    <string name="esc_atual">  ·  atual</string>
+    <string name="esc_botao">Botão %1$s abre:</string>
+    <!-- Config.kt -->
+    <string name="shz_modo_desligado">desligado</string>
+    <string name="shz_modo_sob">sob demanda</string>
+    <string name="shz_modo_sempre">sempre ligado</string>
+    <!-- Fundos.kt -->
+    <string name="fd_nascer">nascer %1$s</string>
+    <string name="fd_por">pôr %1$s</string>
 </resources>
