@@ -329,6 +329,7 @@ object PainelWeb {
             "/api/roteador/confiar" -> if (req.metodo == "POST") return roteadorConfiar(req, ip)
             "/api/roteador/aparelhos" -> if (req.metodo == "GET") return roteadorAparelhos(req)
             "/api/roteador/esquecer" -> if (req.metodo == "POST") return roteadorEsquecer(ip)
+            "/api/roteador/wifi-tv" -> if (req.metodo == "GET") return roteadorWifiTv()
         }
 
         // /api/apps/<pacote>/<ação>
@@ -690,6 +691,20 @@ object PainelWeb {
             .put("mac", a.mac ?: JSONObject.NULL).put("tipo", a.tipo).put("desde", a.desde ?: JSONObject.NULL))
         return json(200, JSONObject().put("versao", l.versao ?: JSONObject.NULL).put("respostaMs", l.respostaMs)
             .put("em", l.em).put("aparelhos", lista))
+    }
+
+    private fun roteadorWifiTv(): Resposta {
+        val w = try { UnifiCliente.wifiDaTv(app) } catch (e: UnifiCliente.Falha) { return erro(502, e.message ?: "falhou") }
+        val o = JSONObject().put("noWifi", w.conectadaNoWifi).put("dbm", w.dbm).put("banda", Unifi.banda(w.mhz) ?: JSONObject.NULL)
+            .put("mbps", w.mbps).put("achadaNoRoteador", w.achadaNoRoteador).put("dicas", org.json.JSONArray(w.dicas))
+        w.ap?.let { ap ->
+            val radios = org.json.JSONArray()
+            for (r in ap.radios) radios.put(JSONObject().put("ghz", r.ghz).put("canal", r.canal ?: JSONObject.NULL)
+                .put("larguraMhz", r.larguraMhz ?: JSONObject.NULL).put("retransmissoesPct", r.retransmissoesPct ?: JSONObject.NULL))
+            o.put("pontoDeAcesso", JSONObject().put("nome", ap.nome).put("modelo", ap.modelo ?: JSONObject.NULL)
+                .put("cpuPct", ap.cpuPct ?: JSONObject.NULL).put("radios", radios))
+        }
+        return json(200, o)
     }
 
     private fun roteadorEsquecer(ip: String): Resposta {

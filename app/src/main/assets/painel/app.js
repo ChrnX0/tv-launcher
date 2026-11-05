@@ -525,6 +525,31 @@ $('chkRoteadorAviso').addEventListener('change', (ev) => salvarRoteador({ avisoN
   ev.target.checked ? 'Ligado. A primeira leitura só anota os aparelhos de agora; o recado vem para os que aparecerem depois.' : 'Desligado.'));
 $('btnAtualizarAparelhos').addEventListener('click', () => carregarAparelhos(true));
 
+$('btnWifiTv').addEventListener('click', async () => {
+  const dicas = $('dicasWifiTv');
+  dicas.replaceChildren();
+  $('estadoWifiTv').textContent = 'Medindo…';
+  try {
+    const w = await chamar('GET', '/api/roteador/wifi-tv');
+    if (!w.noWifi) { $('estadoWifiTv').textContent = 'A TV não está no Wi-Fi (no cabo ou desconectada): nada a ajustar no Wi-Fi.'; return; }
+    const partes = [`Sinal ${w.dbm} dBm`];
+    if (w.banda) partes.push(`${w.banda.replace('.', ',')} GHz`);
+    if (w.mbps > 0) partes.push(`link ${w.mbps} Mbps`);
+    if (w.pontoDeAcesso) {
+      const ap = w.pontoDeAcesso;
+      partes.push(`ligada em ${ap.nome}${ap.modelo ? ' (' + ap.modelo + ')' : ''}`);
+      for (const r of ap.radios) {
+        const det = [r.canal != null ? `canal ${r.canal}` : '', r.larguraMhz ? `${r.larguraMhz} MHz` : '',
+          r.retransmissoesPct != null ? `${Math.round(r.retransmissoesPct)}% retransmissões` : ''].filter(Boolean).join(', ');
+        if (det) partes.push(`${r.ghz.replace('.', ',')} GHz: ${det}`);
+      }
+    } else if (!w.achadaNoRoteador) partes.push('a TV não apareceu na lista do roteador (sem dados do ponto de acesso)');
+    $('estadoWifiTv').textContent = partes.join(' · ');
+    const lista = w.dicas.length ? w.dicas : ['Wi-Fi da TV está bom: nada a ajustar.'];
+    for (const d of lista) { const li = document.createElement('li'); li.textContent = d; dicas.appendChild(li); }
+  } catch (e) { $('estadoWifiTv').textContent = e.message; }
+});
+
 $('btnLerCert').addEventListener('click', async () => {
   $('certNovoRoteador').hidden = true;
   mostrar($('statusRoteador'), 'Lendo o certificado (a chave não vai junto)…');

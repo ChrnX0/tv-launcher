@@ -116,6 +116,43 @@ object UnifiCliente {
         return Leitura(versao, respostaMs, todos.sortedBy { it.nome.lowercase() }, System.currentTimeMillis()).also { ultima = it }
     }
 
+    /** O Wi-Fi da TV medido pelo Android, junto com o ponto de acesso dela no roteador e as dicas. */
+    data class WifiDaTv(val conectadaNoWifi: Boolean, val dbm: Int, val mhz: Int, val mbps: Int, val ip: String?,
+                        val ap: Unifi.PontoDeAcesso?, val achadaNoRoteador: Boolean, val dicas: List<String>)
+
+    /**
+     * Diagnóstico do Wi-Fi da TV (só leitura). Sinal, banda e velocidade do link vêm do Android (a API de integração
+     * do UniFi não dá isso por aparelho); o ponto de acesso, os canais e as retransmissões vêm do roteador.
+     * A TV é achada na lista do roteador pelo IP (o Android esconde o MAC verdadeiro dos apps).
+     */
+    @Suppress("DEPRECATION")
+    fun wifiDaTv(ctx: Context): WifiDaTv {
+        val app = ctx.applicationContext
+        val info = (app.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager).connectionInfo
+        val dbm = info?.rssi ?: -127
+        val noWifi = dbm in -126..-1
+        val ipInt = info?.ipAddress ?: 0
+        val ip = if (ipInt == 0) null else "${ipInt and 255}.${ipInt shr 8 and 255}.${ipInt shr 16 and 255}.${ipInt shr 24 and 255}"
+        if (!noWifi) return WifiDaTv(false, dbm, 0, 0, null, null, false, emptyList())
+        val mhz = info?.frequency ?: 0
+        val mbps = info?.linkSpeed ?: 0
+
+        val leitura = ler(app)
+        val euNoRoteador = ip?.let { meu -> leitura.aparelhos.firstOrNull { it.ip == meu } }
+        val ap = euNoRoteador?.pontoDeAcesso?.let { id ->
+            val endereco = UnifiArmazem.endereco(app) ?: return@let null
+            val cert = UnifiArmazem.certificado(app) ?: return@let null
+            val chave = UnifiArmazem.chave(app) ?: return@let null
+            val idSite = site?.second ?: return@let null
+            try {
+                val detalhes = pegar(app, endereco, cert, chave, "/sites/$idSite/devices/$id")
+                val estat = try { pegar(app, endereco, cert, chave, "/sites/$idSite/devices/$id/statistics/latest") } catch (e: Falha) { null }
+                Unifi.lerPontoDeAcesso(detalhes, estat)
+            } catch (e: Falha) { null } catch (e: org.json.JSONException) { null }
+        }
+        return WifiDaTv(true, dbm, mhz, mbps, ip, ap, euNoRoteador != null, Unifi.dicas(dbm, mhz, mbps, ap))
+    }
+
     private fun pegar(ctx: Context, endereco: String, cert: String, chave: String, caminho: String): String {
         val c = abrir(ctx, URL("https://$endereco${Unifi.BASE}$caminho"), ConfiaSoNoFixado(cert))
         try {
