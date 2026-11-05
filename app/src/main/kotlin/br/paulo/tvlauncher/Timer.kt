@@ -85,23 +85,87 @@ object Timer {
 }
 
 /**
- * Quem atende o "criar timer" do Android (o Gemini manda AlarmClock.ACTION_SET_TIMER com EXTRA_LENGTH em segundos e,
- * às vezes, EXTRA_MESSAGE com o nome). Não desenha nada: marca, confirma num aviso e fecha.
- * Sem duração (alguém abrindo "timer" sem dizer quanto) não há o que marcar: abre o despertador, que é o mais perto.
+ * Quem atende o "criar timer" do Android (AlarmClock.ACTION_SET_TIMER, com EXTRA_LENGTH em segundos e, às vezes,
+ * EXTRA_MESSAGE com o nome) e os atalhos de voz da contagem.
+ *
+ * Por que os atalhos (05/11/2026, teste do Paulo na TV): "Ok Google, timer de 2 minutos" NÃO chega aqui. O Gemini
+ * desta TV responde que "ainda não consegue alterar o timer neste dispositivo" e nem manda o SET_TIMER. Então, como
+ * no "Desligar em 30 minutos", cada duração vira um "app" com nome falável (activity-alias no manifesto):
+ * "Ok Google, abrir Avisar em 10 minutos". O nome evita "timer" e "contagem": com "abrir Contagem de 1 minuto" o
+ * Gemini entendeu pedido de vídeo e mostrou contagens do YouTube (teste do Paulo, 05/11/2026).
+ * "Ampulheta" (ou o SET_TIMER sem duração) abre a escolha da duração no controle; "Não avisar" cancela.
  */
 class TimerActivity : Activity() {
+    companion object {
+        /** Alias do manifesto -> minutos. */
+        val ATALHOS = mapOf("Avisar5" to 5, "Avisar10" to 10, "Avisar15" to 15, "Avisar20" to 20, "Avisar30" to 30)
+        /** Opções da tela de escolha, em minutos. */
+        val OPCOES = listOf(1, 3, 5, 10, 15, 20, 30, 45, 60)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val seg = intent.getIntExtra(AlarmClock.EXTRA_LENGTH, 0)
-        val nome = intent.getStringExtra(AlarmClock.EXTRA_MESSAGE)?.trim() ?: ""
-        Log.i("TvLauncher.Timer", "SET_TIMER length=$seg message='$nome'")
-        if (seg in 1..24 * 3600) {
-            Timer.iniciar(this, seg, nome)
-            val titulo = if (nome.isNotEmpty()) " ($nome)" else ""
-            Toast.makeText(applicationContext, "⏱ Timer de ${Timer.duracaoTexto(seg)}$titulo", Toast.LENGTH_LONG).show()
-        } else {
-            startActivity(Intent(this, AlarmesActivity::class.java))
+        val alias = intent.component?.className?.substringAfterLast('.') ?: ""
+        val seg = when {
+            alias in ATALHOS -> ATALHOS.getValue(alias) * 60
+            alias == "NaoAvisar" -> { cancelar(); finish(); return }
+            else -> intent.getIntExtra(AlarmClock.EXTRA_LENGTH, 0)
         }
-        finish()
+        val nome = intent.getStringExtra(AlarmClock.EXTRA_MESSAGE)?.trim() ?: ""
+        Log.i("TvLauncher.Timer", "pedido: alias=$alias length=$seg message='$nome'")
+        if (seg in 1..24 * 3600) { marcar(seg, nome); finish(); return }
+        setContentView(escolha())   // sem duração: escolher no controle
+    }
+
+    private fun marcar(seg: Int, nome: String) {
+        Timer.iniciar(this, seg, nome)
+        val titulo = if (nome.isNotEmpty()) " ($nome)" else ""
+        Toast.makeText(applicationContext, "⏱ Aviso em ${Timer.duracaoTexto(seg)}$titulo", Toast.LENGTH_LONG).show()
+    }
+
+    private fun cancelar() = Toast.makeText(applicationContext,
+        if (Timer.cancelar(this)) "Contagem cancelada." else "Não havia contagem correndo.", Toast.LENGTH_LONG).show()
+
+    /** Uma caixa no meio da tela com um botão por duração (OK marca e fecha; Voltar fecha sem marcar). */
+    private fun escolha(): android.view.View {
+        fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
+        fun fundo(foco: Boolean) = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(14).toFloat()
+            setColor(if (foco) 0x33FFFFFF else 0x14FFFFFF)
+            setStroke(dp(2), if (foco) 0xD9FFFFFF.toInt() else 0x22FFFFFF)
+        }
+        fun botao(rotulo: String, acao: () -> Unit) = android.widget.TextView(this).apply {
+            text = rotulo
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 20f
+            gravity = android.view.Gravity.CENTER
+            setPadding(dp(8), dp(14), dp(8), dp(14))
+            isFocusable = true; isClickable = true
+            background = fundo(false)
+            setOnFocusChangeListener { v, f -> v.background = fundo(f) }
+            setOnClickListener { acao(); finish() }
+        }
+        val grade = android.widget.GridLayout(this).apply { columnCount = 3 }
+        OPCOES.forEach { min ->
+            grade.addView(botao(if (min < 60) "$min min" else "1 hora") { marcar(min * 60, "") },
+                android.widget.GridLayout.LayoutParams().apply { width = dp(150); setMargins(dp(8), dp(8), dp(8), dp(8)) })
+        }
+        val caixa = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            setPadding(dp(32), dp(24), dp(32), dp(24))
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(20).toFloat(); setColor(0xF0101418.toInt()) }
+            addView(android.widget.TextView(this@TimerActivity).apply {
+                text = "⏱  Contagem regressiva"; setTextColor(android.graphics.Color.WHITE); textSize = 26f
+                setPadding(0, 0, 0, dp(12))
+            })
+            addView(grade)
+            if (Timer.ativo(this@TimerActivity) != null) addView(botao("Cancelar a contagem atual") { cancelar() },
+                android.widget.LinearLayout.LayoutParams(dp(498), -2).apply { topMargin = dp(8) })
+        }
+        grade.getChildAt(3)?.post { grade.getChildAt(3).requestFocus() }   // foco em "10 min", a escolha mais comum
+        return android.widget.FrameLayout(this).apply {
+            addView(caixa, android.widget.FrameLayout.LayoutParams(-2, -2, android.view.Gravity.CENTER))
+        }
     }
 }
