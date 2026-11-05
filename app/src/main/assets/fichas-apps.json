@@ -1,0 +1,493 @@
+{
+"android": {
+"d": "O próprio Android: o sistema inteiro.",
+"q": "A TV não funciona sem ele.",
+"r": "essencial"
+},
+"android.autoinstalls.config.google.sabrina": {
+"d": "A lista de apps que o Google instala na configuração inicial.",
+"q": "Nada no uso normal.",
+"r": "seguro"
+},
+"br.paulo.tvlauncher": {
+"d": "Este launcher: a tela inicial, o despertador, o protetor de tela e este painel. É o dono do aparelho (Device Owner).",
+"q": "Sem ele a TV perde a tela inicial, o Device Owner e este painel. Desinstalar é irreversível sem reset de fábrica.",
+"r": "essencial"
+},
+"com.adguard.vpn": {
+"d": "AdGuard VPN: a VPN sempre ativa da TV.",
+"q": "A VPN e o bloqueio dela caem.",
+"r": "cuidado"
+},
+"com.amazon.amazonvideo.livingroom": {
+"d": "Prime Video.",
+"q": "Só ele some.",
+"r": "seguro"
+},
+"com.android.backupconfirm": {
+"d": "A tela de confirmar backup ou restauração pelo adb.",
+"q": "Só faz falta para backup pelo adb.",
+"r": "seguro"
+},
+"com.android.cameraextensions": {
+"d": "Extensões de câmera. A TV não tem câmera.",
+"q": "Nada, a não ser que você ligue uma câmera USB.",
+"r": "seguro"
+},
+"com.android.certinstaller": {
+"d": "Instala certificados (Wi-Fi corporativo, VPN).",
+"q": "Não dá mais para instalar certificado novo. Os que já estão continuam.",
+"r": "cuidado"
+},
+"com.android.companiondevicemanager": {
+"d": "Pareamento de aparelhos complementares (ex.: relógios, alguns controles).",
+"q": "Parear acessórios novos pode falhar.",
+"r": "cuidado"
+},
+"com.android.cts.ctsshim": {
+"d": "Pacote vazio usado pelo sistema para conferir atualizações e testes de compatibilidade.",
+"q": "Não economiza nada ocultar, e pode atrapalhar atualizações.",
+"r": "cuidado"
+},
+"com.android.cts.priv.ctsshim": {
+"d": "Pacote vazio usado pelo sistema para conferir atualizações e testes de compatibilidade.",
+"q": "Não economiza nada ocultar, e pode atrapalhar atualizações.",
+"r": "cuidado"
+},
+"com.android.dreams.basic": {
+"d": "Protetores de tela básicos do Android (cores). Este launcher usa o protetor próprio.",
+"q": "Nada: o protetor de tela é o do launcher.",
+"r": "seguro"
+},
+"com.android.externalstorage": {
+"d": "Dá acesso aos arquivos da memória interna e de pen drive para os outros apps.",
+"q": "Apps de arquivos e de mídia deixam de ver pastas e pen drives.",
+"r": "essencial"
+},
+"com.android.inputdevices": {
+"d": "Os layouts de teclado físico (USB ou Bluetooth).",
+"q": "Um teclado físico pode digitar as letras erradas.",
+"r": "cuidado"
+},
+"com.android.intentresolver": {
+"d": "A tela \"Abrir com\", que aparece quando mais de um app pode abrir a mesma coisa.",
+"q": "Apps que perguntam com qual app abrir algo travam ou fecham.",
+"r": "essencial"
+},
+"com.android.keychain": {
+"d": "Guarda certificados e chaves do sistema (Wi-Fi, VPN, apps).",
+"q": "Wi-Fi com certificado, VPN e alguns apps param de se conectar.",
+"r": "essencial"
+},
+"com.android.localtransport": {
+"d": "Transporte de backup local, usado em testes.",
+"q": "Nada no uso normal.",
+"r": "seguro"
+},
+"com.android.location.fused": {
+"d": "Junta Wi-Fi e rede para saber a localização.",
+"q": "O clima deste launcher pode perder a cidade.",
+"r": "cuidado"
+},
+"com.android.managedprovisioning": {
+"d": "A configuração de aparelho gerenciado: foi por ela que o launcher virou Device Owner.",
+"q": "No dia a dia nada muda. Ele seria necessário para refazer o Device Owner depois de um reset.",
+"r": "cuidado"
+},
+"com.android.pacprocessor": {
+"d": "Lê a configuração automática de proxy (PAC). Em casa, normalmente não se usa.",
+"q": "Só faz falta numa rede com proxy automático.",
+"r": "seguro"
+},
+"com.android.providers.calendar": {
+"d": "Guarda os calendários e os eventos.",
+"dep": [
+"Calendário do launcher"
+],
+"q": "O calendário deste launcher fica vazio.",
+"r": "cuidado"
+},
+"com.android.providers.contacts": {
+"d": "Guarda os contatos das contas.",
+"q": "Apps que mostram contatos ou perfis podem falhar.",
+"r": "cuidado"
+},
+"com.android.providers.downloads": {
+"d": "O gerenciador de downloads do sistema. A Play Store baixa os apps por ele.",
+"q": "A Play Store para de baixar e atualizar apps.",
+"r": "essencial"
+},
+"com.android.providers.media": {
+"d": "A versão antiga do provedor de mídia, mantida para compatibilidade.",
+"q": "Apps antigos podem não achar fotos e vídeos.",
+"r": "cuidado"
+},
+"com.android.providers.settings": {
+"d": "Guarda todas as configurações do sistema.",
+"q": "O sistema não sobe sem ele.",
+"r": "essencial"
+},
+"com.android.providers.tv": {
+"d": "Guarda os canais e o \"continuar assistindo\" dos apps de vídeo.",
+"q": "Somem as fileiras de canais e de \"continuar assistindo\" do Google TV.",
+"r": "cuidado"
+},
+"com.android.providers.userdictionary": {
+"d": "As palavras que você ensinou ao teclado.",
+"q": "O teclado esquece as palavras aprendidas.",
+"r": "seguro"
+},
+"com.android.proxyhandler": {
+"d": "Cuida das configurações de proxy.",
+"q": "Só faz falta numa rede com proxy.",
+"r": "seguro"
+},
+"com.android.se": {
+"d": "Elemento seguro (NFC e pagamento por aproximação). A TV não tem NFC.",
+"q": "Nada.",
+"r": "seguro"
+},
+"com.android.server.telecom": {
+"d": "O serviço de chamadas. A TV não tem telefone, mas faz parte do sistema.",
+"q": "Videochamadas (ex.: Meet) podem falhar.",
+"r": "cuidado"
+},
+"com.android.settings.intelligence": {
+"d": "A busca e as sugestões dentro das Configurações.",
+"q": "A busca das Configurações para.",
+"r": "seguro"
+},
+"com.android.sharedstoragebackup": {
+"d": "Backup da memória interna pelo adb.",
+"q": "Só faz falta para backup pelo adb.",
+"r": "seguro"
+},
+"com.android.shell": {
+"d": "O shell do Android (adb). O shell próprio do launcher e o Shizuku embutido rodam com a identidade dele.",
+"q": "O launcher perde o shell próprio e o Shizuku embutido, e o adb do PC para de funcionar.",
+"r": "essencial"
+},
+"com.android.systemui": {
+"d": "A interface do sistema: volume na tela, avisos, a barra de notificações.",
+"q": "A TV fica sem as telas básicas do sistema.",
+"r": "essencial"
+},
+"com.android.tv.frameworkpackagestubs": {
+"d": "Responde aos pedidos que a TV não sabe atender (ex.: abrir um link sem navegador) com um aviso. Hoje é o \"navegador padrão\".",
+"q": "Apps que tentam abrir link podem fechar sozinhos.",
+"r": "cuidado"
+},
+"com.android.tv.settings": {
+"d": "As Configurações da TV.",
+"q": "Sem ela não dá para mexer em Wi-Fi, controle, contas nem nas opções do desenvolvedor.",
+"r": "essencial"
+},
+"com.android.vending": {
+"d": "A Google Play Store.",
+"q": "Não dá mais para instalar nem atualizar apps pela loja. Apps que conferem a compra pela Play podem reclamar.",
+"r": "cuidado"
+},
+"com.android.virtualmachine.res": {
+"d": "Recursos de máquina virtual. Esta TV não usa.",
+"q": "Nada.",
+"r": "seguro"
+},
+"com.android.vpndialogs": {
+"d": "As telas de confirmação de VPN.",
+"q": "A VPN sempre ativa continua. Ligar outra VPN pela primeira vez pode falhar.",
+"r": "cuidado"
+},
+"com.android.wallpaperbackup": {
+"d": "Backup do papel de parede do sistema.",
+"q": "Nada (o launcher usa os fundos próprios).",
+"r": "seguro"
+},
+"com.droidlogic": {
+"d": "Serviços do processador da TV (Amlogic): HDMI, vídeo e áudio.",
+"q": "Imagem, som ou HDMI podem parar.",
+"r": "essencial"
+},
+"com.google.android.adservices.api": {
+"d": "Privacy Sandbox: anúncios personalizados feitos no próprio aparelho.",
+"q": "Nenhum app conhecido desta TV depende dele (não testado). É parte de um módulo do sistema.",
+"r": "cuidado"
+},
+"com.google.android.apps.education.cast2class": {
+"d": "Cast moderator: transmissão em sala de aula (Google para educação).",
+"q": "Nada em casa.",
+"r": "seguro"
+},
+"com.google.android.apps.mediashell": {
+"d": "O Google Cast: recebe o que você transmite do celular ou do computador.",
+"q": "Não dá mais para transmitir do celular para a TV.",
+"r": "cuidado"
+},
+"com.google.android.apps.tv.dreamx": {
+"d": "O Modo ambiente do Google (o protetor de tela dele). Fica oculto pelo launcher, que usa o protetor próprio.",
+"q": "Nada: o launcher o mantém oculto.",
+"r": "seguro"
+},
+"com.google.android.apps.tv.launcherx": {
+"d": "O launcher do Google TV. Não é a tela inicial (a tela inicial é este launcher), mas o Gemini, a página de filmes da busca e o painel do Google moram nele.",
+"dep": [
+"Gemini",
+"Busca de filmes",
+"Painel do Google"
+],
+"q": "O Gemini, a página de filmes, o painel de notificações e o seletor de contas quebram (medido em 04/11/2026).",
+"r": "essencial"
+},
+"com.google.android.apps.tv.netoscope": {
+"d": "O diagnóstico de conectividade das Configurações.",
+"q": "Só a tela de diagnóstico de rede some.",
+"r": "seguro"
+},
+"com.google.android.backdrop": {
+"d": "As fotos e a arte do Modo ambiente do Google.",
+"q": "Nada, com o protetor do launcher.",
+"r": "seguro"
+},
+"com.google.android.bluetooth": {
+"d": "O Bluetooth. O controle remoto se conecta por ele.",
+"q": "O controle remoto Bluetooth para de funcionar.",
+"r": "essencial"
+},
+"com.google.android.captiveportallogin": {
+"d": "A tela de login de Wi-Fi de hotel ou de aeroporto.",
+"q": "Só faz falta em Wi-Fi com página de login.",
+"r": "seguro"
+},
+"com.google.android.chromecast.chromecastservice": {
+"d": "O serviço do Chromecast: HDMI-CEC (ligar a TV e mexer no volume pelo controle), modo de espera e atualização do sistema.",
+"q": "O controle deixa de ligar a TV e de mexer no volume, e as atualizações param.",
+"r": "essencial"
+},
+"com.google.android.chromecast.setupcustomization": {
+"d": "Personalização da configuração inicial do Chromecast.",
+"q": "Nada depois de configurado.",
+"r": "seguro"
+},
+"com.google.android.configupdater": {
+"d": "Atualiza listas de segurança do sistema (certificados, fusos horários).",
+"q": "A TV deixa de receber essas atualizações de segurança.",
+"r": "cuidado"
+},
+"com.google.android.connectivity.resources": {
+"d": "Textos e ajustes do módulo de rede.",
+"q": "A rede pode se comportar mal.",
+"r": "essencial"
+},
+"com.google.android.devicelockcontroller": {
+"d": "Bloqueio de aparelho comprado a prazo (financiado).",
+"q": "Nada.",
+"r": "seguro"
+},
+"com.google.android.ext.adservices.api": {
+"d": "Versão antiga do Privacy Sandbox de anúncios.",
+"q": "Igual ao de cima: provavelmente nada visível (não testado).",
+"r": "cuidado"
+},
+"com.google.android.ext.services": {
+"d": "Serviços internos do Android (organização das notificações e outros).",
+"q": "O sistema pode ficar instável.",
+"r": "essencial"
+},
+"com.google.android.ext.shared": {
+"d": "Uma biblioteca de código que o sistema e alguns apps carregam.",
+"q": "Apps que usam a biblioteca deixam de abrir.",
+"r": "essencial"
+},
+"com.google.android.gms": {
+"d": "Google Play Services: contas Google, localização, notificações e segurança. Quase todo app do Google e muitos outros dependem dele.",
+"dep": [
+"Quase todos os apps do Google"
+],
+"q": "Contas, YouTube, Play Store, Google Cast e a busca param.",
+"r": "essencial"
+},
+"com.google.android.gsf": {
+"d": "A estrutura dos Serviços do Google (contas e sincronização). Anda junto com o Google Play Services.",
+"q": "As contas Google e a sincronização param.",
+"r": "essencial"
+},
+"com.google.android.hotspot2.osulogin": {
+"d": "Login de redes Wi-Fi Passpoint (de operadora).",
+"q": "Nada em casa.",
+"r": "seguro"
+},
+"com.google.android.inputmethod.latin": {
+"d": "Gboard, o teclado da tela.",
+"q": "A TV fica sem teclado para digitar senhas e buscas.",
+"r": "essencial"
+},
+"com.google.android.katniss": {
+"d": "O app Google: a busca por voz e o Assistente.",
+"dep": [
+"Botão do microfone do controle",
+"Gemini"
+],
+"q": "A busca por voz e o Gemini param.",
+"r": "cuidado"
+},
+"com.google.android.marvin.talkback": {
+"d": "TalkBack e as demais ferramentas de acessibilidade do Google (leitor de tela). O serviço de teclas deste launcher é outro.",
+"q": "Só faz falta para quem usa leitor de tela.",
+"r": "seguro"
+},
+"com.google.android.modulemetadata": {
+"d": "Informa ao sistema quais partes dele se atualizam pela Play Store.",
+"q": "As atualizações de módulos do sistema podem parar.",
+"r": "cuidado"
+},
+"com.google.android.nearby.halfsheet": {
+"d": "As janelinhas do Compartilhamento por proximidade e do pareamento rápido.",
+"q": "Pareamento rápido de fones pode deixar de oferecer a janela.",
+"r": "seguro"
+},
+"com.google.android.networkstack": {
+"d": "O gerenciador de rede: conexão Wi-Fi, IP e checagem de internet.",
+"q": "A TV perde a rede.",
+"r": "essencial"
+},
+"com.google.android.networkstack.tethering": {
+"d": "Módulo de rede do sistema (compartilhamento de conexão e partes da pilha de rede).",
+"q": "Partes da rede podem parar.",
+"r": "essencial"
+},
+"com.google.android.onetimeinitializer": {
+"d": "Ajustes que rodam uma vez só, na primeira inicialização.",
+"q": "Nada.",
+"r": "seguro"
+},
+"com.google.android.packageinstaller": {
+"d": "O instalador de apps.",
+"q": "Não dá mais para instalar, atualizar nem desinstalar apps.",
+"r": "essencial"
+},
+"com.google.android.partnersetup": {
+"d": "Ajustes do fabricante ou parceiro (ex.: busca padrão).",
+"q": "Nada visível.",
+"r": "seguro"
+},
+"com.google.android.permissioncontroller": {
+"d": "O controle de permissões: as telas de \"permitir ou negar\" e as regras por trás delas.",
+"q": "As permissões dos apps param de funcionar direito.",
+"r": "essencial"
+},
+"com.google.android.providers.media.module": {
+"d": "Mídia: o índice de fotos, vídeos e músicas da memória interna.",
+"q": "Apps de mídia e a aba Arquivos deste painel ficam sem acesso aos arquivos.",
+"r": "essencial"
+},
+"com.google.android.rkpdapp": {
+"d": "Gera as chaves de segurança do aparelho, usadas pela proteção de vídeo (DRM) e pela verificação de integridade.",
+"q": "Netflix, Prime Video e outros podem cair para qualidade baixa ou deixar de abrir.",
+"r": "essencial"
+},
+"com.google.android.safetycenter.resources": {
+"d": "Textos da Central de segurança.",
+"q": "Telas de segurança das Configurações podem ficar sem texto.",
+"r": "cuidado"
+},
+"com.google.android.sdksandbox": {
+"d": "A \"caixa de areia\" onde rodam os códigos de anúncio dos apps.",
+"q": "Provavelmente nada visível (não testado).",
+"r": "cuidado"
+},
+"com.google.android.syncadapters.calendar": {
+"d": "Sincroniza o Google Agenda com a TV.",
+"dep": [
+"Calendário do launcher"
+],
+"q": "O calendário deste launcher para de receber eventos novos.",
+"r": "cuidado"
+},
+"com.google.android.tts": {
+"d": "O reconhecimento e a síntese de voz do Google.",
+"dep": [
+"Busca por voz"
+],
+"q": "A busca por voz e a leitura em voz alta param.",
+"r": "cuidado"
+},
+"com.google.android.tungsten.setupwraith": {
+"d": "O assistente de configuração inicial. Já vem desativado.",
+"q": "Nada: só roda na primeira configuração.",
+"r": "seguro"
+},
+"com.google.android.tv.axel": {
+"d": "O serviço de infravermelho: o controle liga e desliga a TV e muda o volume e a entrada por infravermelho.",
+"q": "Os botões de TV do controle (ligar, volume, entrada) param.",
+"r": "essencial"
+},
+"com.google.android.tv.dfuservice": {
+"d": "Atualiza o firmware do controle remoto.",
+"q": "O controle deixa de receber atualizações. O uso continua normal.",
+"r": "cuidado"
+},
+"com.google.android.tv.remote.service": {
+"d": "Deixa o app Google TV do celular funcionar como controle remoto.",
+"q": "O celular deixa de controlar a TV.",
+"r": "cuidado"
+},
+"com.google.android.tvlauncher": {
+"d": "Restos do launcher antigo do Android TV, mantidos para compatibilidade.",
+"q": "Apps antigos que chamam o launcher antigo podem falhar.",
+"r": "cuidado"
+},
+"com.google.android.uwb.resources": {
+"d": "Recursos de banda ultralarga (UWB). A TV não tem UWB.",
+"q": "Nada.",
+"r": "seguro"
+},
+"com.google.android.videos": {
+"d": "Google Play Filmes (a loja de filmes do Google TV).",
+"q": "Só ele some.",
+"r": "seguro"
+},
+"com.google.android.webview": {
+"d": "O WebView: o motor de páginas da web que aparece dentro dos apps, como telas de login e de ajuda.",
+"q": "Telas de login e páginas dentro de vários apps ficam em branco ou fecham o app.",
+"r": "essencial"
+},
+"com.google.android.wifi.dialog": {
+"d": "As janelas de aviso do Wi-Fi.",
+"q": "Avisos de Wi-Fi deixam de aparecer.",
+"r": "cuidado"
+},
+"com.google.android.wifi.resources": {
+"d": "Textos e ajustes do Wi-Fi.",
+"q": "O Wi-Fi pode se comportar mal.",
+"r": "essencial"
+},
+"com.google.android.youtube.tv": {
+"d": "YouTube. O botão YouTube do controle abre ele.",
+"q": "Só ele some, e o botão YouTube fica sem app.",
+"r": "seguro"
+},
+"com.google.android.youtube.tvmusic": {
+"d": "YouTube Music.",
+"q": "Só ele some.",
+"r": "seguro"
+},
+"com.netflix.ninja": {
+"d": "Netflix. O botão Netflix do controle abre ele.",
+"q": "Só ele some, e o botão Netflix fica sem app.",
+"r": "seguro"
+},
+"com.onestream.player": {
+"d": "1-Stream: player de listas de canais (IPTV).",
+"q": "Só ele some.",
+"r": "seguro"
+},
+"com.sugarapple.workout": {
+"d": "Home Workout: treinos em casa.",
+"q": "Só ele some.",
+"r": "seguro"
+},
+"pl.solidexplorer2": {
+"d": "Solid Explorer: gerenciador de arquivos.",
+"q": "Só ele some.",
+"r": "seguro"
+}
+}

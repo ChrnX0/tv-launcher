@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Chromecast</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Painel servido pelo próprio launcher (PainelWeb.kt). Sem script inline: a CSP do servidor proíbe. -->
+
+  <!-- Entrar com o PIN -->
+  <section id="telaEntrar" class="entrar" hidden>
+    <form id="formEntrar" class="cartao-entrar" autocomplete="off">
+      <h1>Chromecast</h1>
+      <p class="aviso">Digite o PIN definido nas Configurações do launcher, na TV.</p>
+      <p id="avisoEntrar" class="aviso-ok" hidden></p>
+      <input id="campoPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+             autocomplete="off" aria-label="PIN" placeholder="PIN" required>
+      <button type="submit" class="botao-primario" id="btnEntrar">Entrar</button>
+      <p id="erroEntrar" class="erro" hidden></p>
+    </form>
+  </section>
+
+  <!-- Painel -->
+  <div id="telaPainel" hidden>
+    <header>
+      <div>
+        <h1 id="nomeAparelho">Chromecast</h1>
+        <p id="naTela" class="aviso-curto"></p>
+        <p id="outrasTvs" class="aviso-curto" hidden></p>
+      </div>
+      <button id="btnSair" class="botao-secundario">Sair</button>
+    </header>
+    <nav class="abas">
+      <button class="aba ativa" data-aba="apps">Aplicativos</button>
+      <button class="aba" data-aba="controle">Controle</button>
+      <button class="aba" data-aba="arquivos">Arquivos</button>
+      <button class="aba" data-aba="roteador">Roteador</button>
+      <button class="aba" data-aba="backup">Backup</button>
+      <button class="aba" data-aba="registro">Acessos</button>
+    </nav>
+
+    <section id="abaApps" class="painel-aba">
+      <div class="barra-acoes">
+        <input id="busca" type="search" placeholder="Procurar app" aria-label="Procurar app">
+        <label class="marcar"><input id="mostrarSistema" type="checkbox" checked> apps do sistema</label>
+        <label class="botao-primario" for="arquivoApk">Instalar APK…</label>
+        <input type="file" id="arquivoApk" accept=".apk,application/vnd.android.package-archive" hidden>
+      </div>
+      <p id="contagemApps" class="aviso-curto"></p>
+      <p id="statusApps" class="aviso" hidden></p>
+      <div id="listaApps" class="lista-apps"></div>
+    </section>
+
+    <section id="abaControle" class="painel-aba" hidden>
+      <div class="tela-tv">
+        <img id="fotoTela" alt="Tela da TV" hidden>
+        <div id="semFoto" class="sem-foto">Carregando a tela…</div>
+        <p id="statusTela" class="aviso-curto"></p>
+      </div>
+      <div class="controle">
+        <div class="dpad">
+          <span></span><button data-tecla="cima" aria-label="Cima">▲</button><span></span>
+          <button data-tecla="esquerda" aria-label="Esquerda">◀</button><button data-tecla="ok" class="ok">OK</button><button data-tecla="direita" aria-label="Direita">▶</button>
+          <span></span><button data-tecla="baixo" aria-label="Baixo">▼</button><span></span>
+        </div>
+        <div class="teclas">
+          <button data-tecla="voltar">Voltar</button><button data-tecla="inicio">Início</button><button data-tecla="menu">Menu</button>
+          <button data-tecla="retroceder" aria-label="Retroceder">⏪</button><button data-tecla="play" aria-label="Tocar ou pausar">⏯</button><button data-tecla="avancar" aria-label="Avançar">⏩</button>
+          <button data-tecla="volume-">Vol −</button><button data-tecla="volume+">Vol +</button><button data-tecla="mudo">Mudo</button>
+          <button data-tecla="ligar">Acordar</button><button data-tecla="apagar">Dormir</button><button id="btnReiniciarTv" class="botao-perigo">Reiniciar TV</button>
+        </div>
+        <form id="formTexto" class="form-pasta" autocomplete="off">
+          <input id="campoTexto" type="text" maxlength="100" placeholder="Digitar na TV (sem acento)" aria-label="Texto para digitar na TV">
+          <button type="submit" class="botao-secundario">Enviar</button>
+          <button type="button" data-tecla="apagar_letra" class="botao-secundario">⌫</button>
+        </form>
+        <form id="formRecado" class="recado" autocomplete="off">
+          <label for="campoRecado"><strong>Recado na TV</strong> — aparece por cima de qualquer app</label>
+          <textarea id="campoRecado" maxlength="200" rows="2" placeholder="Ex.: O jantar está pronto!"></textarea>
+          <div class="recado-opcoes">
+            <select id="duracaoRecado" aria-label="Quanto tempo fica na tela">
+              <option value="30">30 s na tela</option><option value="60" selected>1 min na tela</option><option value="300">5 min na tela</option>
+            </select>
+            <label><input id="somRecado" type="checkbox" checked> com bipe</label>
+            <button type="submit">Mandar recado</button>
+          </div>
+        </form>
+        <p class="aviso-curto">Voltar e Início respondem na hora; as outras teclas levam cerca de 1 s.</p>
+        <p id="statusControle" class="aviso" hidden></p>
+      </div>
+    </section>
+
+    <section id="abaArquivos" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <nav id="trilha" class="trilha" aria-label="Pasta atual"></nav>
+      </div>
+      <div class="barra-acoes">
+        <label class="botao-primario" for="arquivosEnviar">Enviar arquivos…</label>
+        <input type="file" id="arquivosEnviar" multiple hidden>
+        <form id="formPasta" class="form-pasta" autocomplete="off">
+          <input id="nomePasta" type="text" maxlength="200" placeholder="Nova pasta" aria-label="Nome da nova pasta">
+          <button type="submit" class="botao-secundario">Criar</button>
+        </form>
+      </div>
+      <p id="espacoArquivos" class="aviso-curto"></p>
+      <p id="statusArquivos" class="aviso" hidden></p>
+      <div id="listaArquivos" class="lista-apps"></div>
+    </section>
+
+    <section id="abaRoteador" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Roteador UniFi</h2>
+        <p class="aviso">Só leitura: a TV vê os aparelhos conectados e se o roteador responde. Ela não bloqueia nem muda nada no roteador.
+          A chave fica cifrada na TV e nunca volta para esta página (só os 4 últimos caracteres).</p>
+        <form id="formRoteador" class="form-roteador" autocomplete="off">
+          <label for="campoEnderecoRoteador">Endereço do roteador na rede de casa</label>
+          <input id="campoEnderecoRoteador" type="text" inputmode="decimal" maxlength="21" placeholder="ex.: 192.168.0.1">
+          <label for="campoChaveRoteador">Chave de API <span id="chaveAtualRoteador" class="aviso-curto"></span></label>
+          <input id="campoChaveRoteador" type="password" maxlength="200" autocomplete="off"
+                 placeholder="criada no UniFi em Configurações → Integrações">
+          <button type="submit" class="botao-primario">Salvar</button>
+        </form>
+        <p class="aviso-curto">Trocar o endereço apaga a chave e o certificado guardados (é preciso colar a chave de novo).</p>
+        <p id="statusRoteador" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Certificado do roteador</h2>
+        <p class="aviso">O roteador usa um certificado próprio. A TV só fala com ele depois de você conferir a impressão digital:
+          abra https://&lt;endereço do roteador&gt; no computador, clique no cadeado e compare com a SHA-256 abaixo.</p>
+        <p id="certAtualRoteador" class="impressao"></p>
+        <button type="button" class="botao-secundario" id="btnLerCert">Ler o certificado</button>
+        <div id="certNovoRoteador" hidden>
+          <p id="certNovoTexto" class="impressao"></p>
+          <button type="button" class="botao-primario" id="btnConfiarCert">É esse: confiar</button>
+        </div>
+      </div>
+      <div class="cartao">
+        <h2>Ligar</h2>
+        <label><input id="chkRoteadorLigado" type="checkbox"> Ler o roteador</label><br>
+        <label><input id="chkRoteadorAviso" type="checkbox"> Recado na TV quando aparecer um aparelho nunca visto (confere a cada 5 min)</label>
+        <p id="infoConhecidos" class="aviso-curto"></p>
+        <button type="button" class="link" id="btnEsquecerRoteador">Esquecer o roteador (apaga endereço, chave e lista)</button>
+      </div>
+      <div class="cartao">
+        <div class="cabeca-modal">
+          <h2>Wi-Fi da TV</h2>
+          <button type="button" class="botao-secundario" id="btnWifiTv">Diagnosticar</button>
+        </div>
+        <p class="aviso-curto">Sinal, banda e velocidade medidos pela própria TV; ponto de acesso, canal e retransmissões vêm do roteador.
+          Nada é mudado no roteador: as dicas dizem o que ajustar no app do UniFi.</p>
+        <p id="estadoWifiTv" class="aviso"></p>
+        <ul id="dicasWifiTv" class="dicas"></ul>
+        <button type="button" class="botao-secundario" id="btnReconectarTv">Reconectar a TV…</button>
+        <p class="aviso-curto">Pede ao roteador para tirar a TV do Wi-Fi por alguns segundos: ela volta sozinha e escolhe de novo o melhor
+          ponto de acesso. Só acontece depois de alguém apertar OK no controle da TV.</p>
+        <p id="statusReconectar" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <div class="cabeca-modal">
+          <h2>Aparelhos conectados</h2>
+          <button type="button" class="botao-secundario" id="btnAtualizarAparelhos">Atualizar</button>
+        </div>
+        <p id="estadoRoteador" class="aviso"></p>
+        <div id="listaAparelhos" class="lista-registro"></div>
+      </div>
+    </section>
+
+    <section id="abaBackup" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Baixar backup</h2>
+        <p class="aviso">Ordem dos apps, tema, alarmes, DNS e as demais configurações do launcher, num arquivo JSON. O PIN não vai junto.</p>
+        <button type="button" class="botao-primario" id="btnBaixar">Baixar agora</button>
+        <p id="statusBaixar" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Restaurar</h2>
+        <p class="aviso">Substitui as configurações da TV pelas do arquivo e reinicia o launcher. O estado de antes fica guardado:
+          <button type="button" class="link" id="btnBaixarAnterior">baixar o de antes da última restauração</button>.</p>
+        <label class="botao-secundario" for="arquivoBackup">Escolher arquivo…</label>
+        <input type="file" id="arquivoBackup" accept=".json,application/json" hidden>
+        <p id="statusBackup" class="aviso" hidden></p>
+      </div>
+    </section>
+
+    <section id="abaRegistro" class="painel-aba" hidden>
+      <div id="listaRegistro" class="lista-registro"></div>
+    </section>
+  </div>
+
+  <!-- Confirmar uma ação sem volta: texto + (se preciso) o PIN de novo -->
+  <div id="modal" class="modal" hidden>
+    <form id="formModal" class="modal-conteudo" autocomplete="off">
+      <h2 id="tituloModal"></h2>
+      <p id="textoModal" class="aviso"></p>
+      <input id="pinModal" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+             autocomplete="off" aria-label="PIN" placeholder="PIN" hidden>
+      <p id="progressoModal" class="aviso-ok" hidden></p>
+      <p id="erroModal" class="erro" hidden></p>
+      <div class="botoes-modal">
+        <button type="button" id="btnCancelarModal" class="botao-secundario">Cancelar</button>
+        <button type="submit" id="btnOkModal" class="botao-perigo">Confirmar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Permissões de um app -->
+  <div id="modalPerm" class="modal" hidden>
+    <div class="modal-conteudo modal-largo">
+      <div class="cabeca-modal">
+        <h2 id="tituloPerm"></h2>
+        <button type="button" id="btnFecharPerm" class="botao-secundario">Fechar</button>
+      </div>
+      <p id="avisoPerm" class="aviso"></p>
+      <p id="statusPerm" class="aviso" hidden></p>
+      <div id="listaPerm" class="lista-perm"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

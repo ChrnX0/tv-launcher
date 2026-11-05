@@ -13,12 +13,12 @@ import android.util.Log
  * sem alto-falante nenhum), enquanto a MÍDIA sai pelo HDMI (volume 7). Por isso o bipe antigo saía mudo.
  */
 object SomAlarme {
-    val NOMES = listOf("Suave", "Clássico", "Sino")
+    val NOMES: List<String> get() = listOf(txt(R.string.som_suave), txt(R.string.som_classico), txt(R.string.som_sino))
     private val ARQUIVOS = listOf("alarmes/suave.wav", "alarmes/classico.wav", "alarmes/sino.wav")
 
     /** Rampa de volume: segundos para ir do mínimo ao máximo (0 = já toca no máximo). */
     val RAMPAS = listOf(0, 60, 120)
-    fun rampaTexto(seg: Int) = when (seg) { 0 -> "Direto"; 60 -> "Sobe em 1 min"; else -> "Sobe em 2 min" }
+    fun rampaTexto(seg: Int) = when (seg) { 0 -> txt(R.string.som_direto); 60 -> txt(R.string.som_rampa1); else -> txt(R.string.som_rampa2) }
 
     /** Cria o player em loop, ainda não iniciado (chame start()). null se o arquivo falhar. */
     fun criar(ctx: Context, som: Int): MediaPlayer? = try {

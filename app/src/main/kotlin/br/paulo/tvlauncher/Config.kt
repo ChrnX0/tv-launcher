@@ -5,15 +5,18 @@ package br.paulo.tvlauncher
  * Depois de editar, é só recompilar e reinstalar o APK.
  */
 object Config {
-    // --- Clima (Open-Meteo). Ao se mudar para a Flórida: troque cidade, latitude, longitude e USAR_FAHRENHEIT.
-    const val CIDADE = "Ribeirão Preto"
-    const val LATITUDE = -21.1775
-    const val LONGITUDE = -47.8103
-    const val USAR_FAHRENHEIT = false
+    // --- Clima (Open-Meteo). Os dados pessoais (cidade, coordenadas, unidade, estação) NÃO ficam mais aqui, porque o
+    //     repositório é público (05/11/2026): vêm do pessoal.properties da raiz do repo (fora do git), pela classe
+    //     BuildConfig que o Gradle gera. Sem o arquivo: sem cidade, coordenadas 0/0, Celsius, estação automática.
+    //     Para mudar: edite o pessoal.properties (modelo em pessoal.properties.exemplo) e recompile.
+    val CIDADE: String = BuildConfig.CIDADE
+    val LATITUDE: Double = BuildConfig.LATITUDE
+    val LONGITUDE: Double = BuildConfig.LONGITUDE
+    val USAR_FAHRENHEIT: Boolean = BuildConfig.USAR_FAHRENHEIT
     // A localização de verdade vem da própria TV (Wi-Fi do Android, depois IP; ver Localizacao.kt). LATITUDE/LONGITUDE
     // acima só valem se as duas falharem. A estação de medição (aeroporto) é escolhida sozinha: a mais perto.
-    // Para FIXAR uma, ponha o código ICAO aqui (ex.: "SBRP"); "" = automático.
-    const val ESTACAO_METAR = ""
+    // Para FIXAR uma, ponha o código ICAO em estacao_metar no pessoal.properties; vazio = automático.
+    val ESTACAO_METAR: String = BuildConfig.ESTACAO_METAR
     // Minutos depois do PÔR do sol real (calculado por Astronomia.nascerEPor, não o "is_day" da Open-Meteo) em que
     // o ícone ainda considera "dia". A Open-Meteo marca noite no instante exato do pôr, sem contar o crepúsculo
     // civil (a claridade que sobra no céu depois). Flagrado em 03/11/2026 às 18:38: pôr às 18:24, ícone já de lua,
@@ -28,16 +31,14 @@ object Config {
     //   2º se ORDENAR_POR_USO_RECENTE = true, o que você usou mais recentemente;
     //   3º a ordem da lista ORDEM; 4º ordem alfabética.
     //   Se voce reorganizar na TV (segurar OK num app), a ordem SALVA vence tudo isto; use a seta para baixo no modo de mover para voltar ao automatico.
-    val FIXOS = listOf("com.onestream.player")
+    // FIXOS e ORDEM vêm do pessoal.properties (apps_fixos / apps_ordem, pacotes separados por vírgula). Sem o arquivo:
+    // nenhum fixo, e a ordem padrão YouTube, YouTube Music, Netflix, Play Store (ver app/build.gradle.kts).
+    val FIXOS: List<String> = listaDe(BuildConfig.APPS_FIXOS)
     const val ORDENAR_POR_USO_RECENTE = true
-    val ORDEM = listOf(
-        "com.onestream.player",
-        "com.google.android.youtube.tv",
-        "com.google.android.youtube.tvmusic",
-        "com.amazon.amazonvideo.livingroom",
-        "pl.solidexplorer2",
-        "com.android.vending",
-    )
+    val ORDEM: List<String> = listaDe(BuildConfig.APPS_ORDEM)
+
+    /** "a, b,c" -> [a, b, c]; texto vazio -> lista vazia. */
+    private fun listaDe(csv: String) = csv.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
     // --- Pacote das Configurações do sistema (abre pelo menu da bolinha do perfil, no canto superior direito).
     const val PACOTE_CONFIG = "com.android.tv.settings"
@@ -56,7 +57,7 @@ object Config {
     const val FIXAR_PROTETOR = true
     // Shell proprio (ver ShellProprio.kt) MARCO 1: so loga a chave do app e a porta do adb descoberta por mDNS. Diagnostico.
     // false desde 04/11/2026: quem conecta agora e o GuardiaoShizuku; o diagnostico ligava 2 buscas mDNS a cada onCreate
-    // (inclusive na troca de tema) e listava aparelhos de outros (192.168.1.159) no log.
+    // (inclusive na troca de tema) e listava aparelhos de outros da rede no log.
     const val SHELL_PROPRIO_DIAG = false
     // Shizuku embutido (MARCO S3, ver GuardiaoShizuku.kt): true = o launcher sobe o servidor do Shizuku sozinho (no boot e
     // ao abrir) e o religa se cair. false = so sobe por adb (PAREAR) ou pelo OK em Configuracoes > Shizuku do launcher.
@@ -70,7 +71,10 @@ object Config {
     //  - SOB_DEMANDA (padrão): sobe quando um app que pede o Shizuku (uses-permission API_V23) vai para a frente, e
     //    desce depois de 5 min sem nenhum deles na frente (ver ShizukuSobDemanda.kt).
     //  - SEMPRE: sobe no boot e o vigia religa se cair (o comportamento antigo do "ativo").
-    enum class ModoShizuku(val rotulo: String) { DESLIGADO("desligado"), SOB_DEMANDA("sob demanda"), SEMPRE("sempre ligado") }
+    enum class ModoShizuku(private val id: Int) {
+        DESLIGADO(R.string.shz_modo_desligado), SOB_DEMANDA(R.string.shz_modo_sob), SEMPRE(R.string.shz_modo_sempre);
+        val rotulo: String get() = txt(id)   // no idioma da TV
+    }
     fun modoShizuku(ctx: android.content.Context): ModoShizuku {
         val p = ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
         p.getString("shizuku_modo", null)?.let { s -> ModoShizuku.values().firstOrNull { it.name == s }?.let { return it } }
@@ -93,6 +97,11 @@ object Config {
     // A causa ainda não foi investigada. Pista: o AdGuard VPN tinha sido atualizado pela Play Store em 03/11, 13:58.
     // Antes de pôr um pacote aqui de novo, resolver isso (ex.: o 1-Stream nas exclusões do app de VPN).
     const val VPN_FIXA = ""
+    // Atualização automática pelo GitHub Releases (Atualizador.kt, 05/11/2026). Só instala APK do MESMO pacote e assinado
+    // com a MESMA chave do launcher instalado; numa TV atualizada pelo PC (chave própria) o Release é sempre recusado.
+    // Num fork: troque o repositório para o seu.
+    const val ATUALIZACAO_AUTOMATICA = true
+    const val ATUALIZACAO_REPO = "ChrnX0/tv-launcher"
     // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).
@@ -116,6 +125,14 @@ object Config {
     val PERMISSOES_FIXAS = listOf("android.permission.READ_CALENDAR", "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.GET_ACCOUNTS")
 
+    // --- Painel no navegador (PainelWeb.kt): liga/desliga e PIN em Configurações do launcher > Painel no navegador.
+    // Porta: abaixo de 1024 (ex.: 80) o Android não deixa um app abrir (medido na TV em 04/11/2026), por isso 8080.
+    const val PAINEL_PORTA = 8080
+    // Nomes aceitos no cabeçalho Host, além do IP da TV. São os que um registro de DNS local no roteador (UniFi UX7)
+    // pode dar: "chromecast" e as variações com o domínio da rede.
+    // Um nome fora desta lista é recusado (barreira contra "DNS rebinding"). Para outro nome, acrescente aqui.
+    val PAINEL_NOMES = setOf("chromecast", "chromecast.lan", "chromecast.local", "chromecast.localdomain", "chromecast.home.arpa")
+
     // --- Depuração sem fio (adb pela rede, usado pelo computador para instalar e testar): true = o launcher a LIGA de novo
     //     sozinho quando a TV reinicia e sempre que abre, se o Android a tiver desligado. Custo: com ela ligada, a TV deixa uma porta de adb
     //     aberta na rede (só aceita computadores já pareados, com chave). false = fica como o Android deixar (ver Privilegio.religarDepuracaoSemFio).
@@ -130,16 +147,19 @@ object Config {
     const val REDE_A_CADA_SEG = 30L
     const val ECLIPSE_A_CADA_SEG = 60L   // so importa durante um eclipse solar: a lua anda no icone a cada tanto
 
-    // --- Eclipses solares visíveis daqui (todos parciais). O ícone do clima só vira "sol coberto pela lua" dentro
-    //     destes horários, com a cobertura do momento; fora deles nunca aparece. Fonte: timeanddate.com/eclipse/in/brazil/ribeirao-preto
-    //     Horários em UTC (Brasília + 3 h): 1º contato, máximo, último contato; depois a magnitude (fração do diâmetro coberta).
-    //     A tabela termina em 2034. Em outra cidade, troque as linhas (sem linhas, nunca aparece eclipse).
-    val ECLIPSES_SOLARES = listOf(
-        EclipseSolar("2027-02-06T14:34:50Z", "2027-02-06T16:25:17Z", "2027-02-06T18:02:41Z", 0.778),
-        EclipseSolar("2028-01-26T13:08:24Z", "2028-01-26T14:32:31Z", "2028-01-26T15:58:05Z", 0.330),
-        EclipseSolar("2032-05-09T11:51:25Z", "2032-05-09T12:18:47Z", "2032-05-09T12:47:31Z", 0.055),
-        EclipseSolar("2034-09-12T15:47:18Z", "2034-09-12T17:26:12Z", "2034-09-12T18:52:30Z", 0.694),
-    )
+    // --- Eclipses solares visíveis da SUA cidade. O ícone do clima só vira "sol coberto pela lua" dentro destes
+    //     horários, com a cobertura do momento; fora deles nunca aparece. Como depende da cidade, a tabela vem do
+    //     pessoal.properties (chave eclipses; formato e exemplo em pessoal.properties.exemplo). Fonte sugerida:
+    //     timeanddate.com/eclipse/in/<país>/<cidade>. Sem a chave (ou com ela vazia), nunca aparece eclipse.
+    //     Cada eclipse: 1º contato, máximo, último contato (UTC, ISO-8601) e a magnitude (fração do diâmetro coberta).
+    val ECLIPSES_SOLARES: List<EclipseSolar> = eclipsesDe(BuildConfig.ECLIPSES)
+
+    /** "ini,max,fim,mag; ini,max,fim,mag" -> lista. Um item malformado é ignorado (não derruba o launcher). */
+    internal fun eclipsesDe(texto: String): List<EclipseSolar> = texto.split(';').mapNotNull { item ->
+        val c = item.split(',').map { it.trim() }
+        if (c.size != 4) return@mapNotNull null
+        try { EclipseSolar(c[0], c[1], c[2], c[3].toDouble()) } catch (e: Exception) { null }
+    }
 
     // --- Qualidade da rede: o ícone de Wi-Fi do menu do perfil fica verde, amarelo ou vermelho conforme
     //     estes limites. A cor segue a PIOR das três medidas (sinal, latência, velocidade do enlace).

@@ -68,7 +68,7 @@ class DnsActivity : Activity() {
             background = resources.getDrawable(R.drawable.fundo, theme)
             setPadding(dp(96), dp(48), dp(96), dp(32))
         }
-        raiz.addView(texto(36f, textoClaro, fonteLeve).apply { text = "DNS privado" })
+        raiz.addView(texto(36f, textoClaro, fonteLeve).apply { text = getString(R.string.cfg_dns) })
         txtStatus = texto(16f, textoSuave).apply { setPadding(0, dp(6), 0, dp(16)); maxLines = 2 }
         raiz.addView(txtStatus)
 
@@ -85,7 +85,7 @@ class DnsActivity : Activity() {
         }
         raiz.addView(rolagem, LinearLayout.LayoutParams(MATCH, 0, 1f))
         raiz.addView(texto(13f, textoSuave).apply {
-            text = "OK: usar   ·   segurar OK em um servidor seu: remover   ·   Voltar: sair"
+            text = getString(R.string.dns_dica)
             setPadding(0, dp(10), 0, 0)
         })
         return raiz
@@ -100,23 +100,23 @@ class DnsActivity : Activity() {
         lista.removeAllViews()
         linhaMarcada = null
 
-        adicionar(linha("Automático", "Usa o DNS do roteador e criptografa quando ele aceitar (padrão do Android)",
+        adicionar(linha(getString(R.string.dns_auto), getString(R.string.dns_auto_det),
             atual.modo == Dns.Modo.AUTOMATICO, { escolher(Dns.Modo.AUTOMATICO, null) }))
-        adicionar(linha("Desligado", "DNS comum, sem criptografia",
+        adicionar(linha(getString(R.string.dns_desl), getString(R.string.dns_desl_det),
             atual.modo == Dns.Modo.DESLIGADO, { escolher(Dns.Modo.DESLIGADO, null) }))
 
-        secao("Servidores públicos")
+        secao(getString(R.string.dns_publicos))
         for (s in Dns.PRESETS) {
             adicionar(linha(s.nome, s.host, emUso(s.host), { escolher(Dns.Modo.HOST, s.host) }))
         }
 
-        secao("Meus servidores")
+        secao(getString(R.string.dns_meus))
         val meus = Dns.salvos(this).filter { s -> Dns.PRESETS.none { it.host.equals(s.host, ignoreCase = true) } }
         for (s in meus) {
             adicionar(linha(s.nome, s.host, emUso(s.host), { escolher(Dns.Modo.HOST, s.host) },
                 aoSegurar = { pedirRemocao(s, emUso(s.host)) }))
         }
-        adicionar(linha("+  Adicionar servidor", "Endereço de DNS sobre TLS, como dns.exemplo.com", false, { dialogoAdicionar() }))
+        adicionar(linha(getString(R.string.dns_adicionar), getString(R.string.dns_adicionar_det), false, { dialogoAdicionar() }))
 
         lista.post { linhaMarcada?.requestFocus() }
         mostrarStatus("")
@@ -177,7 +177,7 @@ class DnsActivity : Activity() {
 
     private fun escolher(modo: Dns.Modo, host: String?) {
         if (!Dns.aplicar(this, modo, host)) {
-            txtStatus.text = "Sem permissão para mudar o DNS. No computador: " +
+            txtStatus.text = getString(R.string.dns_sem_permissao) +
                 "adb shell pm grant br.paulo.tvlauncher android.permission.WRITE_SECURE_SETTINGS"
             return
         }
@@ -188,28 +188,28 @@ class DnsActivity : Activity() {
 
     private fun pedirRemocao(servidor: Dns.Servidor, emUso: Boolean) {
         if (emUso) {
-            mostrarStatus("troque de servidor antes de remover este")
+            mostrarStatus(getString(R.string.dns_troque_antes))
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("Remover ${servidor.nome}?")
+            .setTitle(getString(R.string.dns_remover_q, servidor.nome))
             .setMessage(servidor.host)
-            .setPositiveButton("Remover") { _, _ ->
+            .setPositiveButton(getString(R.string.dns_remover)) { _, _ ->
                 Dns.remover(this, servidor.host)
                 atualizar()
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(getString(R.string.comum_cancelar), null)
             .show()
     }
 
     private fun dialogoAdicionar() {
         val campoNome = EditText(this).apply {
-            hint = "Nome (opcional)"
+            hint = getString(R.string.dns_nome_opc)
             setSingleLine()
             inputType = InputType.TYPE_CLASS_TEXT
         }
         val campoEndereco = EditText(this).apply {
-            hint = "Endereço, ex.: dns.exemplo.com"
+            hint = getString(R.string.dns_endereco_ex)
             setSingleLine()
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
         }
@@ -220,12 +220,12 @@ class DnsActivity : Activity() {
             addView(campoEndereco)
         }
         val dialogo = AlertDialog.Builder(this)
-            .setTitle("Adicionar servidor DNS")
+            .setTitle(getString(R.string.dns_adicionar_tit))
             .setView(caixa)
-            .setPositiveButton("Salvar e usar") { _, _ ->
+            .setPositiveButton(getString(R.string.dns_salvar_usar)) { _, _ ->
                 val host = Dns.normalizar(campoEndereco.text.toString())
                 if (host == null) {
-                    txtStatus.text = "Endereço inválido. Use um nome como dns.exemplo.com (o Android não aceita número de IP)."
+                    txtStatus.text = getString(R.string.dns_invalido)
                     return@setPositiveButton
                 }
                 val nome = campoNome.text.toString().trim().ifEmpty { host }
@@ -233,7 +233,7 @@ class DnsActivity : Activity() {
                 if (Dns.PRESETS.none { it.host == host }) Dns.salvar(this, Dns.Servidor(nome, host))
                 escolher(Dns.Modo.HOST, host)
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(getString(R.string.comum_cancelar), null)
             .create()
         dialogo.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         dialogo.show()
@@ -244,18 +244,18 @@ class DnsActivity : Activity() {
     private fun mostrarStatus(extra: String) {
         val e = Dns.atual(this)
         val em = when (e.modo) {
-            Dns.Modo.AUTOMATICO -> "Automático"
-            Dns.Modo.DESLIGADO -> "Desligado"
+            Dns.Modo.AUTOMATICO -> getString(R.string.dns_auto)
+            Dns.Modo.DESLIGADO -> getString(R.string.dns_desl)
             Dns.Modo.HOST -> Dns.nomeDe(this, e.host.orEmpty()) ?: e.host.orEmpty()
         }
-        txtStatus.text = "Em uso: $em" + if (extra.isNotEmpty()) "   ·   $extra" else ""
+        txtStatus.text = getString(R.string.dns_em_uso, em) + if (extra.isNotEmpty()) "   ·   $extra" else ""
     }
 
     /** Resolve um nome de verdade pela rede e mostra o resultado, sem travar a tela. */
     private fun testar() {
         val minha = ++geracaoTeste
         val modo = Dns.atual(this).modo
-        mostrarStatus("testando…")
+        mostrarStatus(getString(R.string.dns_testando))
         trabalho.execute {
             try {
                 val ms = Dns.testarResolucao(this)
@@ -270,10 +270,10 @@ class DnsActivity : Activity() {
     }
 
     private fun resultado(ms: Long?, situacao: Dns.Situacao, modo: Dns.Modo): String = when {
-        ms == null -> "FALHA: nenhum nome resolveu. Escolha outro servidor ou Automático."
-        modo == Dns.Modo.DESLIGADO -> "resolvendo em $ms ms (sem criptografia)"
-        situacao.tlsAtivo -> "resolvendo em $ms ms   ·   TLS ativo" + (situacao.servidor?.let { " com $it" } ?: "")
-        else -> "resolvendo em $ms ms   ·   sem TLS no momento"
+        ms == null -> getString(R.string.dns_falha)
+        modo == Dns.Modo.DESLIGADO -> getString(R.string.dns_res_sem_cripto, ms)
+        situacao.tlsAtivo -> getString(R.string.dns_res_tls, ms) + (situacao.servidor?.let { getString(R.string.dns_res_com, it) } ?: "")
+        else -> getString(R.string.dns_res_sem_tls, ms)
     }
 
     // ---------------------------------------------------------------- utilidades
