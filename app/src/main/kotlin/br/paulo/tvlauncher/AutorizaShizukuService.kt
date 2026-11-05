@@ -22,6 +22,8 @@ class AutorizaShizukuService : AccessibilityService() {
         // backup, falta de memória), mesmo sem a HOME na frente. Então é daqui que o painel no navegador volta.
         PainelWeb.ajustar(this)
         AvisoChuva.vigiar(this)   // aviso de chuva por cima de qualquer tela (a cada 30 min, só com a tela acesa)
+        HistoricoRede.iniciar(this)   // histórico de rede (para o painel) e o "desligar sozinha": também voltam daqui
+        AutoDesligar.iniciar(this)
     }
     override fun onUnbind(intent: android.content.Intent?): Boolean { instancia = null; return super.onUnbind(intent) }
     override fun onDestroy() { instancia = null; super.onDestroy() }
@@ -47,6 +49,8 @@ class AutorizaShizukuService : AccessibilityService() {
             Log.d("TvLauncher.Tecla", "tecla=${KeyEvent.keyCodeToString(e.keyCode)} (${e.keyCode}) scan=${e.scanCode} " +
                 "acao=${if (e.action == KeyEvent.ACTION_DOWN) "desce" else "sobe"} repete=${e.repeatCount}")
         Rotinas.tecla()   // rotina "desligar se ninguém mexeu há N min" (só grava a hora; ver Rotinas.kt)
+        // Desligar sozinha: toda tecla conta como "alguém está usando"; com o aviso na tela, a tecla só o cancela.
+        if (AutoDesligar.tecla(e)) return true
         if (AvisoTv.teclaVoltar(e)) return true   // VOLTAR com um recado/aviso na tela: fecha o aviso, não o filme
         return BotoesControle.tratar(this, e)
     }

@@ -160,6 +160,18 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaDescanso)
 
+        // Desligar sozinha (AutoDesligar): depois de X min sem ninguém apertar o controle, avisa por 60 s e apaga a TV.
+        fun rotuloDesligar(m: Int) = if (m == 0) "Nunca" else if (m % 60 == 0) "${m / 60} h sem usar" else "$m min sem usar"
+        val ajudaDesligar = "OK muda · avisa 60 s antes; qualquer botão cancela"
+        lateinit var linhaDesligar: TextView
+        linhaDesligar = linha("Desligar a TV: ${rotuloDesligar(AutoDesligar.minutos(this))}", ajudaDesligar) {
+            val o = AutoDesligar.OPCOES
+            val proximo = o[(o.indexOf(AutoDesligar.minutos(this)) + 1) % o.size]
+            AutoDesligar.definir(this, proximo)
+            linhaDesligar.montarLinha("Desligar a TV: ${rotuloDesligar(proximo)}", ajudaDesligar)
+        }
+        adicionar(linhaDesligar)
+
         // ---- Modo visita (ModoVisita.kt): esconde perfil, agenda e os apps marcados abaixo, até desligar.
         // Na HOME, com o modo ligado, o OK na bolinha do perfil oferece "Sair" (o popup não abre).
         secao("Modo visita")
@@ -180,6 +192,16 @@ class ConfigLauncherActivity : Activity() {
         val listaVisita = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         lista.addView(listaVisita, LinearLayout.LayoutParams(MATCH, WRAP))
         carregarAppsDaVisita(listaVisita)
+
+        // ---- Atualização (Atualizador.kt): o launcher confere o GitHub a cada 6 h e instala sozinho com a tela apagada.
+        secao("Atualização")
+        lateinit var linhaAtualiza: TextView
+        linhaAtualiza = linha("Procurar versão nova", "versão ${versaoInstalada()} · ${Atualizador.estado(this)} · OK procura agora") {
+            linhaAtualiza.detalhe("procurando no GitHub…")
+            // OK = a pessoa pediu: instala na hora se houver (o launcher reinicia sozinho no fim).
+            Atualizador.verificar(this, instalar = true) { r -> runOnUiThread { linhaAtualiza.detalhe(r) } }
+        }
+        adicionar(linhaAtualiza)
 
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
@@ -315,6 +337,36 @@ class ConfigLauncherActivity : Activity() {
             }
             adicionar(linhaDesfazer)
         }
+
+        // ---- IA na nuvem (bloco 6, PedidoIa.kt): pedidos em português pelo painel, com a chave Gemini do dono.
+        // Desligada por padrão. LIGAR é só aqui, na TV: o painel cadastra a chave, mas não liga.
+        secao("IA na nuvem")
+        lateinit var linhaIa: TextView
+        lateinit var linhaChaveIa: TextView
+        fun detalheIa(): String = when {
+            IaArmazem.ligada(this) && IaArmazem.temChave(this) -> "ligada · pedidos pelo painel, aba Falar, sempre com confirmação aqui · OK desliga"
+            IaArmazem.ligada(this) -> "ligada, mas falta a chave (cadastre pelo painel) · OK desliga"
+            else -> "desligada · OK liga (só vai para a nuvem a frase pedida e os nomes dos apps)"
+        }
+        linhaIa = linha("IA na nuvem (Gemini)", detalheIa()) {
+            IaArmazem.definirLigada(this, !IaArmazem.ligada(this))
+            linhaIa.detalhe(detalheIa())
+        }
+        adicionar(linhaIa)
+        fun detalheChaveIa() = IaArmazem.finalDaChave(this)?.let { "cadastrada ($it), guardada cifrada · OK apaga" }
+            ?: "nenhuma · cadastre pelo painel no navegador, em Falar"
+        var confirmarApagar = false
+        linhaChaveIa = linha("Chave de API", detalheChaveIa()) {
+            if (!IaArmazem.temChave(this)) return@linha
+            // Dois OKs para apagar: um OK sem querer não perde a chave.
+            if (!confirmarApagar) { confirmarApagar = true; linhaChaveIa.detalhe("OK de novo para APAGAR a chave"); return@linha }
+            confirmarApagar = false
+            IaArmazem.definirChave(this, null)
+            linhaChaveIa.detalhe(detalheChaveIa())
+            linhaIa.detalhe(detalheIa())
+        }
+        adicionar(linhaChaveIa)
+        adicionar(info("Modelo", IaArmazem.modelo(this) + " · troca pelo painel"))
 
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         // Modo sem Device Owner (Recursos.kt): cada poder com ligado/faltando; OK num que falta tenta ligar sem PC.
@@ -492,6 +544,12 @@ class ConfigLauncherActivity : Activity() {
     // ---------------------------------------------------------------- peças
 
     /** Uma linha clicável: título + detalhe, fica clara com foco (igual às linhas do popup e da tela de DNS). */
+    @Suppress("DEPRECATION")
+    private fun versaoInstalada(): Long = try {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+    } catch (e: Exception) { 0L }
+
     private fun linha(titulo: String, detalhe: String, aoClicar: () -> Unit): TextView = TextView(this).apply {
         montarLinha(titulo, detalhe)
         isFocusable = true

@@ -31,6 +31,8 @@ class BootReceiver : BroadcastReceiver() {
         GuardiaoShizuku.garantir(context, "boot")
         PainelWeb.ajustar(context)   // painel no navegador (se ligado): já de pé antes de alguém abrir a HOME
         BackupAutomatico.talvezGravar(context)   // cópia diária das configurações (ver BackupAutomatico.kt)
+        HistoricoRede.iniciar(context)   // histórico de rede: mede desde o boot
+        AutoDesligar.iniciar(context)
         if (Config.ABRIR_AO_LIGAR.isEmpty()) return
         val abrir = context.packageManager.getLeanbackLaunchIntentForPackage(Config.ABRIR_AO_LIGAR)
         if (abrir == null) {

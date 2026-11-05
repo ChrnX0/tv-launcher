@@ -382,7 +382,24 @@ object PainelWeb {
             "/api/tv/reiniciar" -> if (req.metodo == "POST") return reiniciarTv(token, ip)
             "/api/recado" -> if (req.metodo == "POST") return recado(req, ip)
             "/api/tvs" -> if (req.metodo == "GET") return json(200, PainelVizinhos.json(app))
+            "/api/rede/historico" -> if (req.metodo == "GET")
+                return json(200, HistoricoRede.json(app, req.consulta["horas"]?.toIntOrNull() ?: 24))
+            "/api/tv/autodesligar" -> when (req.metodo) {
+                "GET" -> return autoDesligar()
+                "POST" -> {
+                    val min = corpoJson(req)?.optInt("minutos", -1) ?: return erro(400, "JSON inválido")
+                    if (!AutoDesligar.definir(app, min)) return erro(400, "opção inválida")
+                    PainelArmazem.registrar(app, ip, "desligar sozinha: " + (if (min == 0) "nunca" else "$min min"), "ok")
+                    return autoDesligar()
+                }
+            }
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
+            // IA na nuvem (bloco 6, PedidoIa.kt). Ligar a IA não tem rota: só pelas Configurações, na TV.
+            "/api/ia" -> if (req.metodo == "GET") return iaEstado()
+            "/api/ia/chave" -> if (req.metodo == "POST") return iaChave(req, token, ip)
+            "/api/ia/modelo" -> if (req.metodo == "POST") return iaModelo(req, ip)
+            "/api/ia/pedir" -> if (req.metodo == "POST") return iaPedir(req, ip)
+            "/api/ia/pedido" -> if (req.metodo == "GET") return PedidoIa.estado(req.consulta["id"])?.let { json(200, it.json()) } ?: erro(404, "pedido não encontrado")
         }
 
         // /api/apps/<pacote>/<ação>
@@ -624,6 +641,44 @@ object PainelWeb {
         return json(200, JSONObject().put("ok", true).put("apagados", n))
     }
 
+    // ---------------------------------------------------------------- bloco 6: IA na nuvem
+
+    private fun iaEstado(): Resposta = json(200, JSONObject()
+        .put("ligada", IaArmazem.ligada(app))
+        .put("chave", IaArmazem.finalDaChave(app) ?: JSONObject.NULL)   // nunca a chave: só os 4 últimos caracteres
+        .put("modelo", IaArmazem.modelo(app)))
+
+    /** Cadastrar ou apagar a chave exige o PIN redigitado (quem trocar a chave escolhe para onde vão os pedidos). */
+    private fun iaChave(req: Requisicao, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        if (o.optBoolean("apagar")) {
+            IaArmazem.definirChave(app, null)
+            PainelArmazem.registrar(app, ip, "IA: apagar chave", "ok")
+            return json(200, JSONObject().put("ok", true))
+        }
+        val chave = o.optString("chave").trim()
+        if (!ComandosIa.chaveValida(chave)) return erro(400, "isso não parece uma chave de API do Google AI Studio")
+        if (!IaArmazem.definirChave(app, chave)) return erro(500, "não consegui guardar a chave na TV")
+        PainelArmazem.registrar(app, ip, "IA: cadastrar chave ${IaArmazem.finalDaChave(app)}", "ok")
+        return json(200, JSONObject().put("ok", true).put("chave", IaArmazem.finalDaChave(app)))
+    }
+
+    private fun iaModelo(req: Requisicao, ip: String): Resposta {
+        val m = corpoJson(req)?.optString("modelo")?.trim() ?: return erro(400, "JSON inválido")
+        if (!IaArmazem.definirModelo(app, m)) return erro(400, "nome de modelo inválido")
+        PainelArmazem.registrar(app, ip, "IA: modelo $m", "ok")
+        return json(200, JSONObject().put("ok", true).put("modelo", m))
+    }
+
+    private fun iaPedir(req: Requisicao, ip: String): Resposta {
+        val frase = corpoJson(req)?.optString("frase") ?: return erro(400, "JSON inválido")
+        val p = PedidoIa.pedir(app, frase, ip)
+        // A frase não vai para o registro (pode ser pessoal); só o tamanho.
+        PainelArmazem.registrar(app, ip, "IA: pedido de ${p.frase.length} caractere(s)", if (p.situacao == PedidoIa.Situacao.ERRO) p.mensagem else "enviado")
+        return if (p.situacao == PedidoIa.Situacao.ERRO) erro(409, p.mensagem) else json(200, p.json())
+    }
+
     // ---------------------------------------------------------------- bloco C: tela, controle, ações de app
 
     private fun acaoApp(ip: String, acao: String, pacote: String, fazer: () -> String?): Resposta {
@@ -666,6 +721,10 @@ object PainelWeb {
             else -> erro(409, "a acessibilidade do launcher está desligada na TV: sem ela o recado não aparece")
         }
     }
+    private fun autoDesligar() = json(200, JSONObject()
+        .put("minutos", AutoDesligar.minutos(app))
+        .put("opcoes", org.json.JSONArray(AutoDesligar.OPCOES))
+        .put("ultimoDesligamento", AutoDesligar.ultimoDesligamento))
 
     private fun reiniciarTv(token: String?, ip: String): Resposta {
         if (!sessoes.elevada(token)) return precisaPin()
