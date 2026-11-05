@@ -76,7 +76,7 @@ class AlarmesActivity : Activity() {
             return true
         }
         val a = Despertador.salvar(this, novo)
-        Toast.makeText(this, "Alarme criado: ${Despertador.horaTexto(a)}", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, getString(R.string.al_criado, Despertador.horaTexto(a)), Toast.LENGTH_LONG).show()
         if (i.getBooleanExtra(AlarmClock.EXTRA_SKIP_UI, false)) { finish(); return true }
         mostrarLista()
         return false
@@ -85,16 +85,16 @@ class AlarmesActivity : Activity() {
     /** Pedido de app desconhecido: só cria se a pessoa apertar OK em "Criar". Voltar/Cancelar = não cria nada. */
     private fun confirmarPedido(novo: Despertador.Alarme, quem: String?) {
         val nomeApp = quem?.let { p -> try { packageManager.getApplicationLabel(packageManager.getApplicationInfo(p, 0)).toString() } catch (e: Exception) { p } }
-            ?: "um app"
+            ?: getString(R.string.al_um_app)
         android.app.AlertDialog.Builder(this)
-            .setTitle("Criar alarme às ${Despertador.horaTexto(novo)}?")
-            .setMessage("Pedido de $nomeApp.")
-            .setPositiveButton("Criar") { _, _ ->
+            .setTitle(getString(R.string.al_criar_q, Despertador.horaTexto(novo)))
+            .setMessage(getString(R.string.al_pedido, nomeApp))
+            .setPositiveButton(getString(R.string.al_criar)) { _, _ ->
                 val a = Despertador.salvar(this, novo)
-                Toast.makeText(this, "Alarme criado: ${Despertador.horaTexto(a)}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.al_criado, Despertador.horaTexto(a)), Toast.LENGTH_LONG).show()
                 mostrarLista()
             }
-            .setNegativeButton("Cancelar") { _, _ -> finish() }
+            .setNegativeButton(getString(R.string.comum_cancelar)) { _, _ -> finish() }
             .setOnCancelListener { finish() }
             .show()
     }
@@ -113,10 +113,10 @@ class AlarmesActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(Grade.MARGEM), dp(Grade.TOPO), dp(Grade.MARGEM), dp(Grade.TOPO))
         }
-        coluna.addView(texto(34f, Color.WHITE, fonteMedia).apply { text = "Despertador" })
+        coluna.addView(texto(34f, Color.WHITE, fonteMedia).apply { text = getString(R.string.al_titulo) })
         val prox = Despertador.proximo(this)
         coluna.addView(texto(16f, textoSuave).apply {
-            text = if (prox == null) "Nenhum alarme ligado" else "Próximo: " + quando(prox.second)
+            text = if (prox == null) getString(R.string.al_nenhum) else getString(R.string.al_proximo, quando(prox.second))
             setPadding(0, dp(4), 0, dp(20))
         })
         val novo = linha(null)
@@ -139,7 +139,7 @@ class AlarmesActivity : Activity() {
         setOnFocusChangeListener { v, f -> v.background = fundo(f) }
         setOnClickListener { mostrarEditor(a) }
         if (a == null) {
-            addView(texto(22f, textoClaro, fonteMedia).apply { text = "+  Novo alarme" })
+            addView(texto(22f, textoClaro, fonteMedia).apply { text = getString(R.string.al_novo_mais) })
             return@apply
         }
         addView(texto(40f, if (a.ativo) Color.WHITE else textoSuave, fonteLeve).apply {
@@ -147,10 +147,10 @@ class AlarmesActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(140), ViewGroup.LayoutParams.WRAP_CONTENT))
         addView(LinearLayout(this@AlarmesActivity).apply {
             orientation = LinearLayout.VERTICAL
-            addView(texto(17f, textoClaro).apply { text = Despertador.diasTexto(a.dias) })
+            addView(texto(17f, textoClaro).apply { text = Despertador.diasTexto(context, a.dias) })
             if (a.nome.isNotBlank()) addView(texto(15f, textoSuave).apply { text = a.nome })
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        addView(texto(15f, if (a.ativo) verde else textoSuave, fonteMedia).apply { text = if (a.ativo) "Ligado" else "Desligado" })
+        addView(texto(15f, if (a.ativo) verde else textoSuave, fonteMedia).apply { text = if (a.ativo) getString(R.string.al_ligado) else getString(R.string.al_desligado) })
     }
 
     // ---------------------------------------------------------------- editor
@@ -174,9 +174,9 @@ class AlarmesActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(Grade.MARGEM), dp(Grade.TOPO), dp(Grade.MARGEM), dp(Grade.TOPO))
         }
-        coluna.addView(texto(30f, Color.WHITE, fonteMedia).apply { text = if (a == null) "Novo alarme" else "Editar alarme" })
+        coluna.addView(texto(30f, Color.WHITE, fonteMedia).apply { text = if (a == null) getString(R.string.al_novo) else getString(R.string.al_editar) })
         coluna.addView(texto(15f, textoSuave).apply {
-            text = "▲ ▼ mudam hora e minuto (segure para ir rápido) · OK marca os dias"
+            text = getString(R.string.al_editor_dica)
             setPadding(0, dp(4), 0, dp(18))
         })
 
@@ -210,7 +210,7 @@ class AlarmesActivity : Activity() {
 
         // Dias da semana: 7 bolinhas (D S T Q Q S S); OK liga/desliga. Nenhum marcado = toca uma vez só.
         val legendaDias = texto(15f, textoSuave).apply { setPadding(0, dp(10), 0, 0) }
-        fun atualizarLegenda() { legendaDias.text = Despertador.diasTexto(dias) }
+        fun atualizarLegenda() { legendaDias.text = Despertador.diasTexto(this, dias) }
         val linhaDias = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(20), 0, 0) }
         Despertador.NOMES_DIAS.forEachIndexed { i, nome ->
             val bit = 1 shl i
@@ -237,7 +237,7 @@ class AlarmesActivity : Activity() {
         coluna.addView(legendaDias)
 
         val nome = EditText(this).apply {
-            hint = "Nome (opcional)"
+            hint = getString(R.string.al_nome)
             setText(a?.nome.orEmpty())
             setTextColor(Color.WHITE)
             setHintTextColor(textoSuave)
@@ -250,12 +250,12 @@ class AlarmesActivity : Activity() {
         val linhaSom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(16), 0, 0) }
         lateinit var btSom: TextView
         lateinit var btRampa: TextView
-        btSom = botao("Som: " + SomAlarme.NOMES[som]) { som = (som + 1) % SomAlarme.NOMES.size; btSom.text = "Som: " + SomAlarme.NOMES[som] }
+        btSom = botao(getString(R.string.al_som, SomAlarme.NOMES[som])) { som = (som + 1) % SomAlarme.NOMES.size; btSom.text = getString(R.string.al_som, SomAlarme.NOMES[som]) }
         btRampa = botao(SomAlarme.rampaTexto(rampa)) {
             rampa = SomAlarme.RAMPAS[(SomAlarme.RAMPAS.indexOf(rampa) + 1) % SomAlarme.RAMPAS.size]
             btRampa.text = SomAlarme.rampaTexto(rampa)
         }
-        val btOuvir = botao("Ouvir") {
+        val btOuvir = botao(getString(R.string.al_ouvir)) {
             pararPrevia()
             previa = SomAlarme.criar(this, som)?.also { it.start() }
             btSom.postDelayed({ pararPrevia() }, 4000)
@@ -270,7 +270,7 @@ class AlarmesActivity : Activity() {
 
         // Botões: Salvar · Ligado/Desligado · Apagar (só se já existe) · Cancelar
         val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(24), 0, 0) }
-        val salvar = botao("Salvar") {
+        val salvar = botao(getString(R.string.rot_salvar)) {
             Despertador.salvar(this, Despertador.Alarme(a?.id ?: 0, hora, minuto, dias, nome.text.toString().trim(), ativo, som, rampa, bomDia))
             pararPrevia()
             mostrarLista()
@@ -278,11 +278,11 @@ class AlarmesActivity : Activity() {
         botoes.addView(salvar, botaoLp())
         if (a != null) {
             lateinit var liga: TextView
-            liga = botao(if (ativo) "Ligado" else "Desligado") { ativo = !ativo; liga.text = if (ativo) "Ligado" else "Desligado" }
+            liga = botao(if (ativo) getString(R.string.al_ligado) else getString(R.string.al_desligado)) { ativo = !ativo; liga.text = if (ativo) getString(R.string.al_ligado) else getString(R.string.al_desligado) }
             botoes.addView(liga, botaoLp())
-            botoes.addView(botao("Apagar") { Despertador.apagar(this, a.id); mostrarLista() }, botaoLp())
+            botoes.addView(botao(getString(R.string.al_apagar)) { Despertador.apagar(this, a.id); mostrarLista() }, botaoLp())
         }
-        botoes.addView(botao("Cancelar") { pararPrevia(); mostrarLista() }, botaoLp())
+        botoes.addView(botao(getString(R.string.comum_cancelar)) { pararPrevia(); mostrarLista() }, botaoLp())
         coluna.addView(botoes)
 
         conteudo.addView(ScrollView(this).apply { addView(coluna) })
@@ -305,11 +305,11 @@ class AlarmesActivity : Activity() {
         val diasAte = ((c.clone() as Calendar).apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0) }.timeInMillis -
             (hoje.clone() as Calendar).apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0) }.timeInMillis) / 86_400_000L
         val dia = when (diasAte) {
-            0L -> "hoje"
-            1L -> "amanhã"
-            else -> java.text.SimpleDateFormat("EEE, d", java.util.Locale("pt", "BR")).format(c.time)
+            0L -> getString(R.string.al_hoje)
+            1L -> getString(R.string.al_amanha)
+            else -> java.text.SimpleDateFormat("EEE, d", java.util.Locale.getDefault()).format(c.time)
         }
-        return "$dia às %02d:%02d".format(c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE))
+        return getString(R.string.al_dia_as, dia, "%02d:%02d".format(c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)))
     }
 
     private fun numero(valor: String) = texto(64f, Color.WHITE, fonteLeve).apply {

@@ -82,12 +82,12 @@ class AlarmeTocandoActivity : Activity() {
         })
         coluna.addView(texto(24f, 0xFFE8EEEA.toInt()).apply {
             text = if (timer) "⏱  " + nomeTimer.ifBlank { "Tempo esgotado" }
-                else "⏰  " + (alarme?.nome?.takeIf { it.isNotBlank() } ?: "Despertador")
+                else "⏰  " + (alarme?.nome?.takeIf { it.isNotBlank() } ?: getString(R.string.al_titulo))
             setPadding(0, dp(12), 0, dp(36))
             gravity = Gravity.CENTER
         })
-        val parar = botao("Parar") { parar() }
-        val soneca = botao("Soneca 10 min") { soneca() }
+        val parar = botao(getString(R.string.al_parar)) { parar() }
+        val soneca = botao(getString(R.string.al_soneca)) { soneca() }
         coluna.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_HORIZONTAL   // no timer só há um botão: centralizado embaixo da hora

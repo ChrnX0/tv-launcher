@@ -10,7 +10,7 @@
   Deixe a janela de pareamento ABERTA na TV ao rodar.
 
 .PARAMETER Apk
-  Caminho do APK do launcher. Padrao: dist\tv-launcher.apk (copia do build, neste repositorio).
+  Caminho do APK do launcher. Padrao: app\build\outputs\apk\release\app-release.apk (gerado pelo build).
 
 .PARAMETER PularHome
   Faz a limpeza e instala o APK, mas NAO troca o Home (mais seguro para a primeira vez).
@@ -22,14 +22,14 @@
   So mostra os comandos que rodaria, sem tocar na TV.
 
 .EXAMPLE
-  .\restaurar-tv.ps1 -Ip 192.168.1.153 -CodigoPareamento 123456 -PularHome
-  .\restaurar-tv.ps1 -Ip 192.168.1.153            # troca o Home (com rollback automatico)
-  .\restaurar-tv.ps1 -Ip 192.168.1.153 -Desfazer
+  .\restaurar-tv.ps1 -Ip <ip-da-tv> -CodigoPareamento 123456 -PularHome
+  .\restaurar-tv.ps1 -Ip <ip-da-tv>            # troca o Home (com rollback automatico)
+  .\restaurar-tv.ps1 -Ip <ip-da-tv> -Desfazer
 #>
 param(
     [Parameter(Mandatory)][string]$Ip,
     [string]$CodigoPareamento,
-    [string]$Apk = "$PSScriptRoot\dist\tv-launcher.apk",
+    [string]$Apk = "$PSScriptRoot\app\build\outputs\apk\release\app-release.apk",
     [switch]$PularHome,
     [switch]$Desfazer,
     [switch]$DryRun
