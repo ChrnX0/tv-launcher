@@ -125,8 +125,19 @@ function mudarAba(nome) {
   $('abaApps').hidden = nome !== 'apps';
   $('abaArquivos').hidden = nome !== 'arquivos';
   $('abaControle').hidden = nome !== 'controle';
+  $('abaFalar').hidden = nome !== 'falar';
+  if (nome === 'falar') carregarIa();
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
+  $('abaSaude').hidden = nome !== 'saude';
+  if (nome === 'saude') carregarSaude();
+  $('abaFotos').hidden = nome !== 'fotos';
+  if (nome === 'fotos') carregarFotos();
+  $('abaShizuku').hidden = nome !== 'shizuku';
+  if (nome === 'shizuku') carregarShizuku();
+  $('abaRede').hidden = nome !== 'rede';
+  if (nome === 'rede') carregarRede();
+  if (nome === 'controle') carregarAutoDesligar();
   $('abaRoteador').hidden = nome !== 'roteador';
   if (nome === 'roteador') carregarRoteador();
   $('abaRegistro').hidden = nome !== 'registro';
@@ -475,6 +486,163 @@ async function carregarCopias() {
     });
     linha.append(dia, ' ', baixarBtn, ' · ', voltarBtn);
     lista.appendChild(linha);
+  }
+}
+
+// ---------- saúde (PainelSaude.kt) ----------
+
+function mb(b) { return `${Math.round(b / 1048576).toLocaleString('pt-BR')} MB`; }
+function gb(b) { return `${(b / 1073741824).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} GB`; }
+function duracao(ms) {
+  const min = Math.floor(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
+  return d ? `${d} d ${h % 24} h` : h ? `${h} h ${min % 60} min` : `${min} min`;
+}
+
+function desenharNumeros(s) {
+  const caixa = $('numerosSaude');
+  caixa.replaceChildren();
+  const item = (rotulo, valor, ruim) => {
+    const d = document.createElement('div');
+    d.className = 'numero' + (ruim ? ' ruim' : '');
+    const v = document.createElement('strong'); v.textContent = valor;
+    const r = document.createElement('span'); r.textContent = rotulo;
+    d.append(v, r); caixa.appendChild(d);
+  };
+  item('RAM livre', `${mb(s.ramLivre)} de ${mb(s.ramTotal)}`, s.poucaMemoria);
+  if (s.swapTotal) item('swap livre', `${mb(s.swapLivre)} de ${mb(s.swapTotal)}`, s.swapLivre < s.swapTotal * 0.1);
+  if (s.discoTotal) item('espaço livre', `${gb(s.discoLivre)} de ${gb(s.discoTotal)}`, s.discoLivre < s.discoTotal * 0.1);
+  const maisQuente = (s.temperaturas || []).reduce((a, t) => (!a || t.celsius > a.celsius ? t : a), null);
+  if (maisQuente) item('temperatura', `${maisQuente.celsius.toLocaleString('pt-BR')} °C`, maisQuente.celsius >= 80);
+  if (s.termico) item('estado térmico', s.termico, !['normal', 'desconhecido'].includes(s.termico));
+  item('ligada há', duracao(s.ligadaHa), false);
+}
+
+async function carregarSaude() {
+  const status = $('statusSaude');
+  const lista = $('listaMemoria');
+  mostrar(status, '');
+  try {
+    desenharNumeros(await chamar('GET', '/api/saude?rapido=1'));   // os números na hora; a lista leva uns segundos
+    lista.replaceChildren(Object.assign(document.createElement('p'), { className: 'aviso', textContent: 'Lendo…' }));
+    const s = await chamar('GET', '/api/saude');
+    desenharNumeros(s);
+    lista.replaceChildren();
+    if (s.semShell) { mostrar(status, 'O shell do launcher não respondeu: sem a lista de memória e sem liberar (a depuração sem fio está ligada?).'); return; }
+    for (const a of s.apps || []) {
+      const linha = document.createElement('div');
+      linha.className = 'linha-registro';
+      const q = document.createElement('span'); q.className = 'quando'; q.textContent = mb(a.kb * 1024);
+      linha.append(q, ' ', a.nome);
+      if (a.nome !== a.processo) { const p = document.createElement('span'); p.className = 'aviso-curto'; p.textContent = ` ${a.processo}`; linha.appendChild(p); }
+      lista.appendChild(linha);
+    }
+  } catch (e) { mostrar(status, e.message); }
+}
+
+$('btnLiberar').addEventListener('click', async () => {
+  const b = $('btnLiberar');
+  b.disabled = true;
+  mostrar($('statusSaude'), 'Liberando…');
+  try {
+    const r = await chamar('POST', '/api/saude/liberar');
+    mostrar($('statusSaude'), r.ganho > 0 ? `Pronto: ${mb(r.ganho)} a mais de RAM livre.` : 'Pronto. Não havia muito o que fechar.');
+    await carregarSaude().catch(() => {});
+    if (r.ganho > 0) mostrar($('statusSaude'), `Pronto: ${mb(r.ganho)} a mais de RAM livre.`);
+  } catch (e) { mostrar($('statusSaude'), e.message); }
+  b.disabled = false;
+});
+
+// ---------- fotos do protetor (FotosProtetor.kt) ----------
+
+/** Nome que a TV aceita: troca o que não for letra/número/espaço/.-_ por "_" e garante a extensão. */
+function nomeDeFoto(nome) {
+  const ext = (/\.(jpe?g|png|webp)$/i.exec(nome) || ['.jpg'])[0].toLowerCase();
+  let base = nome.replace(/\.[^.]*$/, '').replace(/[^\p{L}\p{N} ._-]/gu, '_').replace(/^\.+/, '').slice(0, 90);
+  if (base.length < 1) base = 'foto';
+  return base + ext;
+}
+
+async function carregarFotos() {
+  const grade = $('gradeFotos');
+  grade.replaceChildren();
+  let r;
+  try { r = await chamar('GET', '/api/fotos'); } catch (e) { mostrar($('statusFotos'), e.message); return; }
+  if (!r.fotos.length) { mostrar($('statusFotos'), 'Nenhuma foto ainda: o protetor mostra só o relógio.'); return; }
+  mostrar($('statusFotos'), `${r.fotos.length} foto(s) na TV.`);
+  for (const f of r.fotos) {
+    const caixa = document.createElement('figure');
+    caixa.className = 'foto';
+    const img = document.createElement('img');
+    img.loading = 'lazy'; img.alt = f.nome;
+    img.src = `/api/fotos/ver?nome=${encodeURIComponent(f.nome)}`;
+    const legenda = document.createElement('figcaption');
+    const apagar = document.createElement('button');
+    apagar.type = 'button'; apagar.className = 'link'; apagar.textContent = 'apagar';
+    apagar.addEventListener('click', async () => {
+      try { await chamar('POST', `/api/fotos/apagar?nome=${encodeURIComponent(f.nome)}`); carregarFotos(); }
+      catch (e) { mostrar($('statusFotos'), e.message); }
+    });
+    legenda.append(f.nome, ' · ', apagar);
+    caixa.append(img, legenda);
+    grade.appendChild(caixa);
+  }
+}
+
+$('arquivoFotos').addEventListener('change', async (ev) => {
+  const arquivos = [...ev.target.files];
+  ev.target.value = '';
+  let ok = 0;
+  for (const [i, a] of arquivos.entries()) {
+    try {
+      await enviarComProgresso(`/api/fotos/enviar?nome=${encodeURIComponent(nomeDeFoto(a.name))}`, a, (p) =>
+        mostrar($('statusFotos'), `Enviando ${i + 1} de ${arquivos.length}… ${Math.round(p * 100)}%`));
+      ok++;
+    } catch (e) { mostrar($('statusFotos'), `${a.name}: ${e.message}`); await new Promise((r) => setTimeout(r, 1500)); }
+  }
+  await carregarFotos();
+  if (arquivos.length) mostrar($('statusFotos'), `${ok} de ${arquivos.length} foto(s) enviada(s).`);
+});
+
+// ---------- Shizuku (PainelShizuku.kt) ----------
+
+async function carregarShizuku() {
+  const lista = $('listaShizuku'), hist = $('histShizuku'), status = $('statusShizuku');
+  lista.replaceChildren(); hist.replaceChildren(); mostrar(status, '');
+  let r;
+  try { r = await chamar('GET', '/api/shizuku'); } catch (e) { mostrar(status, e.message); return; }
+  $('estadoShizuku').textContent = `Modo: ${r.modo}. Servidor ${r.rodando ? 'rodando' : 'parado'}.` +
+    (r.rodando ? '' : ' Com ele parado não dá para ver nem mudar quem tem acesso (ele sobe quando um desses apps abre).');
+  if (!r.apps.length) lista.appendChild(Object.assign(document.createElement('p'), { className: 'aviso', textContent: 'Nenhum app instalado pede o Shizuku.' }));
+  for (const a of r.apps) {
+    const linha = document.createElement('div');
+    linha.className = 'linha-registro';
+    const estado = a.permitido === undefined ? 'estado desconhecido' : a.permitido ? 'permitido' : 'sem acesso';
+    linha.append(`${a.nome} · ${estado} `);
+    if (a.permitido !== undefined) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'link'; b.textContent = a.permitido ? 'revogar' : 'permitir';
+      b.addEventListener('click', async () => {
+        const acao = a.permitido ? 'revogar' : 'permitir';
+        const fazer = () => chamar('POST', '/api/shizuku/app', { pacote: a.pacote, acao });
+        try {
+          if (acao === 'permitir') {
+            const ok = await confirmar('Permitir o Shizuku?', `${a.nome} vai poder fazer na TV o que o adb faz.`, 'Permitir', fazer);
+            if (!ok) return;
+          } else await fazer();
+          carregarShizuku();
+        } catch (e) { mostrar(status, e.message); }
+      });
+      linha.appendChild(b);
+    }
+    lista.appendChild(linha);
+  }
+  if (!r.historico.length) hist.appendChild(Object.assign(document.createElement('p'), { className: 'aviso', textContent: 'Nenhuma subida registrada ainda.' }));
+  for (const h of r.historico) {
+    const linha = document.createElement('div');
+    linha.className = 'linha-registro';
+    const q = document.createElement('span'); q.className = 'quando'; q.textContent = new Date(h.t).toLocaleString('pt-BR');
+    linha.append(q, ' ', h.nome);
+    hist.appendChild(linha);
   }
 }
 
@@ -1145,6 +1313,294 @@ $('btnReiniciarTv').addEventListener('click', async () => {
     (emUso ? ` Atenção: a TV está em uso agora (${emUso}).` : ''), 'Reiniciar', () => chamar('POST', '/api/tv/reiniciar', {}));
   if (ok) mostrar($('statusControle'), 'Reiniciando… o painel volta em cerca de 1 min.');
 });
+
+// ---------- Falar: IA na nuvem (PedidoIa.kt) ----------
+
+// Onde pegar a chave de cada IA (só links de documentação; a chave nunca passa por aqui).
+const LINKS_CHAVE = {
+  gemini: 'https://aistudio.google.com/apikey',
+  claude: 'https://platform.claude.com/settings/keys',
+  openai: 'https://platform.openai.com/api-keys',
+  perplexity: 'https://www.perplexity.ai/account/api/keys',
+};
+let estadoIa = null;
+
+/** A IA cuja chave/modelo o formulário mostra: a escolhida na lista (que é a ativa, depois de trocar). */
+function provedorIa() {
+  return estadoIa?.provedores.find((p) => p.id === $('campoProvedor').value) ?? null;
+}
+
+async function carregarIa() {
+  try {
+    const e = estadoIa = await chamar('GET', '/api/ia');
+    const sel = $('campoProvedor');
+    sel.replaceChildren();
+    for (const p of e.provedores) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.nome + (p.chave ? ` · chave ${p.chave}` : ' · sem chave');
+      sel.appendChild(o);
+    }
+    sel.value = e.provedor;
+    const ativo = provedorIa();
+    let aviso = '';
+    if (!e.ligada) aviso = 'A IA está desligada. Ligue em Configurações do launcher › IA na nuvem, na TV.';
+    else if (!e.chave) aviso = `Falta cadastrar a chave do ${ativo.nome} (abaixo).`;
+    else aviso = `Usando ${ativo.nome}. O que você pedir aparece na TV, e só acontece se alguém apertar OK no controle.`;
+    $('avisoIa').textContent = aviso;
+    $('chaveIa').textContent = (e.chave ? `Chave cadastrada (${e.chave}).` : 'Nenhuma chave.') + ` Modelo: ${e.modelo}.`;
+    $('campoModelo').value = e.modelo;
+    $('campoModelo').placeholder = ativo.modeloPadrao;
+    $('linkChaveIa').href = LINKS_CHAVE[ativo.id];
+  } catch (e) { $('avisoIa').textContent = e.message; }
+}
+
+// Trocar a IA na lista já troca a ativa na TV (só entre as chaves que você cadastrou).
+$('campoProvedor').addEventListener('change', async () => {
+  try {
+    await chamar('POST', '/api/ia/provedor', { provedor: $('campoProvedor').value });
+    mostrar($('statusChave'), '');
+  } catch (e) { mostrar($('statusChave'), e.message); }
+  carregarIa();
+});
+
+/** Mesmo teste do servidor (ComandosIa.detectar): só para avisar, nunca para barrar. */
+function detectarIa(chave) {
+  if (chave.startsWith('sk-ant-')) return 'claude';
+  if (chave.startsWith('pplx-')) return 'perplexity';
+  if (chave.startsWith('sk-')) return 'openai';
+  if (chave.startsWith('AQ.') || chave.startsWith('AIza')) return 'gemini';
+  return null;
+}
+
+let pedidoAtual = 0;
+$('formFalar').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const frase = $('campoFrase').value.trim();
+  if (!frase) return;
+  const meu = ++pedidoAtual;
+  $('btnFalar').disabled = true;
+  $('acoesFalar').hidden = true;
+  mostrar($('statusFalar'), 'Perguntando à IA…');
+  try {
+    let p = await chamar('POST', '/api/ia/pedir', { frase });
+    // Acompanha até sair de "pensando"/"esperando" (no máximo ~75 s: 60 s de espera na TV + a IA).
+    for (let i = 0; i < 75 && (p.situacao === 'pensando' || p.situacao === 'esperando'); i++) {
+      if (meu !== pedidoAtual) return;
+      mostrarPedido(p);
+      await new Promise((r) => setTimeout(r, 1000));
+      p = await chamar('GET', '/api/ia/pedido?id=' + encodeURIComponent(p.id));
+    }
+    if (meu === pedidoAtual) mostrarPedido(p);
+  } catch (e) {
+    if (meu === pedidoAtual) mostrar($('statusFalar'), e.message);
+  } finally {
+    if (meu === pedidoAtual) $('btnFalar').disabled = false;
+  }
+});
+
+function mostrarPedido(p) {
+  let texto = p.texto.charAt(0).toUpperCase() + p.texto.slice(1);
+  if (p.situacao === 'esperando') texto = 'Confirme na TV: aperte OK em "Executar" com o controle.';
+  if (p.mensagem) texto += ' · ' + p.mensagem;
+  mostrar($('statusFalar'), texto);
+  const ul = $('acoesFalar');
+  ul.replaceChildren();
+  for (const a of p.acoes) { const li = document.createElement('li'); li.textContent = a; ul.appendChild(li); }
+  for (const r of p.recusadas) { const li = document.createElement('li'); li.className = 'recusada'; li.textContent = 'Recusado: ' + r; ul.appendChild(li); }
+  ul.hidden = ul.childElementCount === 0;
+}
+
+$('formChave').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  // Tira espaços e quebras de linha que vêm junto ao colar.
+  const chave = $('campoChave').value.replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9._-]{20,300}$/.test(chave)) {
+    mostrar($('statusChave'), `Isso não parece uma chave de API: esperado de 20 a 300 letras, números, . - _ (veio com ${chave.length} caracteres).`);
+    return;
+  }
+  // Se o começo da chave diz de qual IA ela é, guarda nessa (ex.: colou "sk-ant-…" com Gemini escolhido).
+  const escolhido = provedorIa();
+  const detectado = estadoIa?.provedores.find((p) => p.id === detectarIa(chave)) ?? null;
+  const destino = detectado ?? escolhido;
+  if (!destino) return;
+  const texto = (detectado && detectado.id !== escolhido?.id ? `Pelo começo, é uma chave do ${detectado.nome}. ` : '') +
+    `Guardar como chave do ${destino.nome}? Os pedidos que usarem essa IA passam a gastar a cota desta chave.`;
+  const r = await confirmar('Guardar a chave na TV?', texto, 'Guardar',
+    () => chamar('POST', '/api/ia/chave', { chave, provedor: destino.id }));
+  if (r) {
+    $('campoChave').value = '';
+    mostrar($('statusChave'), `Chave do ${destino.nome} guardada.` + (r.aviso ? ' Atenção: ' + r.aviso + '.' : ''));
+    carregarIa();
+  }
+});
+
+$('btnApagarChave').addEventListener('click', async () => {
+  const p = provedorIa();
+  if (!p) return;
+  const ok = await confirmar(`Apagar a chave do ${p.nome}?`, 'Essa IA para de funcionar até cadastrar outra.', 'Apagar',
+    () => chamar('POST', '/api/ia/chave', { apagar: true, provedor: p.id }));
+  if (ok) { mostrar($('statusChave'), 'Chave apagada.'); carregarIa(); }
+});
+
+$('formModelo').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const p = provedorIa();
+  if (!p) return;
+  try {
+    // Vazio volta ao padrão daquela IA.
+    await chamar('POST', '/api/ia/modelo', { modelo: $('campoModelo').value.trim() || p.modeloPadrao, provedor: p.id });
+    mostrar($('statusChave'), 'Modelo trocado.');
+    carregarIa();
+  } catch (e) { mostrar($('statusChave'), e.message); }
+});
+
+// ---------- desligar sozinha (aba Controle) ----------
+
+function rotuloMinutos(m) {
+  if (!m) return 'Nunca';
+  return m % 60 === 0 ? `Depois de ${m / 60} h sem usar` : `Depois de ${m} min sem usar`;
+}
+
+async function carregarAutoDesligar() {
+  const sel = $('autoDesligar');
+  try {
+    const r = await chamar('GET', '/api/tv/autodesligar');
+    sel.replaceChildren();
+    for (const m of r.opcoes) {
+      const o = document.createElement('option');
+      o.value = String(m); o.textContent = rotuloMinutos(m); o.selected = m === r.minutos;
+      sel.appendChild(o);
+    }
+    $('statusDesligar').textContent = r.ultimoDesligamento
+      ? 'Última vez que desligou sozinha: ' + new Date(r.ultimoDesligamento).toLocaleString('pt-BR') : '';
+  } catch (e) { $('statusDesligar').textContent = e.message; }
+}
+
+$('autoDesligar').addEventListener('change', async () => {
+  try {
+    const r = await chamar('POST', '/api/tv/autodesligar', { minutos: Number($('autoDesligar').value) });
+    $('statusDesligar').textContent = 'Gravado: ' + rotuloMinutos(r.minutos).toLowerCase() + '.';
+  } catch (e) { $('statusDesligar').textContent = e.message; }
+});
+
+// ---------- histórico de rede (aba Rede) ----------
+
+let horasRede = 24;
+
+function duracaoLegivel(ms) {
+  const min = Math.round(ms / 60000);
+  if (min < 1) return 'menos de 1 min';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), r = min % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
+
+function bloco(titulo, valor, classe) {
+  const d = document.createElement('div');
+  d.className = 'bloco-rede' + (classe ? ' ' + classe : '');
+  const v = document.createElement('strong'); v.textContent = valor;
+  const t = document.createElement('span'); t.textContent = titulo;
+  d.append(v, t);
+  return d;
+}
+
+function linhaSimples(quando, texto) {
+  const linha = document.createElement('div');
+  linha.className = 'linha-registro';
+  const q = document.createElement('span'); q.className = 'quando'; q.textContent = quando;
+  const o = document.createElement('span'); o.textContent = texto;
+  linha.append(q, o);
+  return linha;
+}
+
+function vazio(lista, texto) {
+  const p = document.createElement('p'); p.className = 'aviso'; p.textContent = texto; lista.appendChild(p);
+}
+
+async function carregarRede() {
+  mostrar($('statusRede'), 'Carregando…');
+  let r;
+  try { r = await chamar('GET', '/api/rede/historico?horas=' + horasRede); } catch (e) { mostrar($('statusRede'), e.message); return; }
+  mostrar($('statusRede'), r.amostras.length ? '' :
+    'Ainda sem medições: o launcher mede a cada ' + r.intervaloMin + ' min. Volte daqui a pouco.');
+  const s = r.resumo;
+  const cob = Math.max(s.coberturaMs, 1);
+  const pct = s.coberturaMs ? Math.max(0, 100 * (1 - s.foraMs / cob)) : null;
+  const res = $('resumoRede');
+  res.replaceChildren(
+    bloco('internet no ar (no tempo medido)', pct === null ? '—' : pct.toFixed(pct >= 99.95 || pct < 10 ? 0 : 1) + '%', pct !== null && pct < 99 ? 'ruim' : ''),
+    bloco('quedas de internet', String(s.quedasInternet), s.quedasInternet ? 'ruim' : ''),
+    bloco('quedas só de DNS', String(s.quedasDns), s.quedasDns ? 'ruim' : ''),
+    bloco('maior queda', s.maiorQuedaMs ? duracaoLegivel(s.maiorQuedaMs) : '—'),
+    bloco('demora média (95% abaixo de)', s.latMedia === null ? '—' : `${s.latMedia} ms (${s.latP95} ms)`),
+    bloco('sinal médio do Wi-Fi', s.dbmMedio === null ? '—' : `${s.dbmMedio} dBm`),
+    bloco('tempo medido', duracaoLegivel(s.coberturaMs)),
+  );
+  desenharGrafico(r);
+
+  const lq = $('listaQuedas'); lq.replaceChildren();
+  if (!r.quedas.length) vazio(lq, 'Nenhuma queda no período.');
+  for (const q of r.quedas.slice().reverse()) {
+    const tipo = q.tipo === 'dns' ? 'DNS não resolvia nomes (internet ok)' : 'sem internet';
+    const fim = q.aberta ? 'ainda agora' : new Date(q.fim).toLocaleTimeString('pt-BR');
+    lq.appendChild(linhaSimples(new Date(q.inicio).toLocaleString('pt-BR') + ' até ' + fim,
+      `${tipo} · ${q.aberta ? 'em andamento' : duracaoLegivel(q.fim - q.inicio)}`));
+  }
+  const le = $('listaEventosRede'); le.replaceChildren();
+  if (!r.eventos.length) vazio(le, 'Nenhum aviso no período.');
+  for (const [t, txt] of r.eventos.slice().reverse().slice(0, 100)) le.appendChild(linhaSimples(new Date(t).toLocaleString('pt-BR'), txt));
+}
+
+/** Uma barra por medição: altura = demora até a internet; cor = estado. Buracos (sem medição) ficam cinza. */
+function desenharGrafico(r) {
+  const c = $('graficoRede');
+  const dpr = window.devicePixelRatio || 1;
+  const larg = c.clientWidth || 600, alt = 160;
+  c.width = Math.round(larg * dpr); c.height = Math.round(alt * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, larg, alt);
+  const css = getComputedStyle(document.documentElement);
+  const cor = (n) => css.getPropertyValue(n).trim();
+  const topo = 4, base = alt - 22, faixa = base - topo;
+  const x = (t) => ((t - r.desde) / (r.agora - r.desde)) * larg;
+  // Fundo "sem dados" e a régua de horas.
+  g.fillStyle = cor('--superficie2'); g.fillRect(0, base + 4, larg, 6);
+  g.fillStyle = cor('--texto-fraco'); g.font = '11px system-ui, sans-serif'; g.textAlign = 'center';
+  const passo = horasRede > 24 ? 24 * 3600e3 : 3 * 3600e3;
+  const primeiro = Math.ceil(r.desde / passo) * passo;
+  for (let t = primeiro; t <= r.agora; t += passo) {
+    const d = new Date(t);
+    const rot = horasRede > 24 ? d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }) : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    g.fillText(rot, Math.min(Math.max(x(t), 20), larg - 20), alt - 2);
+  }
+  const a = r.amostras;
+  const buraco = 15 * 60e3;
+  for (let i = 0; i < a.length; i++) {
+    const [t, net, lat, dns] = a[i];
+    const prox = i + 1 < a.length ? a[i + 1][0] : r.agora;
+    const fim = Math.min(prox, t + buraco, r.agora);
+    const x0 = x(t), w = Math.max(x(fim) - x0, 1);
+    const estado = !net ? '--perigo' : dns < 0 ? '--alerta' : '--ok';
+    g.fillStyle = cor(estado);
+    g.fillRect(x0, base + 4, w, 6);   // faixa de estado
+    const h = net ? Math.max(2, Math.min(lat, 300) / 300 * faixa) : faixa;
+    g.globalAlpha = net ? 0.85 : 0.35;
+    g.fillRect(x0, base - h, w, h);
+    g.globalAlpha = 1;
+  }
+}
+
+for (const b of document.querySelectorAll('.periodo')) {
+  b.addEventListener('click', () => {
+    horasRede = Number(b.dataset.horas);
+    for (const o of document.querySelectorAll('.periodo')) o.classList.toggle('ativo', o === b);
+    carregarRede();
+  });
+}
+$('btnAtualizarRede').addEventListener('click', () => carregarRede());
+window.addEventListener('resize', () => { if (!$('abaRede').hidden) carregarRede(); });
 
 // ---------- início ----------
 
