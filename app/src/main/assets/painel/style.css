@@ -143,3 +143,12 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .dpad .ok { border-radius: 50%; font-weight: 700; }
 .teclas { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 8px; width: 100%; max-width: 420px; }
 .acoes-app { justify-content: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+
+/* ---------- recado na TV (05/11/2026) ---------- */
+.recado { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 520px; }
+.recado textarea {
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda);
+  border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 16px; resize: vertical;
+}
+.recado-opcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.recado-opcoes button { margin-left: auto; }
