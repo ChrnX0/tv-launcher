@@ -182,6 +182,29 @@ class ConfigLauncherActivity : Activity() {
             }
         }
 
+        // ---- Limpeza de apps de fábrica (Debloat.kt, 05/11/2026): só os apps já testados nesta TV, com desfazer.
+        secao("Limpeza de apps de fábrica")
+        val limpaveis = Debloat.disponiveis(this)
+        if (limpaveis.isEmpty()) adicionar(info("Nenhum app liberado ainda", "só entram apps testados um a um nesta TV (ver Debloat.kt)"))
+        limpaveis.forEach { item ->
+            lateinit var linhaApp: TextView
+            fun detalheApp() = if (PrivilegioDO.estaOculto(this, item.pacote)) "oculto — perde: ${item.perde} · OK mostra"
+                else "visível — OK oculta (perde: ${item.perde})"
+            linhaApp = linha(item.nome, detalheApp()) {
+                val ocultar = !PrivilegioDO.estaOculto(this, item.pacote)
+                if (Debloat.definir(this, item.pacote, ocultar)) linhaApp.detalhe(detalheApp())
+                else linhaApp.detalhe("não consegui mudar (Device Owner inativo?)")
+            }
+            adicionar(linhaApp)
+        }
+        if (Debloat.ocultosPorAqui(this).isNotEmpty()) {
+            lateinit var linhaDesfazer: TextView
+            linhaDesfazer = linha("Mostrar todos de volta", "desfaz a limpeza (o protetor do Google continua oculto)") {
+                linhaDesfazer.detalhe("${Debloat.desfazerTudo(this)} app(s) de volta — saia e entre para atualizar a lista")
+            }
+            adicionar(linhaDesfazer)
+        }
+
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         secao("Permissões")
         val dono = PrivilegioDO.somosDonos(this)
