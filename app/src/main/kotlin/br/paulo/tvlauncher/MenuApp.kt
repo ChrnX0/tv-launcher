@@ -35,4 +35,13 @@ object MenuApp {
      */
     fun podeDesinstalar(pacote: String, nosso: String, sistema: Boolean, protegido: Boolean): Boolean =
         pacote != nosso && !sistema && !protegido
+
+    /**
+     * Na pilha (grupo de cards), quais apps ganham a linha "Desinstalar <app>": os que [pode] deixa, com o da
+     * [frente] (o que aparece no card) primeiro e os outros na ordem da pilha.
+     */
+    fun desinstalaveisDaPilha(pacotes: List<String>, frente: Int, pode: (String) -> Boolean): List<String> {
+        val ordem = pacotes.getOrNull(frente)?.let { listOf(it) + (pacotes - it) } ?: pacotes
+        return ordem.filter(pode)
+    }
 }
