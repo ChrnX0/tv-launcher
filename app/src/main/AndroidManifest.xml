@@ -227,6 +227,85 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Contagem por voz (ver TimerActivity): o Gemini desta TV recusa "timer de X minutos" sem mandar o SET_TIMER,
+             então cada duração é um "app" ("Ok Google, abrir Contagem de 10 minutos"). Sem a palavra "timer" no nome. -->
+        <activity-alias
+            android:name=".Contagem1"
+            android:exported="true"
+            android:label="Contagem de 1 minuto"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Contagem5"
+            android:exported="true"
+            android:label="Contagem de 5 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Contagem10"
+            android:exported="true"
+            android:label="Contagem de 10 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Contagem15"
+            android:exported="true"
+            android:label="Contagem de 15 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Contagem30"
+            android:exported="true"
+            android:label="Contagem de 30 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".ContagemRegressiva"
+            android:exported="true"
+            android:label="Contagem regressiva"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".PararContagem"
+            android:exported="true"
+            android:label="Parar contagem"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- Previsão do tempo em tela cheia (abre no OK do clima, no topo) -->
         <activity
             android:name=".PrevisaoActivity"
