@@ -407,7 +407,8 @@ class MainActivity : Activity() {
         }
         topo.addView(txtTimer, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.x(1)) - f })
         blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            val y = v.height + dp(6) - f
+            // + 4 dp sem descontar a folga: o realce do foco (que ocupa a folga) não encosta na data.
+            val y = v.height + dp(4)
             if ((txtTimer.layoutParams as FrameLayout.LayoutParams).topMargin != y)
                 txtTimer.layoutParams = (txtTimer.layoutParams as FrameLayout.LayoutParams).apply { topMargin = y }
         }
