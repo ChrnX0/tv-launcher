@@ -163,7 +163,9 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
             }
             UNIFI -> if (this is ControleShizukuAdbReceiver) {
                 val pendente = goAsync()   // HTTP: fora da thread principal
-                Thread { try { pendente.resultData = UnifiCliente.verificarNovos(ctx) } finally { pendente.finish() } }.start()
+                val antiga = intent.getBooleanExtra("antiga", false)   // --ez antiga true: testa a API antiga (sinal da TV)
+                Thread { try { pendente.resultData = if (antiga) UnifiCliente.testarApiAntiga(ctx) else UnifiCliente.verificarNovos(ctx) }
+                    finally { pendente.finish() } }.start()
             }
             REINICIAR -> {
                 resultData = "reiniciando pid=${android.os.Process.myPid()}"
