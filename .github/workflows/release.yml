@@ -61,6 +61,9 @@ jobs:
           fi
 
       - name: Compilar o release
+        env:
+          ASSINATURA_SENHA: ${{ secrets.ASSINATURA_SENHA }}
+          ASSINATURA_ALIAS: ${{ secrets.ASSINATURA_ALIAS }}
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleRelease --no-daemon --stacktrace
