@@ -3,7 +3,8 @@
 # Sem ele o build funciona com padrões neutros (sem cidade, coordenadas 0/0, Celsius, botão Netflix abre o Netflix).
 # Salve em UTF-8. Linhas com # são comentários.
 
-# Clima. A localização real vem da TV (Wi-Fi, depois IP); latitude/longitude só valem se as duas falharem.
+# Clima. A localização vem da TV (Wi-Fi, o endereço cadastrado por CEP nas Configurações, IP). latitude/longitude
+# aqui só posicionam o céu desenhado antes da primeira busca do clima; não são usadas para a previsão.
 cidade=Minha Cidade
 latitude=0.0
 longitude=0.0
