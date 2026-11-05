@@ -36,6 +36,7 @@
       <button class="aba ativa" data-aba="apps">Aplicativos</button>
       <button class="aba" data-aba="controle">Controle</button>
       <button class="aba" data-aba="arquivos">Arquivos</button>
+      <button class="aba" data-aba="rede">Rede</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -76,7 +77,35 @@
         </form>
         <p class="aviso-curto">Voltar e Início respondem na hora; as outras teclas levam cerca de 1 s.</p>
         <p id="statusControle" class="aviso" hidden></p>
+        <div class="cartao">
+          <h2>Desligar sozinha</h2>
+          <p class="aviso">Depois desse tempo sem ninguém apertar o controle, a TV mostra um aviso por 60 s e desliga.
+            Qualquer botão cancela. Assistir um filme sem tocar no controle também conta como "sem uso".</p>
+          <div class="barra-acoes">
+            <select id="autoDesligar" aria-label="Desligar sozinha depois de"></select>
+          </div>
+          <p id="statusDesligar" class="aviso-curto"></p>
+        </div>
       </div>
+    </section>
+
+    <section id="abaRede" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <button type="button" class="botao-secundario periodo ativo" data-horas="24">Últimas 24 h</button>
+        <button type="button" class="botao-secundario periodo" data-horas="168">7 dias</button>
+        <button type="button" class="botao-secundario" id="btnAtualizarRede">Atualizar</button>
+      </div>
+      <p id="statusRede" class="aviso" hidden></p>
+      <div id="resumoRede" class="resumo-rede"></div>
+      <div class="cartao">
+        <canvas id="graficoRede" class="grafico-rede" height="160" aria-label="Gráfico de latência e quedas"></canvas>
+        <p class="aviso-curto legenda"><span class="cor ok"></span>internet ok (altura = demora, até 300 ms)
+          <span class="cor dns"></span>DNS falhou <span class="cor fora"></span>sem internet <span class="cor vazio"></span>sem dados (TV desligada)</p>
+      </div>
+      <h2>Quedas</h2>
+      <div id="listaQuedas" class="lista-registro"></div>
+      <h2>O que o Android avisou</h2>
+      <div id="listaEventosRede" class="lista-registro"></div>
     </section>
 
     <section id="abaArquivos" class="painel-aba" hidden>

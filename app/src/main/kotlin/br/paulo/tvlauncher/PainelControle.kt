@@ -89,6 +89,7 @@ object PainelControle {
     /** Aperta uma tecla. Devolve null se deu certo, ou o motivo. */
     fun tecla(ctx: Context, nome: String): String? {
         val codigo = TECLAS[nome] ?: return "tecla desconhecida"
+        AutoDesligar.atividade()   // tecla pelo painel também é alguém usando a TV
         val servico = AutorizaShizukuService.instancia
         // VOLTAR e INÍCIO pela acessibilidade: imediatos e sem shell.
         if (servico != null && nome == "voltar") return if (servico.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)) null else "o Android recusou"
@@ -104,6 +105,7 @@ object PainelControle {
     fun textoValido(t: String) = ChecagensPainel.textoTvValido(t)
 
     fun digitar(ctx: Context, texto: String): String? {
+        AutoDesligar.atividade()
         if (!textoValido(texto)) return "só letras sem acento, números, espaço e . , @ _ - (até 100)"
         // %s é como o `input text` entende espaço; o texto vai entre aspas simples e não tem aspas (barrado acima).
         val arg = texto.replace(" ", "%s")
