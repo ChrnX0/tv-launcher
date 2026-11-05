@@ -95,17 +95,20 @@
         <ul id="acoesFalar" class="lista-acoes" hidden></ul>
       </div>
       <div class="cartao">
-        <h2>Chave e modelo</h2>
-        <p class="aviso">A chave é sua, do <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.
-          Fica cifrada na TV e nunca volta para o painel (só os 4 últimos caracteres). Ligar ou desligar a IA é só nas Configurações do launcher, na TV.</p>
+        <h2>IA, chave e modelo</h2>
+        <form id="formProvedor" class="form-pasta" autocomplete="off">
+          <select id="campoProvedor" aria-label="Qual IA usar"></select>
+        </form>
+        <p class="aviso">A chave é sua, de quem você escolher: <a id="linkChaveIa" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">pegar a chave</a>.
+          Cada IA guarda a sua chave e o seu modelo. Fica cifrada na TV e nunca volta para o painel (só os 4 últimos caracteres). Ligar ou desligar a IA é só nas Configurações do launcher, na TV.</p>
         <p id="chaveIa" class="aviso-curto"></p>
         <form id="formChave" class="form-pasta" autocomplete="off">
-          <input id="campoChave" type="password" maxlength="100" autocomplete="off" placeholder="Colar a chave de API" aria-label="Chave de API">
+          <input id="campoChave" type="password" maxlength="400" autocomplete="off" placeholder="Colar a chave de API" aria-label="Chave de API">
           <button type="submit" class="botao-secundario">Guardar</button>
           <button type="button" id="btnApagarChave" class="botao-perigo">Apagar</button>
         </form>
         <form id="formModelo" class="form-pasta" autocomplete="off">
-          <input id="campoModelo" type="text" maxlength="64" placeholder="gemini-flash-latest" aria-label="Modelo">
+          <input id="campoModelo" type="text" maxlength="80" placeholder="gemini-flash-latest" aria-label="Modelo">
           <button type="submit" class="botao-secundario">Trocar modelo</button>
         </form>
         <p id="statusChave" class="aviso" hidden></p>
