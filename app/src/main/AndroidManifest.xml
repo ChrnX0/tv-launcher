@@ -214,6 +214,99 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Timer (ver Timer.kt): atende o "criar timer" do Android que o Gemini manda ("Ok Google, timer de 10 minutos").
+             Nesta TV o outro que atende é um stub de fábrica com prioridade -1, então o nosso vence sem perguntar. -->
+        <activity
+            android:name=".TimerActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SET_TIMER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <!-- Contagem por voz (ver TimerActivity). O Gemini desta TV recusa "timer de X minutos" e, para "abrir Contagem de
+             1 minuto", buscou vídeos de contagem no YouTube (05/11/2026): palavra de timer vira pedido dele, não "abrir app".
+             Por isso o nome copia o formato que funcionou ("Desligar em 30 minutos"): verbo + "em N minutos". -->
+        <activity-alias
+            android:name=".Avisar5"
+            android:exported="true"
+            android:label="Avisar em 5 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Avisar10"
+            android:exported="true"
+            android:label="Avisar em 10 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Avisar15"
+            android:exported="true"
+            android:label="Avisar em 15 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Avisar20"
+            android:exported="true"
+            android:label="Avisar em 20 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Avisar30"
+            android:exported="true"
+            android:label="Avisar em 30 minutos"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".Ampulheta"
+            android:exported="true"
+            android:label="Ampulheta"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".NaoAvisar"
+            android:exported="true"
+            android:label="Não avisar"
+            android:targetActivity=".TimerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- Previsão do tempo em tela cheia (abre no OK do clima, no topo) -->
         <activity
             android:name=".PrevisaoActivity"
