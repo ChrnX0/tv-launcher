@@ -28,8 +28,8 @@ object Velocidade {
         } finally { conexao.disconnect() }
         val segundos = (System.nanoTime() - inicio) / 1e9
         val mbps = total * 8 / segundos / 1e6
-        "Internet: %.0f Mbps (baixou %.0f MB em %.1f s)".format(mbps, total / 1e6, segundos)
+        txt(R.string.vel_resultado, mbps, total / 1e6, segundos)
     } catch (e: Exception) {
-        "Teste falhou (sem internet ou servidor fora do ar)"
+        txt(R.string.vel_falhou)
     }
 }
