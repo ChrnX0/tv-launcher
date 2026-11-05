@@ -1,5 +1,5 @@
 $adb = "$env:USERPROFILE\android-sdk\platform-tools\adb.exe"
-$s = "192.168.1.153:40507"
+$s = $env:TV_ADB
 "-- BLUETOOTH_SETTINGS --"
 & $adb -s $s shell am start -a android.settings.BLUETOOTH_SETTINGS
 Start-Sleep 2
