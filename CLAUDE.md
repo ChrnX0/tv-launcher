@@ -12,17 +12,17 @@ scan dos valores `vpn.*` do `local.properties` antes do push (nunca podem ir par
 
 ## Hardware / rede
 
-- TV "Sala": `192.168.1.153`. A porta da depuração sem fio **muda a cada boot** (ex.: 36555 em
+- TV "Sala": IP fixo na rede local, na chave `tv_ip` do `pessoal.properties` do Dell (fora do git) e na memória do projeto. A porta da depuração sem fio **muda a cada boot** (ex.: 36555 em
   04/11/2026); descobrir com `adb mdns services` (`_adb-tls-connect`). Às vezes também aparece em
   `:5555` — **é o mesmo aparelho físico**, não duas TVs; o painel (`chromecast-painel`, ver
   abaixo) deduplica isso pelo nome (`settings get global device_name`), não pelo endpoint.
-- Repo local: `C:\Users\rockx\tv-launcher` na máquina Windows "Dell".
+- Repo local: `%USERPROFILE%\tv-launcher` na máquina Windows "Dell".
 - Build (desde 04/11/2026): wrapper do repo (`gradlew.bat`, Gradle 8.14) + AGP 8.11 + Kotlin 2.2 +
   **JDK 21** (`C:\Program Files\Eclipse Adoptium\jdk-21.0.13.9-hotspot`). O gradle-8.9 de `tools`
   não roda mais o projeto. Script pronto: `.\build3.ps1` (debug) ou **`.\build3.ps1 -Release`** (o que
   fica na TV: R8 + perfil AOT; instala com `install -r`, grava o perfil, compila `speed-profile` e
   reinicia o launcher). O debug roda sempre em `verify` (sem AOT): **não serve para medir desempenho**.
-- Permissões do Claude Code (`C:\Users\rockx\.claude\settings.json`, pedido do Paulo em 04/11/2026):
+- Permissões do Claude Code (`%USERPROFILE%\.claude\settings.json`, pedido do Paulo em 04/11/2026):
   comandos com `adb.exe` liberados; NEGADOS (o deny vence): desinstalar `br.paulo.tvlauncher`,
   `pm clear br.paulo.tvlauncher`, `remove-active-admin`, `MASTER_CLEAR`, qualquer `wipe`,
   `reboot recovery`. Backup em `settings.json.bak-20261104`.
@@ -205,21 +205,55 @@ Verificado contra o `clima.xml` real do aparelho em dois horários (dentro e for
 
 ---
 
+# Painel no navegador EMBUTIDO no launcher (fase 1, 04/11/2026)
+
+Substitui aos poucos o `chromecast-painel` do PC (decisão do Paulo: "o PC era só um meio"). O próprio launcher
+serve o painel em `http://<IP da TV>:8080/` (porta < 1024 é proibida para app, medido). Plano completo e medições
+da fase 0: `/mnt/project-files/tv-launcher/painel-no-launcher.md`.
+
+- Liga em Configurações do launcher > Painel no navegador. Definir o PIN (6 a 12 dígitos) já liga. Desligado = sem
+  socket nem thread.
+- Arquivos: `PainelWeb.kt` (servidor, rotas), `PainelHttp.kt` + `PainelSeguranca.kt` (puros, com testes JVM em
+  `app/src/test`), `PainelArmazem.kt` (prefs `painel_seguro` e `painel_log`, FORA do backup de propósito),
+  `PainelApps.kt` (apps, ícone, ocultar, desinstalar com receiver de resultado), `BackupConfig.kt` (veio do PR #9),
+  frontend em `app/src/main/assets/painel/`.
+- Defesas: só aceita conexão pela rede local (não pela VPN), Host na lista (`Config.PAINEL_NOMES` + IP), POST exige
+  Origin do próprio painel e `X-Painel: 1`, cookie HttpOnly SameSite=Strict, PIN em PBKDF2, 5 erros = bloqueio
+  crescente, 20 erros = painel desliga sozinho (só religa na TV). Desinstalar e restaurar backup pedem o PIN de novo
+  (vale 5 min). Lista de apps protegidos em `PainelApps.PROTEGIDOS_FIXOS` (inclui o launcherx: NUNCA ocultar).
+- Nome "chromecast": a TV usa IP fixo, então só funciona com um registro de DNS local no roteador UniFi UX7 apontando
+  para 192.168.1.153; o navegador precisa de `http://chromecast:8080/` (palavra solta vira busca).
+- Testes JVM: `gradlew testReleaseUnitTest` (ou kotlinc + JUnit direto, sem Android).
+- Fase 2 (04/11/2026, PR #10): todos os apps por padrão; permissões por app (`PainelPermissoes.kt`: perigosas pelo DO
+  `setPermissionGrantState`, acessos especiais por `appops set --uid` no shell próprio via `GuardiaoShizuku.comando`, comando
+  montado de tabela fixa); instalar APK em silêncio (`PainelApps.instalar`, PIN de novo; o próprio launcher é recusado);
+  aba Arquivos (`PainelArquivos.kt`, memória interna menos `Android/`; corpo do envio vai em fluxo direto ao disco, ver
+  `Requisicao.fluxoCorpo`). O acesso a todos os arquivos (MANAGE_EXTERNAL_STORAGE) o launcher se concede pelo shell na 1ª vez.
+- Ficha de cada app (`PainelFicha.kt` + `assets/fichas-apps.json`, 94 pacotes desta TV escritos à mão; overlays pela regra
+  "/overlay/" no caminho do APK): risco essencial/cuidado/seguro, efeito de ocultar, papéis em uso (teclado, HOME, VPN,
+  acessibilidade, protetor, assistente, navegador) e "usado por" calculado na TV (biblioteca compartilhada e permissão que o app
+  define). Papel em uso sobe o risco para essencial. Pacote novo na TV sem ficha = "sem informação": acrescentar no JSON.
+- Aba Controle (`PainelControle.kt`, 05/11/2026): foto da tela pela acessibilidade (`canTakeScreenshot` no XML; JPEG 1280x720
+  a cada 2 s só com a aba visível), teclas (VOLTAR/INÍCIO pela acessibilidade, o resto `input keyevent` no shell, tabela fixa),
+  texto (`ChecagensPainel.textoTvValido`, sem aspas nem acento), acordar/dormir, reiniciar a TV (DO `reboot`, PIN). No Detalhes:
+  abrir, parar (`am force-stop`) e limpar dados (DO `clearApplicationUserData`, só app instalado, PIN); espaço e uso de hoje.
+- Fases seguintes (não feitas): alarmes pelo painel, horário de dormir, ver o Quarto, HTTPS.
+
 # chromecast-painel — painel de administração (subpasta deste mesmo repo)
 
 Painel web simples e não-técnico pra administrar os Chromecasts da casa (Sala e, no futuro,
 Quarto) pelo navegador: instalar/congelar/desinstalar apps, alternar permissão por app, enviar/
 baixar arquivo, ver a tela ao vivo — tudo multi-aparelho, descoberta automática por nome amigável.
 
-**Local:** `C:\Users\rockx\tv-launcher\chromecast-painel` — subpasta do MESMO repo
+**Local:** `%USERPROFILE%\tv-launcher\chromecast-painel` — subpasta do MESMO repo
 `tv-launcher` (decisão do Paulo em 03/11/2026: faz parte do mesmo projeto). `node_modules/`
 e `cache/` dessa subpasta estão no `.gitignore` do repo (não versionar dependências nem
 dados locais de cache). **Atenção de segurança:** esse painel controla instalar/desinstalar
 app e dá acesso à tela da TV, sem senha. Por isso, desde 04/11/2026, **só escuta em 127.0.0.1**
 (painel: `server.js`, `PAINEL_HOST`; ws-scrcpy: `node -r ws-scrcpy-extra/so-localhost.js` no
-`C:\Users\rockx\ws-scrcpy\start.ps1`, sem mexer no código dele). Antes escutavam em todas as
+`%USERPROFILE%\ws-scrcpy\start.ps1`, sem mexer no código dele). Antes escutavam em todas as
 interfaces, e o firewall do Windows tem uma regra "Node.js" liberando entrada (Privado e Público).
-Medido depois: pelo IP da rede (192.168.1.236:9000/8000) recusa; por localhost funciona, inclusive a
+Medido depois: pelo IP do Dell na rede (portas 9000/8000) recusa; por localhost funciona, inclusive a
 tela ao vivo. Para usar de outro aparelho: pôr senha ANTES de abrir para a rede.
 
 Motivo de existir: o Paulo rejeitou explicitamente a interface técnica/crua do `ws-scrcpy`
@@ -271,7 +305,7 @@ depuração sem fio ativa que ela aparece sozinha, sem código novo.
 
 ## ws-scrcpy — visualização de tela embutida (funcionando desde 04/11/2026)
 
-O `ws-scrcpy` (`C:\Users\rockx\ws-scrcpy`, clone oficial do GitHub, **não modificado** —
+O `ws-scrcpy` (`%USERPROFILE%\ws-scrcpy`, clone oficial do GitHub, **não modificado** —
 decisão explícita do Paulo de manter "todinho do repositório") roda numa porta separada
 (`8000`, escondida do usuário) e faz o trabalho pesado de capturar e decodificar a tela via
 scrcpy. O painel nunca mostra a lista de dispositivos dele — só devolve o link direto do

@@ -1,5 +1,5 @@
 $adb=$env:USERPROFILE+'\android-sdk\platform-tools\adb.exe'
-$s='192.168.1.153:40507'
+$s=$env:TV_ADB
 & $adb -s $s shell "input keyevent WAKEUP"
 Start-Sleep 1
 & $adb -s $s shell "input keyevent HOME"
@@ -11,6 +11,6 @@ Start-Sleep -Milliseconds 500
 Start-Sleep 7
 & $adb -s $s shell "dumpsys activity activities" | Select-String "topResumedActivity"
 & $adb -s $s shell screencap -p /sdcard/prev5.png
-& $adb -s $s pull /sdcard/prev5.png C:\Users\rockx\tv-launcher\.shots\prev5.png | Out-Null
+& $adb -s $s pull /sdcard/prev5.png $env:USERPROFILE\tv-launcher\.shots\prev5.png | Out-Null
 & $adb -s $s shell rm /sdcard/prev5.png
 & $adb -s $s shell "input keyevent HOME"
