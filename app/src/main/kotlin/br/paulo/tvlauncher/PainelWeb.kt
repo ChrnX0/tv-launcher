@@ -7,6 +7,7 @@ import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -204,7 +205,7 @@ object PainelWeb {
                            val arquivo: File? = null)
 
     /** Rotas que recebem o corpo como fluxo, direto para o disco (arquivo de vários GB não cabe na memória). */
-    private val ROTAS_FLUXO = setOf("/api/arquivos/enviar", "/api/apps/instalar")
+    private val ROTAS_FLUXO = setOf("/api/arquivos/enviar", "/api/apps/instalar", "/api/fotos/enviar")
 
     private fun json(codigo: Int, o: JSONObject, extras: Map<String, String> = emptyMap()) =
         Resposta(codigo, "application/json; charset=utf-8", o.toString().toByteArray(), extras)
@@ -329,6 +330,46 @@ object PainelWeb {
                 val f = BackupAutomatico.arquivo(app, nome) ?: return erro(404, "essa cópia não existe")
                 return restaurarTexto(f.readText(), token, ip, "restaurar cópia automática $nome")
             }
+            // Aba Saúde (PainelSaude.kt). ?rapido=1 pula o shell (só os números que o app lê sozinho, na hora).
+            "/api/saude" -> if (req.metodo == "GET") return json(200, PainelSaude.estado(app, req.consulta["rapido"] != "1"))
+            "/api/saude/liberar" -> if (req.metodo == "POST") {
+                val ganho = PainelSaude.liberar(app)
+                PainelArmazem.registrar(app, ip, "liberar memória", if (ganho == null) "sem shell" else "ok, ${ganho / 1048576} MB")
+                return if (ganho == null) erro(503, "o shell do launcher não respondeu (a depuração sem fio está ligada?)")
+                else json(200, JSONObject().put("ok", true).put("ganho", ganho))
+            }
+            // Fotos do protetor de tela (FotosProtetor.kt): pasta privada do launcher, só imagens.
+            "/api/fotos" -> if (req.metodo == "GET") return json(200, JSONObject().put("fotos", org.json.JSONArray().apply {
+                for (f in FotosProtetor.listar(app)) put(JSONObject().put("nome", f.name).put("tamanho", f.length()))
+            }).put("limite", FotosProtetor.MAXIMO_FOTOS))
+            "/api/fotos/ver" -> if (req.metodo == "GET") {
+                val f = FotosProtetor.arquivo(app, req.consulta["nome"] ?: "") ?: return erro(404, "essa foto não existe")
+                val tipo = when (f.extension.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; else -> "image/jpeg" }
+                return Resposta(200, tipo, f.readBytes())
+            }
+            "/api/fotos/enviar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val motivo = FotosProtetor.receber(app, nome, req.tamanho, req.fluxoCorpo())
+                PainelArmazem.registrar(app, ip, "enviar foto do protetor ${nome.take(80)}", motivo ?: "ok")
+                return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(400, motivo)
+            }
+            "/api/fotos/apagar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val ok = FotosProtetor.apagar(app, nome)
+                PainelArmazem.registrar(app, ip, "apagar foto do protetor ${nome.take(80)}", if (ok) "ok" else "não existe")
+                return if (ok) json(200, JSONObject().put("ok", true)) else erro(404, "essa foto não existe")
+            }
+            // Aba Shizuku (PainelShizuku.kt). Permitir dá shell ao app: PIN de novo; revogar não precisa.
+            "/api/shizuku" -> if (req.metodo == "GET") return json(200, PainelShizuku.estado(app))
+            "/api/shizuku/app" -> if (req.metodo == "POST") {
+                val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+                val pacote = o.optString("pacote")
+                val permitir = o.optString("acao") == "permitir"
+                if (permitir && !sessoes.elevada(token)) return precisaPin()
+                val motivo = PainelShizuku.mudar(app, pacote, permitir)
+                PainelArmazem.registrar(app, ip, "Shizuku ${if (permitir) "permitir" else "revogar"} $pacote", motivo ?: "ok")
+                return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+            }
             "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
             "/api/apps/instalar" -> if (req.metodo == "POST") return instalar(req, token, ip)
             "/api/arquivos" -> if (req.metodo == "GET") { semAcesso()?.let { return it }; return json(200, PainelArquivos.listar(req.consulta["caminho"])) }
@@ -342,7 +383,29 @@ object PainelWeb {
             "/api/tv/reiniciar" -> if (req.metodo == "POST") return reiniciarTv(token, ip)
             "/api/recado" -> if (req.metodo == "POST") return recado(req, ip)
             "/api/tvs" -> if (req.metodo == "GET") return json(200, PainelVizinhos.json(app))
+            "/api/rede/historico" -> if (req.metodo == "GET")
+                return json(200, HistoricoRede.json(app, req.consulta["horas"]?.toIntOrNull() ?: 24))
+            "/api/tv/autodesligar" -> when (req.metodo) {
+                "GET" -> return autoDesligar()
+                "POST" -> {
+                    val min = corpoJson(req)?.optInt("minutos", -1) ?: return erro(400, "JSON inválido")
+                    if (!AutoDesligar.definir(app, min)) return erro(400, "opção inválida")
+                    PainelArmazem.registrar(app, ip, "desligar sozinha: " + (if (min == 0) "nunca" else "$min min"), "ok")
+                    return autoDesligar()
+                }
+            }
+            "/api/clima" -> when (req.metodo) {
+                "GET" -> return json(200, estadoClima())
+                "POST" -> return mudarClima(req, ip)
+            }
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
+            // IA na nuvem (bloco 6, PedidoIa.kt). Ligar a IA não tem rota: só pelas Configurações, na TV.
+            "/api/ia" -> if (req.metodo == "GET") return iaEstado()
+            "/api/ia/chave" -> if (req.metodo == "POST") return iaChave(req, token, ip)
+            "/api/ia/modelo" -> if (req.metodo == "POST") return iaModelo(req, ip)
+            "/api/ia/provedor" -> if (req.metodo == "POST") return iaProvedor(req, ip)
+            "/api/ia/pedir" -> if (req.metodo == "POST") return iaPedir(req, ip)
+            "/api/ia/pedido" -> if (req.metodo == "GET") return PedidoIa.estado(req.consulta["id"])?.let { json(200, it.json()) } ?: erro(404, "pedido não encontrado")
             "/api/roteador" -> if (req.metodo == "GET") return json(200, roteadorEstado())
             "/api/roteador/config" -> if (req.metodo == "POST") return roteadorConfig(req, ip)
             "/api/roteador/certificado" -> if (req.metodo == "POST") return roteadorCertificado(ip)
@@ -592,6 +655,86 @@ object PainelWeb {
         return json(200, JSONObject().put("ok", true).put("apagados", n))
     }
 
+    // ---------------------------------------------------------------- bloco 6: IA na nuvem
+
+    /** Estado da IA: provedor ativo e, para cada provedor, se tem chave (só os 4 últimos caracteres) e o modelo. */
+    private fun iaEstado(): Resposta {
+        val ativo = IaArmazem.provedor(app)
+        val lista = JSONArray()
+        for (p in ComandosIa.Provedor.values()) lista.put(JSONObject()
+            .put("id", p.id).put("nome", p.nome).put("modeloPadrao", p.modeloPadrao)
+            .put("chave", IaArmazem.finalDaChave(app, p) ?: JSONObject.NULL)   // nunca a chave
+            .put("modelo", IaArmazem.modelo(app, p)))
+        return json(200, JSONObject()
+            .put("ligada", IaArmazem.ligada(app))
+            .put("provedor", ativo.id)
+            .put("chave", IaArmazem.finalDaChave(app, ativo) ?: JSONObject.NULL)
+            .put("modelo", IaArmazem.modelo(app, ativo))
+            .put("provedores", lista))
+    }
+
+    /** O provedor pedido no corpo ("provedor"), ou o ativo se não vier. Null = id desconhecido. */
+    private fun provedorDo(o: JSONObject): ComandosIa.Provedor? {
+        val id = o.optString("provedor")
+        return if (id.isEmpty()) IaArmazem.provedor(app) else ComandosIa.Provedor.porId(id)
+    }
+
+    /**
+     * Cadastrar ou apagar a chave exige o PIN redigitado (quem trocar a chave escolhe para onde vão os pedidos).
+     * Provedor: o do corpo; sem ele, detectado pelo começo da chave (sk-ant-, sk-, pplx-, AQ./AIza); sem detecção, o ativo.
+     * Se o provedor ativo ainda não tem chave, o ativo passa a ser este (colar a 1ª chave já deixa pronto).
+     */
+    private fun iaChave(req: Requisicao, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        if (o.optBoolean("apagar")) {
+            val p = provedorDo(o) ?: return erro(400, "provedor desconhecido")
+            IaArmazem.definirChave(app, null, p)
+            PainelArmazem.registrar(app, ip, "IA: apagar chave ${p.id}", "ok")
+            return json(200, JSONObject().put("ok", true))
+        }
+        val chave = ComandosIa.limparChave(o.optString("chave"))
+        val p = (if (o.optString("provedor").isEmpty()) ComandosIa.Provedor.detectar(chave) else null)
+            ?: provedorDo(o) ?: return erro(400, "provedor desconhecido")
+        // A mensagem diz o formato esperado e o tamanho recebido, nunca a chave.
+        if (!ComandosIa.chaveValida(chave)) return erro(400, "isso não parece uma chave de API (esperado de 20 a 300 letras, " +
+            "números, . - _, sem espaço; recebi ${chave.length} caracteres)")
+        if (!IaArmazem.definirChave(app, chave, p)) return erro(500, "não consegui guardar a chave na TV")
+        if (!IaArmazem.temChave(app)) IaArmazem.definirProvedor(app, p)
+        // Aviso, não bloqueio: o formato das chaves muda (ex.: Google "AQ."); a 1ª chamada é o teste real.
+        val det = ComandosIa.Provedor.detectar(chave)
+        val aviso = if (det != null && det != p) "a chave parece ser do ${det.nome}, mas foi guardada no ${p.nome}" else null
+        PainelArmazem.registrar(app, ip, "IA: cadastrar chave ${p.id} ${IaArmazem.finalDaChave(app, p)}", "ok")
+        return json(200, JSONObject().put("ok", true).put("provedor", p.id).put("chave", IaArmazem.finalDaChave(app, p))
+            .put("aviso", aviso ?: JSONObject.NULL))
+    }
+
+    private fun iaModelo(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val p = provedorDo(o) ?: return erro(400, "provedor desconhecido")
+        val m = o.optString("modelo").trim()
+        if (!IaArmazem.definirModelo(app, m, p)) return erro(400, "nome de modelo inválido")
+        PainelArmazem.registrar(app, ip, "IA: modelo ${p.id} $m", "ok")
+        return json(200, JSONObject().put("ok", true).put("modelo", m))
+    }
+
+    /** Trocar o provedor ativo. Sem PIN de novo: só escolhe entre chaves que o dono já cadastrou com PIN. */
+    private fun iaProvedor(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val p = ComandosIa.Provedor.porId(o.optString("provedor")) ?: return erro(400, "provedor desconhecido")
+        IaArmazem.definirProvedor(app, p)
+        PainelArmazem.registrar(app, ip, "IA: provedor ${p.id}", "ok")
+        return json(200, JSONObject().put("ok", true).put("provedor", p.id).put("temChave", IaArmazem.temChave(app, p)))
+    }
+
+    private fun iaPedir(req: Requisicao, ip: String): Resposta {
+        val frase = corpoJson(req)?.optString("frase") ?: return erro(400, "JSON inválido")
+        val p = PedidoIa.pedir(app, frase, ip)
+        // A frase não vai para o registro (pode ser pessoal); só o tamanho.
+        PainelArmazem.registrar(app, ip, "IA: pedido de ${p.frase.length} caractere(s)", if (p.situacao == PedidoIa.Situacao.ERRO) p.mensagem else "enviado")
+        return if (p.situacao == PedidoIa.Situacao.ERRO) erro(409, p.mensagem) else json(200, p.json())
+    }
+
     // ---------------------------------------------------------------- bloco C: tela, controle, ações de app
 
     private fun acaoApp(ip: String, acao: String, pacote: String, fazer: () -> String?): Resposta {
@@ -636,6 +779,44 @@ object PainelWeb {
             AvisoTv.Resultado.GUARDADO -> json(200, JSONObject().put("ok", true).put("situacao", "guardado"))
             else -> erro(409, "a acessibilidade do launcher está desligada na TV: sem ela o recado não aparece")
         }
+    }
+    private fun autoDesligar() = json(200, JSONObject()
+        .put("minutos", AutoDesligar.minutos(app))
+        .put("opcoes", org.json.JSONArray(AutoDesligar.OPCOES))
+        .put("ultimoDesligamento", AutoDesligar.ultimoDesligamento))
+
+    /** O lugar do clima: o escolhido (ou null = automático), o ponto que a última busca usou e a faixa de 9 dias. */
+    private fun estadoClima(): JSONObject {
+        val fixo = LocalClima.ler(app)
+        val c = app.getSharedPreferences("clima", Context.MODE_PRIVATE)
+        return JSONObject()
+            .put("fixo", fixo?.let { JSONObject().put("nome", it.nome).put("lat", it.lat).put("lon", it.lon) } ?: JSONObject.NULL)
+            .put("usado", if (c.contains("lat")) JSONObject().put("lat", c.getFloat("lat", 0f).toDouble()).put("lon", c.getFloat("lon", 0f).toDouble()) else JSONObject.NULL)
+            .put("faixa", FaixaDias.ligada(app))
+    }
+
+    /** {"nome","coordenadas"} fixa o lugar; {"automatico":true} volta ao automático; {"faixa":bool} liga/desliga a faixa. */
+    private fun mudarClima(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        when {
+            o.has("faixa") -> {
+                FaixaDias.definirLigada(app, o.optBoolean("faixa", true))
+                PainelArmazem.registrar(app, ip, "faixa de 9 dias ${if (FaixaDias.ligada(app)) "ligada" else "desligada"}", "ok")
+            }
+            o.optBoolean("automatico", false) -> {
+                LocalClima.limpar(app)
+                PainelArmazem.registrar(app, ip, "clima: localização automática", "ok")
+            }
+            else -> {
+                val (lat, lon) = LocalClima.lerCoordenadas(o.optString("coordenadas"))
+                    ?: return erro(400, "coordenadas inválidas: cole do Google Maps, ex.: -21.1795, -47.8105")
+                val nome = LocalClima.limparNome(o.optString("nome"))
+                LocalClima.gravar(app, LocalClima.Lugar(nome, lat, lon))
+                // As coordenadas não vão para o registro (são o endereço da casa), só o nome.
+                PainelArmazem.registrar(app, ip, "clima: lugar \"$nome\"", "ok")
+            }
+        }
+        return json(200, estadoClima().put("ok", true))
     }
 
     private fun reiniciarTv(token: String?, ip: String): Resposta {
