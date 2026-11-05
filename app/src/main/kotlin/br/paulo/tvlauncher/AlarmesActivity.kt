@@ -262,7 +262,7 @@ class AlarmesActivity : Activity() {
         }
         // "Bom dia" falado ao parar o alarme (ver Despertador.Alarme.bomDia).
         lateinit var btBomDia: TextView
-        fun textoBomDia() = if (bomDia) "Bom dia falado: sim" else "Bom dia falado: não"
+        fun textoBomDia() = if (bomDia) "Bom dia: sim" else "Bom dia: não"
         btBomDia = botao(textoBomDia()) { bomDia = !bomDia; btBomDia.text = textoBomDia() }
         linhaSom.addView(btSom, botaoLp()); linhaSom.addView(btRampa, botaoLp()); linhaSom.addView(btOuvir, botaoLp())
         linhaSom.addView(btBomDia, botaoLp())
