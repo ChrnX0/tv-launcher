@@ -267,4 +267,11 @@ class PainelSegurancaTest {
         assertFalse(ChecagensPainel.dentroDe("/data/data/br.paulo.tvlauncher", "/storage/emulated/0"))
         assertFalse(ChecagensPainel.dentroDe("/storage/emulated", "/storage/emulated/0"))
     }
+
+    @Test fun textoParaDigitarNaTv() {
+        for (ok in listOf("netflix", "Joao 123", "a.b@c.com", "x_y-z"))
+            assertTrue(ok, ChecagensPainel.textoTvValido(ok))
+        for (ruim in listOf(null, "", "a'b", "a;reboot", "\$(id)", "`id`", "a\nb", "a|b", "a&b", "a/b", "ação", "x".repeat(101), "a\"b"))
+            assertFalse(ruim.toString(), ChecagensPainel.textoTvValido(ruim))
+    }
 }
