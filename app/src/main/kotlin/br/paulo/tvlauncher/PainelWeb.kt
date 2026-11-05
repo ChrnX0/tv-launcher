@@ -310,6 +310,17 @@ object PainelWeb {
                     mapOf("Content-Disposition" to "attachment; filename=\"launcher-antes-de-restaurar.json\""))
             }
             "/api/backup/restaurar" -> if (req.metodo == "POST") return restaurar(req, token, ip)
+            // Aba Shizuku (PainelShizuku.kt). Permitir dá shell ao app: PIN de novo; revogar não precisa.
+            "/api/shizuku" -> if (req.metodo == "GET") return json(200, PainelShizuku.estado(app))
+            "/api/shizuku/app" -> if (req.metodo == "POST") {
+                val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+                val pacote = o.optString("pacote")
+                val permitir = o.optString("acao") == "permitir"
+                if (permitir && !sessoes.elevada(token)) return precisaPin()
+                val motivo = PainelShizuku.mudar(app, pacote, permitir)
+                PainelArmazem.registrar(app, ip, "Shizuku ${if (permitir) "permitir" else "revogar"} $pacote", motivo ?: "ok")
+                return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+            }
             "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
             "/api/apps/instalar" -> if (req.metodo == "POST") return instalar(req, token, ip)
             "/api/arquivos" -> if (req.metodo == "GET") { semAcesso()?.let { return it }; return json(200, PainelArquivos.listar(req.consulta["caminho"])) }
