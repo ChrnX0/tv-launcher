@@ -43,6 +43,7 @@ class DiagnosticoActivity : Activity() {
     private lateinit var principal: View
     private lateinit var lista: LinearLayout
     private var noDetalhe = false
+    private var focoAntes: View? = null   // a linha do app aberto: volta o foco para ela no BACK
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,7 +60,7 @@ class DiagnosticoActivity : Activity() {
     /** BACK no detalhe de um app volta para a lista, não fecha a tela. */
     @Deprecated("Activity simples, sem AndroidX")
     override fun onBackPressed() {
-        if (noDetalhe) { noDetalhe = false; setContentView(principal); return }
+        if (noDetalhe) { noDetalhe = false; setContentView(principal); focoAntes?.requestFocus(); return }
         @Suppress("DEPRECATION") super.onBackPressed()
     }
 
@@ -135,9 +136,11 @@ class DiagnosticoActivity : Activity() {
                     val ult = l.first()
                     val nivel = if (l.any { it.grave }) 2 else 1
                     val quando = DateUtils.getRelativeTimeSpanString(ult.quando, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
-                    adicionar(linha(nomes[pacote] ?: Diagnostico.rotuloDe(this, pacote),
-                        "$quando: ${ult.tipo} — ${ult.resumo}" + (if (l.size > 1) " (+${l.size - 1})" else ""), nivel) {
-                        mostrarDetalhe(nomes[pacote] ?: pacote, pacote, l)
+                    // Apps fora do menu da TV (ex.: Google Play Services) não estão em [nomes]: pede o nome ao sistema.
+                    val nome = nomes[pacote] ?: Diagnostico.rotuloDe(this, pacote)
+                    val resumo = if (ult.resumo.isBlank()) "" else " — ${ult.resumo}"
+                    adicionar(linha(nome, "$quando: ${ult.tipo}$resumo" + (if (l.size > 1) " (+${l.size - 1})" else ""), nivel) {
+                        mostrarDetalhe(nome, pacote, l)
                     })
                 }
                 for ((pacote, nome) in apps) if (pacote !in ocorr)
@@ -150,6 +153,7 @@ class DiagnosticoActivity : Activity() {
 
     /** Troca a tela pelo histórico completo de um app. A rolagem é pelas setas do controle (a ScrollView tem o foco). */
     private fun mostrarDetalhe(nome: String, pacote: String, l: List<Diagnostico.Ocorrencia>) {
+        focoAntes = currentFocus
         val sb = StringBuilder()
         if (l.isEmpty()) sb.append("Nenhum crash, travada ou encerramento anormal nos últimos 7 dias.\n\n" +
             "Se o app abre mas não carrega nada, o problema costuma ser rede: veja a seção Rede na tela anterior.")

@@ -191,10 +191,12 @@ object Diagnostico {
         return lista.filter { it.timestamp >= desde }.mapNotNull { i ->
             val (tipo, grave) = motivo(i.reason) ?: return@mapNotNull null
             val memoria = if (i.pss > 0) " · usava ${i.pss / 1024} MB" else ""
-            val desc = i.description?.takeIf { it.isNotBlank() }
+            // O Android às vezes só repete o motivo ("crash"): aí não vale como resumo.
+            val desc = i.description?.takeIf { it.isNotBlank() && !it.equals("crash", ignoreCase = true) }
             val texto = "Motivo: $tipo\nProcesso: ${i.processName}$memoria\nImportância: ${importancia(i.importance)}" +
                 (desc?.let { "\nDetalhe do Android: $it" } ?: "")
-            Ocorrencia(pacote, i.timestamp, tipo, (desc ?: tipo).take(160) + memoria, texto, grave)
+            // Resumo sem repetir o [tipo], que a tela já mostra antes dele.
+            Ocorrencia(pacote, i.timestamp, tipo, ((desc ?: "").take(160) + memoria).removePrefix(" · "), texto, grave)
         }
     }
 
