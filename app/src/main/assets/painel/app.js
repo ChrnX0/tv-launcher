@@ -854,11 +854,17 @@ async function atualizarFoto() {
       if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.erro || `Falha (${r.status})`); }
       const url = URL.createObjectURL(await r.blob());
       $('fotoTela').src = url;
+      $('fotoTela').hidden = false;
+      $('semFoto').hidden = true;
       if (fotoUrl) URL.revokeObjectURL(fotoUrl);
       fotoUrl = url;
       $('statusTela').textContent = 'Atualiza a cada 2 s · ' + new Date().toLocaleTimeString('pt-BR');
     } catch (e) {
-      $('statusTela').textContent = e.message;
+      // Sem foto (TV em espera, por exemplo): troca a imagem pelo motivo, em vez de mostrar uma imagem quebrada.
+      $('fotoTela').hidden = true;
+      $('semFoto').hidden = false;
+      $('semFoto').textContent = e.message;
+      $('statusTela').textContent = '';
     } finally {
       fotoPedindo = false;
     }
