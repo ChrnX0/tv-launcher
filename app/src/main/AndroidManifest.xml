@@ -255,6 +255,8 @@
                 <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.OCULTAR" />
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
+                <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.DEBLOAT" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama
