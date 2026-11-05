@@ -36,6 +36,7 @@
       <button class="aba ativa" data-aba="apps">Aplicativos</button>
       <button class="aba" data-aba="controle">Controle</button>
       <button class="aba" data-aba="arquivos">Arquivos</button>
+      <button class="aba" data-aba="fotos">Fotos</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -94,6 +95,18 @@
       <p id="espacoArquivos" class="aviso-curto"></p>
       <p id="statusArquivos" class="aviso" hidden></p>
       <div id="listaArquivos" class="lista-apps"></div>
+    </section>
+
+    <section id="abaFotos" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Fotos do protetor de tela</h2>
+        <p class="aviso">Com pelo menos uma foto, o protetor da TV passa a mostrá-las por trás do relógio, trocando a cada minuto.
+          Ficam só na TV, numa pasta do launcher. JPG, PNG ou WebP, até 15 MB cada.</p>
+        <label class="botao-primario" for="arquivoFotos">Enviar fotos…</label>
+        <input type="file" id="arquivoFotos" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <p id="statusFotos" class="aviso" hidden></p>
+      </div>
+      <div id="gradeFotos" class="grade-fotos"></div>
     </section>
 
     <section id="abaBackup" class="painel-aba" hidden>
