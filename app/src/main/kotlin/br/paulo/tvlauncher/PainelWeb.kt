@@ -7,6 +7,7 @@ import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -113,6 +114,7 @@ object PainelWeb {
                 iniciando = false
             }
             Log.i(TAG, "painel ligado na porta ${Config.PAINEL_PORTA}")
+            PainelVizinhos.ligar(app)   // anuncia esta TV e procura as outras na rede (mDNS)
             aceitar(s)
             // Saiu do laço: se não foi um parar() (a porta ainda é a atual), limpa para o próximo ajustar() religar.
             synchronized(this) { if (servidor === s) servidor = null }
@@ -126,6 +128,7 @@ object PainelWeb {
         try { servidor?.close() } catch (_: IOException) {}
         servidor = null
         sessoes.encerrarTodas()
+        PainelVizinhos.desligar()
         Log.i(TAG, "painel desligado")
     }
 
@@ -202,7 +205,7 @@ object PainelWeb {
                            val arquivo: File? = null)
 
     /** Rotas que recebem o corpo como fluxo, direto para o disco (arquivo de vários GB não cabe na memória). */
-    private val ROTAS_FLUXO = setOf("/api/arquivos/enviar", "/api/apps/instalar")
+    private val ROTAS_FLUXO = setOf("/api/arquivos/enviar", "/api/apps/instalar", "/api/fotos/enviar")
 
     private fun json(codigo: Int, o: JSONObject, extras: Map<String, String> = emptyMap()) =
         Resposta(codigo, "application/json; charset=utf-8", o.toString().toByteArray(), extras)
@@ -310,6 +313,63 @@ object PainelWeb {
                     mapOf("Content-Disposition" to "attachment; filename=\"launcher-antes-de-restaurar.json\""))
             }
             "/api/backup/restaurar" -> if (req.metodo == "POST") return restaurar(req, token, ip)
+            // Backup automático (BackupAutomatico.kt): as cópias diárias guardadas na TV.
+            "/api/backup/automaticos" -> if (req.metodo == "GET") return json(200, JSONObject().put("copias",
+                org.json.JSONArray().apply {
+                    for (f in BackupAutomatico.listar(app)) put(JSONObject().put("nome", f.name).put("tamanho", f.length()).put("quando", f.lastModified()))
+                }))
+            "/api/backup/automatico" -> if (req.metodo == "GET") {
+                val nome = req.consulta["nome"] ?: ""
+                val f = BackupAutomatico.arquivo(app, nome) ?: return erro(404, "essa cópia não existe")
+                PainelArmazem.registrar(app, ip, "baixar cópia automática $nome", "ok")
+                return Resposta(200, "application/json; charset=utf-8", f.readBytes(),
+                    mapOf("Content-Disposition" to "attachment; filename=\"launcher-$nome\""))
+            }
+            "/api/backup/automatico/restaurar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val f = BackupAutomatico.arquivo(app, nome) ?: return erro(404, "essa cópia não existe")
+                return restaurarTexto(f.readText(), token, ip, "restaurar cópia automática $nome")
+            }
+            // Aba Saúde (PainelSaude.kt). ?rapido=1 pula o shell (só os números que o app lê sozinho, na hora).
+            "/api/saude" -> if (req.metodo == "GET") return json(200, PainelSaude.estado(app, req.consulta["rapido"] != "1"))
+            "/api/saude/liberar" -> if (req.metodo == "POST") {
+                val ganho = PainelSaude.liberar(app)
+                PainelArmazem.registrar(app, ip, "liberar memória", if (ganho == null) "sem shell" else "ok, ${ganho / 1048576} MB")
+                return if (ganho == null) erro(503, "o shell do launcher não respondeu (a depuração sem fio está ligada?)")
+                else json(200, JSONObject().put("ok", true).put("ganho", ganho))
+            }
+            // Fotos do protetor de tela (FotosProtetor.kt): pasta privada do launcher, só imagens.
+            "/api/fotos" -> if (req.metodo == "GET") return json(200, JSONObject().put("fotos", org.json.JSONArray().apply {
+                for (f in FotosProtetor.listar(app)) put(JSONObject().put("nome", f.name).put("tamanho", f.length()))
+            }).put("limite", FotosProtetor.MAXIMO_FOTOS))
+            "/api/fotos/ver" -> if (req.metodo == "GET") {
+                val f = FotosProtetor.arquivo(app, req.consulta["nome"] ?: "") ?: return erro(404, "essa foto não existe")
+                val tipo = when (f.extension.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; else -> "image/jpeg" }
+                return Resposta(200, tipo, f.readBytes())
+            }
+            "/api/fotos/enviar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val motivo = FotosProtetor.receber(app, nome, req.tamanho, req.fluxoCorpo())
+                PainelArmazem.registrar(app, ip, "enviar foto do protetor ${nome.take(80)}", motivo ?: "ok")
+                return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(400, motivo)
+            }
+            "/api/fotos/apagar" -> if (req.metodo == "POST") {
+                val nome = req.consulta["nome"] ?: ""
+                val ok = FotosProtetor.apagar(app, nome)
+                PainelArmazem.registrar(app, ip, "apagar foto do protetor ${nome.take(80)}", if (ok) "ok" else "não existe")
+                return if (ok) json(200, JSONObject().put("ok", true)) else erro(404, "essa foto não existe")
+            }
+            // Aba Shizuku (PainelShizuku.kt). Permitir dá shell ao app: PIN de novo; revogar não precisa.
+            "/api/shizuku" -> if (req.metodo == "GET") return json(200, PainelShizuku.estado(app))
+            "/api/shizuku/app" -> if (req.metodo == "POST") {
+                val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+                val pacote = o.optString("pacote")
+                val permitir = o.optString("acao") == "permitir"
+                if (permitir && !sessoes.elevada(token)) return precisaPin()
+                val motivo = PainelShizuku.mudar(app, pacote, permitir)
+                PainelArmazem.registrar(app, ip, "Shizuku ${if (permitir) "permitir" else "revogar"} $pacote", motivo ?: "ok")
+                return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+            }
             "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
             "/api/apps/instalar" -> if (req.metodo == "POST") return instalar(req, token, ip)
             "/api/arquivos" -> if (req.metodo == "GET") { semAcesso()?.let { return it }; return json(200, PainelArquivos.listar(req.consulta["caminho"])) }
@@ -322,7 +382,38 @@ object PainelWeb {
             "/api/tela/texto" -> if (req.metodo == "POST") return texto(req, ip)
             "/api/tv/reiniciar" -> if (req.metodo == "POST") return reiniciarTv(token, ip)
             "/api/recado" -> if (req.metodo == "POST") return recado(req, ip)
+            "/api/tvs" -> if (req.metodo == "GET") return json(200, PainelVizinhos.json(app))
+            "/api/rede/historico" -> if (req.metodo == "GET")
+                return json(200, HistoricoRede.json(app, req.consulta["horas"]?.toIntOrNull() ?: 24))
+            "/api/tv/autodesligar" -> when (req.metodo) {
+                "GET" -> return autoDesligar()
+                "POST" -> {
+                    val min = corpoJson(req)?.optInt("minutos", -1) ?: return erro(400, "JSON inválido")
+                    if (!AutoDesligar.definir(app, min)) return erro(400, "opção inválida")
+                    PainelArmazem.registrar(app, ip, "desligar sozinha: " + (if (min == 0) "nunca" else "$min min"), "ok")
+                    return autoDesligar()
+                }
+            }
+            "/api/clima" -> when (req.metodo) {
+                "GET" -> return json(200, estadoClima())
+                "POST" -> return mudarClima(req, ip)
+            }
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
+            // IA na nuvem (bloco 6, PedidoIa.kt). Ligar a IA não tem rota: só pelas Configurações, na TV.
+            "/api/ia" -> if (req.metodo == "GET") return iaEstado()
+            "/api/ia/chave" -> if (req.metodo == "POST") return iaChave(req, token, ip)
+            "/api/ia/modelo" -> if (req.metodo == "POST") return iaModelo(req, ip)
+            "/api/ia/provedor" -> if (req.metodo == "POST") return iaProvedor(req, ip)
+            "/api/ia/pedir" -> if (req.metodo == "POST") return iaPedir(req, ip)
+            "/api/ia/pedido" -> if (req.metodo == "GET") return PedidoIa.estado(req.consulta["id"])?.let { json(200, it.json()) } ?: erro(404, "pedido não encontrado")
+            "/api/roteador" -> if (req.metodo == "GET") return json(200, roteadorEstado())
+            "/api/roteador/config" -> if (req.metodo == "POST") return roteadorConfig(req, ip)
+            "/api/roteador/certificado" -> if (req.metodo == "POST") return roteadorCertificado(ip)
+            "/api/roteador/confiar" -> if (req.metodo == "POST") return roteadorConfiar(req, ip)
+            "/api/roteador/aparelhos" -> if (req.metodo == "GET") return roteadorAparelhos(req)
+            "/api/roteador/esquecer" -> if (req.metodo == "POST") return roteadorEsquecer(ip)
+            "/api/roteador/wifi-tv" -> if (req.metodo == "GET") return roteadorWifiTv()
+            "/api/roteador/reconectar" -> return if (req.metodo == "POST") roteadorReconectar(ip) else json(200, estadoReconectar())
         }
 
         // /api/apps/<pacote>/<ação>
@@ -462,16 +553,22 @@ object PainelWeb {
 
     private fun restaurar(req: Requisicao, token: String?, ip: String): Resposta {
         if (!sessoes.elevada(token)) return precisaPin()
+        return restaurarTexto(req.corpoTexto(), token, ip, "restaurar backup")
+    }
+
+    /** Restaura um backup já lido (do arquivo enviado ou de uma cópia automática). [acao] vai para o registro. */
+    private fun restaurarTexto(texto: String, token: String?, ip: String, acao: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
         val n = try {
-            BackupConfig.importar(app, req.corpoTexto())
+            BackupConfig.importar(app, texto)
         } catch (e: IllegalArgumentException) {
-            PainelArmazem.registrar(app, ip, "restaurar backup", "recusado: ${e.message}")
+            PainelArmazem.registrar(app, ip, acao, "recusado: ${e.message}")
             return erro(400, "backup recusado: ${e.message}")
         } catch (e: Exception) {
-            PainelArmazem.registrar(app, ip, "restaurar backup", "falhou: $e")
+            PainelArmazem.registrar(app, ip, acao, "falhou: $e")
             return erro(500, "a restauração falhou na TV (${e.javaClass.simpleName}); as configurações de antes foram mantidas")
         }
-        PainelArmazem.registrar(app, ip, "restaurar backup", "ok, $n chaves")
+        PainelArmazem.registrar(app, ip, acao, "ok, $n chaves")
         // Reinicia o launcher depois de a resposta sair (várias telas leem as preferências só ao abrir). É o mesmo
         // jeito do REINICIAR do adb. O sistema sobe o processo de novo para religar o serviço de acessibilidade, e é
         // ele (AutorizaShizukuService.onServiceConnected) que reabre o painel mesmo sem a HOME na frente. As sessões caem.
@@ -558,6 +655,86 @@ object PainelWeb {
         return json(200, JSONObject().put("ok", true).put("apagados", n))
     }
 
+    // ---------------------------------------------------------------- bloco 6: IA na nuvem
+
+    /** Estado da IA: provedor ativo e, para cada provedor, se tem chave (só os 4 últimos caracteres) e o modelo. */
+    private fun iaEstado(): Resposta {
+        val ativo = IaArmazem.provedor(app)
+        val lista = JSONArray()
+        for (p in ComandosIa.Provedor.values()) lista.put(JSONObject()
+            .put("id", p.id).put("nome", p.nome).put("modeloPadrao", p.modeloPadrao)
+            .put("chave", IaArmazem.finalDaChave(app, p) ?: JSONObject.NULL)   // nunca a chave
+            .put("modelo", IaArmazem.modelo(app, p)))
+        return json(200, JSONObject()
+            .put("ligada", IaArmazem.ligada(app))
+            .put("provedor", ativo.id)
+            .put("chave", IaArmazem.finalDaChave(app, ativo) ?: JSONObject.NULL)
+            .put("modelo", IaArmazem.modelo(app, ativo))
+            .put("provedores", lista))
+    }
+
+    /** O provedor pedido no corpo ("provedor"), ou o ativo se não vier. Null = id desconhecido. */
+    private fun provedorDo(o: JSONObject): ComandosIa.Provedor? {
+        val id = o.optString("provedor")
+        return if (id.isEmpty()) IaArmazem.provedor(app) else ComandosIa.Provedor.porId(id)
+    }
+
+    /**
+     * Cadastrar ou apagar a chave exige o PIN redigitado (quem trocar a chave escolhe para onde vão os pedidos).
+     * Provedor: o do corpo; sem ele, detectado pelo começo da chave (sk-ant-, sk-, pplx-, AQ./AIza); sem detecção, o ativo.
+     * Se o provedor ativo ainda não tem chave, o ativo passa a ser este (colar a 1ª chave já deixa pronto).
+     */
+    private fun iaChave(req: Requisicao, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        if (o.optBoolean("apagar")) {
+            val p = provedorDo(o) ?: return erro(400, "provedor desconhecido")
+            IaArmazem.definirChave(app, null, p)
+            PainelArmazem.registrar(app, ip, "IA: apagar chave ${p.id}", "ok")
+            return json(200, JSONObject().put("ok", true))
+        }
+        val chave = ComandosIa.limparChave(o.optString("chave"))
+        val p = (if (o.optString("provedor").isEmpty()) ComandosIa.Provedor.detectar(chave) else null)
+            ?: provedorDo(o) ?: return erro(400, "provedor desconhecido")
+        // A mensagem diz o formato esperado e o tamanho recebido, nunca a chave.
+        if (!ComandosIa.chaveValida(chave)) return erro(400, "isso não parece uma chave de API (esperado de 20 a 300 letras, " +
+            "números, . - _, sem espaço; recebi ${chave.length} caracteres)")
+        if (!IaArmazem.definirChave(app, chave, p)) return erro(500, "não consegui guardar a chave na TV")
+        if (!IaArmazem.temChave(app)) IaArmazem.definirProvedor(app, p)
+        // Aviso, não bloqueio: o formato das chaves muda (ex.: Google "AQ."); a 1ª chamada é o teste real.
+        val det = ComandosIa.Provedor.detectar(chave)
+        val aviso = if (det != null && det != p) "a chave parece ser do ${det.nome}, mas foi guardada no ${p.nome}" else null
+        PainelArmazem.registrar(app, ip, "IA: cadastrar chave ${p.id} ${IaArmazem.finalDaChave(app, p)}", "ok")
+        return json(200, JSONObject().put("ok", true).put("provedor", p.id).put("chave", IaArmazem.finalDaChave(app, p))
+            .put("aviso", aviso ?: JSONObject.NULL))
+    }
+
+    private fun iaModelo(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val p = provedorDo(o) ?: return erro(400, "provedor desconhecido")
+        val m = o.optString("modelo").trim()
+        if (!IaArmazem.definirModelo(app, m, p)) return erro(400, "nome de modelo inválido")
+        PainelArmazem.registrar(app, ip, "IA: modelo ${p.id} $m", "ok")
+        return json(200, JSONObject().put("ok", true).put("modelo", m))
+    }
+
+    /** Trocar o provedor ativo. Sem PIN de novo: só escolhe entre chaves que o dono já cadastrou com PIN. */
+    private fun iaProvedor(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val p = ComandosIa.Provedor.porId(o.optString("provedor")) ?: return erro(400, "provedor desconhecido")
+        IaArmazem.definirProvedor(app, p)
+        PainelArmazem.registrar(app, ip, "IA: provedor ${p.id}", "ok")
+        return json(200, JSONObject().put("ok", true).put("provedor", p.id).put("temChave", IaArmazem.temChave(app, p)))
+    }
+
+    private fun iaPedir(req: Requisicao, ip: String): Resposta {
+        val frase = corpoJson(req)?.optString("frase") ?: return erro(400, "JSON inválido")
+        val p = PedidoIa.pedir(app, frase, ip)
+        // A frase não vai para o registro (pode ser pessoal); só o tamanho.
+        PainelArmazem.registrar(app, ip, "IA: pedido de ${p.frase.length} caractere(s)", if (p.situacao == PedidoIa.Situacao.ERRO) p.mensagem else "enviado")
+        return if (p.situacao == PedidoIa.Situacao.ERRO) erro(409, p.mensagem) else json(200, p.json())
+    }
+
     // ---------------------------------------------------------------- bloco C: tela, controle, ações de app
 
     private fun acaoApp(ip: String, acao: String, pacote: String, fazer: () -> String?): Resposta {
@@ -603,6 +780,43 @@ object PainelWeb {
             else -> erro(409, "a acessibilidade do launcher está desligada na TV: sem ela o recado não aparece")
         }
     }
+    private fun autoDesligar() = json(200, JSONObject()
+        .put("minutos", AutoDesligar.minutos(app))
+        .put("opcoes", org.json.JSONArray(AutoDesligar.OPCOES))
+        .put("ultimoDesligamento", AutoDesligar.ultimoDesligamento))
+
+    /** O endereço do clima (ou null), o ponto que a última busca usou e a faixa de 9 dias. */
+    private fun estadoClima(): JSONObject {
+        val fixo = LocalClima.ler(app)
+        val c = app.getSharedPreferences("clima", Context.MODE_PRIVATE)
+        return JSONObject()
+            .put("fixo", fixo?.let { JSONObject().put("nome", it.nome).put("cep", it.cep).put("numero", it.numero).put("descricao", LocalClima.descrever(it)) } ?: JSONObject.NULL)
+            .put("usado", if (c.contains("lat")) JSONObject().put("lat", c.getFloat("lat", 0f).toDouble()).put("lon", c.getFloat("lon", 0f).toDouble()) else JSONObject.NULL)
+            .put("faixa", FaixaDias.ligada(app))
+    }
+
+    /** {"cep","numero"} cadastra o endereço; {"automatico":true} apaga; {"faixa":bool} liga/desliga a faixa. */
+    private fun mudarClima(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        when {
+            o.has("faixa") -> {
+                FaixaDias.definirLigada(app, o.optBoolean("faixa", true))
+                PainelArmazem.registrar(app, ip, "faixa de 9 dias ${if (FaixaDias.ligada(app)) "ligada" else "desligada"}", "ok")
+            }
+            o.optBoolean("automatico", false) -> {
+                LocalClima.limpar(app)
+                PainelArmazem.registrar(app, ip, "clima: localização automática", "ok")
+            }
+            else -> {
+                // CEP + número -> ViaCEP + Nominatim (alguns segundos; esta thread é do pedido, não da tela).
+                val lugar = LocalClima.definirPorCep(app, o.optString("cep"), o.optString("numero"))
+                    .getOrElse { return erro(400, it.message ?: "não achei esse endereço") }
+                // O endereço não vai para o registro (é a casa), só o bairro.
+                PainelArmazem.registrar(app, ip, "clima: endereço em \"${lugar.nome}\"", "ok")
+            }
+        }
+        return json(200, estadoClima().put("ok", true))
+    }
 
     private fun reiniciarTv(token: String?, ip: String): Resposta {
         if (!sessoes.elevada(token)) return precisaPin()
@@ -610,5 +824,119 @@ object PainelWeb {
         // Depois da resposta sair: senão o navegador fica sem saber se deu certo.
         Handler(Looper.getMainLooper()).postDelayed({ PainelControle.reiniciarTv(app) }, 1500)
         return json(200, JSONObject().put("ok", true))
+    }
+
+    // ---------------------------------------------------------------- roteador UniFi (só leitura; ver UnifiCliente)
+
+    /** Certificado lido no passo 1 e ainda não confirmado: (endereço, impressão). Só ele pode ser confirmado. */
+    @Volatile private var certificadoPendente: Pair<String, String>? = null
+
+    /** O que o painel mostra. A chave NUNCA vem inteira: só os 4 últimos caracteres. */
+    private fun roteadorEstado(): JSONObject = JSONObject()
+        .put("ligado", UnifiArmazem.ligado(app))
+        .put("endereco", UnifiArmazem.endereco(app) ?: JSONObject.NULL)
+        .put("chave", UnifiArmazem.finalDaChave(app) ?: JSONObject.NULL)
+        .put("certificado", UnifiArmazem.certificado(app) ?: JSONObject.NULL)
+        .put("avisoNovos", UnifiArmazem.avisoNovos(app))
+        .put("conhecidos", UnifiArmazem.conhecidos(app).size)
+        .put("pronto", UnifiArmazem.pronto(app))
+
+    /** Campos opcionais: endereco, chave, ligado, avisoNovos. Trocar o endereço apaga chave e certificado (ver UnifiArmazem). */
+    private fun roteadorConfig(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val mudou = ArrayList<String>()
+        if (o.has("endereco")) {
+            val e = Unifi.enderecoValido(o.optString("endereco"))
+                ?: return erro(400, "endereço inválido: use o IP do roteador na rede de casa (ex.: 192.168.0.1)")
+            if (e != UnifiArmazem.endereco(app)) { UnifiArmazem.definirEndereco(app, e); certificadoPendente = null; mudou.add("endereço") }
+        }
+        if (o.has("chave")) {
+            val bruta = o.optString("chave")
+            if (bruta.isEmpty()) { UnifiArmazem.definirChave(app, null); mudou.add("chave apagada") } else {
+                val c = Unifi.chaveValida(bruta) ?: return erro(400, "chave inválida (cole a chave inteira criada em Integrações do UniFi)")
+                if (UnifiArmazem.endereco(app) == null) return erro(400, "salve o endereço do roteador antes da chave")
+                if (!UnifiArmazem.definirChave(app, c)) return erro(500, "não consegui guardar a chave cifrada")
+                mudou.add("chave")
+            }
+        }
+        if (o.has("ligado")) { UnifiArmazem.definirLigado(app, o.optBoolean("ligado")); mudou.add("ligado=${o.optBoolean("ligado")}") }
+        if (o.has("avisoNovos")) { UnifiArmazem.definirAvisoNovos(app, o.optBoolean("avisoNovos")); mudou.add("aviso=${o.optBoolean("avisoNovos")}") }
+        UnifiCliente.limparCache()
+        if (mudou.isNotEmpty()) PainelArmazem.registrar(app, ip, "roteador: ${mudou.joinToString(", ")}", "ok")
+        return json(200, roteadorEstado())
+    }
+
+    /** Passo 1 do certificado: lê do roteador SEM mandar a chave e devolve a impressão para o dono conferir. */
+    private fun roteadorCertificado(ip: String): Resposta {
+        val endereco = UnifiArmazem.endereco(app) ?: return erro(400, "salve o endereço do roteador primeiro")
+        val c = try { UnifiCliente.buscarCertificado(app, endereco) } catch (e: UnifiCliente.Falha) { return erro(502, e.message ?: "falhou") }
+        certificadoPendente = endereco to c.impressao
+        PainelArmazem.registrar(app, ip, "roteador: ler certificado", "ok")
+        return json(200, JSONObject().put("impressao", c.impressao).put("emitidoPara", c.emitidoPara).put("validoAte", c.validoAte)
+            .put("igualAoConfirmado", c.impressao == UnifiArmazem.certificado(app)))
+    }
+
+    /** Passo 2: o dono confirma a impressão que viu. Só vale a lida agora há pouco, do endereço atual. */
+    private fun roteadorConfiar(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val pendente = certificadoPendente
+        if (pendente == null || pendente.first != UnifiArmazem.endereco(app) || pendente.second != o.optString("impressao"))
+            return erro(409, "leia o certificado de novo antes de confirmar")
+        UnifiArmazem.definirCertificado(app, pendente.second)
+        certificadoPendente = null
+        UnifiCliente.limparCache()
+        PainelArmazem.registrar(app, ip, "roteador: confiar no certificado", "ok")
+        return json(200, roteadorEstado())
+    }
+
+    private fun roteadorAparelhos(req: Requisicao): Resposta {
+        val l = try { UnifiCliente.ler(app, forcar = req.consulta["atualizar"] == "1") } catch (e: UnifiCliente.Falha) {
+            return erro(502, e.message ?: "falhou")
+        }
+        val lista = org.json.JSONArray()
+        for (a in l.aparelhos) lista.put(JSONObject().put("nome", a.nome).put("ip", a.ip ?: JSONObject.NULL)
+            .put("mac", a.mac ?: JSONObject.NULL).put("tipo", a.tipo).put("desde", a.desde ?: JSONObject.NULL))
+        return json(200, JSONObject().put("versao", l.versao ?: JSONObject.NULL).put("respostaMs", l.respostaMs)
+            .put("em", l.em).put("aparelhos", lista))
+    }
+
+    private fun roteadorWifiTv(): Resposta {
+        val w = try { UnifiCliente.wifiDaTv(app) } catch (e: UnifiCliente.Falha) { return erro(502, e.message ?: "falhou") }
+        val o = JSONObject().put("noWifi", w.conectadaNoWifi).put("dbm", w.dbm).put("banda", Unifi.banda(w.mhz) ?: JSONObject.NULL)
+            .put("mbps", w.mbps).put("achadaNoRoteador", w.achadaNoRoteador).put("dicas", org.json.JSONArray(w.dicas))
+        w.ap?.let { ap ->
+            val radios = org.json.JSONArray()
+            for (r in ap.radios) radios.put(JSONObject().put("ghz", r.ghz).put("canal", r.canal ?: JSONObject.NULL)
+                .put("larguraMhz", r.larguraMhz ?: JSONObject.NULL).put("retransmissoesPct", r.retransmissoesPct ?: JSONObject.NULL))
+            o.put("pontoDeAcesso", JSONObject().put("nome", ap.nome).put("modelo", ap.modelo ?: JSONObject.NULL)
+                .put("cpuPct", ap.cpuPct ?: JSONObject.NULL).put("radios", radios))
+        }
+        w.peloRoteador?.let { r ->
+            o.put("peloRoteador", JSONObject().put("sinalDbm", r.sinalDbm ?: JSONObject.NULL)
+                .put("banda", Unifi.bandaDoRadio(r.radio) ?: JSONObject.NULL).put("canal", r.canal ?: JSONObject.NULL)
+                .put("txMbps", r.txMbps ?: JSONObject.NULL).put("rxMbps", r.rxMbps ?: JSONObject.NULL)
+                .put("satisfacao", r.satisfacao ?: JSONObject.NULL).put("rede", r.rede ?: JSONObject.NULL))
+        }
+        w.falhaApiAntiga?.let { o.put("falhaApiAntiga", it) }
+        return json(200, o)
+    }
+
+    private fun estadoReconectar(): JSONObject = JSONObject()
+        .put("estado", UnifiCliente.estadoReconectar.name.lowercase())
+        .put("detalhe", UnifiCliente.detalheReconectar ?: JSONObject.NULL)
+
+    /** Só ABRE a confirmação na TV: quem decide é quem está com o controle (ConfirmarRoteadorActivity). */
+    private fun roteadorReconectar(ip: String): Resposta {
+        UnifiCliente.pedirReconectar(app)?.let { return erro(409, it) }
+        PainelArmazem.registrar(app, ip, "roteador: reconectar a TV", "esperando OK na TV")
+        return json(200, estadoReconectar())
+    }
+
+    private fun roteadorEsquecer(ip: String): Resposta {
+        UnifiArmazem.esquecer(app)
+        certificadoPendente = null
+        UnifiCliente.limparCache()
+        PainelArmazem.registrar(app, ip, "roteador: esquecer", "ok")
+        return json(200, roteadorEstado())
     }
 }

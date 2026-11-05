@@ -160,6 +160,18 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaDescanso)
 
+        // Desligar sozinha (AutoDesligar): depois de X min sem ninguém apertar o controle, avisa por 60 s e apaga a TV.
+        fun rotuloDesligar(m: Int) = if (m == 0) "Nunca" else if (m % 60 == 0) "${m / 60} h sem usar" else "$m min sem usar"
+        val ajudaDesligar = "OK muda · avisa 60 s antes; qualquer botão cancela"
+        lateinit var linhaDesligar: TextView
+        linhaDesligar = linha("Desligar a TV: ${rotuloDesligar(AutoDesligar.minutos(this))}", ajudaDesligar) {
+            val o = AutoDesligar.OPCOES
+            val proximo = o[(o.indexOf(AutoDesligar.minutos(this)) + 1) % o.size]
+            AutoDesligar.definir(this, proximo)
+            linhaDesligar.montarLinha("Desligar a TV: ${rotuloDesligar(proximo)}", ajudaDesligar)
+        }
+        adicionar(linhaDesligar)
+
         // ---- Modo visita (ModoVisita.kt): esconde perfil, agenda e os apps marcados abaixo, até desligar.
         // Na HOME, com o modo ligado, o OK na bolinha do perfil oferece "Sair" (o popup não abre).
         secao(getString(R.string.cfg_visita))
@@ -226,6 +238,28 @@ class ConfigLauncherActivity : Activity() {
             linhaChuva.detalhe(detalheChuva())
         }
         adicionar(linhaChuva)
+
+        // ---- Clima (05/11/2026): a faixa de 9 dias e o endereço da casa (CEP + número; o launcher acha as coordenadas).
+        lateinit var linhaFaixa: TextView
+        fun detalheFaixa() = if (FaixaDias.ligada(this)) "ligada · OK desliga" else "desligada · OK liga"
+        linhaFaixa = linha("Previsão de 9 dias na tela inicial", detalheFaixa()) {
+            FaixaDias.definirLigada(this, !FaixaDias.ligada(this))
+            linhaFaixa.detalhe(detalheFaixa())
+        }
+        adicionar(linhaFaixa)
+        lateinit var linhaEndereco: TextView
+        fun detalheEndereco() = LocalClima.ler(this)?.let { "${LocalClima.descrever(it)} · OK troca" }
+            ?: "nenhum · a TV se acha pelo Wi-Fi; o endereço vale quando o Wi-Fi não acha · OK cadastra"
+        linhaEndereco = linha("Endereço do clima", detalheEndereco()) {
+            pedirEndereco { cep, numero ->
+                linhaEndereco.detalhe("procurando o endereço…")
+                trabalho.execute {
+                    val r = LocalClima.definirPorCep(this, cep, numero)
+                    ui.post { if (!isDestroyed) linhaEndereco.detalhe(r.fold({ detalheEndereco() }, { "não deu: ${it.message} · OK tenta de novo" })) }
+                }
+            }
+        }
+        adicionar(linhaEndereco)
 
         // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
         // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
@@ -325,6 +359,37 @@ class ConfigLauncherActivity : Activity() {
             }
             adicionar(linhaDesfazer)
         }
+
+        // ---- IA na nuvem (bloco 6, PedidoIa.kt): pedidos em português pelo painel, com a chave do dono (Gemini, Claude,
+        // OpenAI ou Perplexity; provedor escolhido no painel). As linhas mostram o provedor ativo.
+        // Desligada por padrão. LIGAR é só aqui, na TV: o painel cadastra a chave, mas não liga.
+        secao("IA na nuvem")
+        lateinit var linhaIa: TextView
+        lateinit var linhaChaveIa: TextView
+        fun detalheIa(): String = when {
+            IaArmazem.ligada(this) && IaArmazem.temChave(this) -> "ligada · pedidos pelo painel, aba Falar, sempre com confirmação aqui · OK desliga"
+            IaArmazem.ligada(this) -> "ligada, mas falta a chave (cadastre pelo painel) · OK desliga"
+            else -> "desligada · OK liga (só vai para a nuvem a frase pedida e os nomes dos apps)"
+        }
+        linhaIa = linha("IA na nuvem (${IaArmazem.provedor(this).nome})", detalheIa()) {
+            IaArmazem.definirLigada(this, !IaArmazem.ligada(this))
+            linhaIa.detalhe(detalheIa())
+        }
+        adicionar(linhaIa)
+        fun detalheChaveIa() = IaArmazem.finalDaChave(this)?.let { "cadastrada ($it), guardada cifrada · OK apaga" }
+            ?: "nenhuma · cadastre pelo painel no navegador, em Falar"
+        var confirmarApagar = false
+        linhaChaveIa = linha("Chave de API", detalheChaveIa()) {
+            if (!IaArmazem.temChave(this)) return@linha
+            // Dois OKs para apagar: um OK sem querer não perde a chave.
+            if (!confirmarApagar) { confirmarApagar = true; linhaChaveIa.detalhe("OK de novo para APAGAR a chave"); return@linha }
+            confirmarApagar = false
+            IaArmazem.definirChave(this, null)
+            linhaChaveIa.detalhe(detalheChaveIa())
+            linhaIa.detalhe(detalheIa())
+        }
+        adicionar(linhaChaveIa)
+        adicionar(info("Modelo", IaArmazem.modelo(this) + " · troca pelo painel"))
 
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         // Modo sem Device Owner (Recursos.kt): cada poder com ligado/faltando; OK num que falta tenta ligar sem PC.
@@ -497,6 +562,33 @@ class ConfigLauncherActivity : Activity() {
             .setNegativeButton("Cancelar", null)
             .show()
         campo.requestFocus()
+    }
+
+    /** CEP e número com o teclado numérico da TV (AlertDialog: OK confirma, Voltar cancela). CEP vazio apaga o endereço. */
+    private fun pedirEndereco(aoConfirmar: (String, String) -> Unit) {
+        val atual = LocalClima.ler(this)
+        fun campo(dica: String, max: Int, valor: String) = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(android.text.InputFilter.LengthFilter(max))
+            hint = dica; setText(valor); setSingleLine()
+        }
+        val cep = campo("CEP (8 números)", 8, atual?.cep.orEmpty())
+        val numero = campo("Número da casa (opcional)", 6, atual?.numero.orEmpty())
+        val caixa = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 16, 48, 0)
+            addView(cep); addView(numero)
+        }
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Endereço do clima")
+            .setView(caixa)
+            .setPositiveButton("OK") { _, _ ->
+                if (cep.text.isBlank()) { LocalClima.limpar(this); recreate() }
+                else aoConfirmar(cep.text.toString(), numero.text.toString())
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+        cep.requestFocus()
     }
 
     // ---------------------------------------------------------------- peças

@@ -98,7 +98,7 @@ object AvisoChuva {
             SEGUNDOS_NA_TELA, som = false, guardarSeApagada = false)
 
     private fun buscar(app: Context, agora: Calendar): Previsao? {
-        val ponto = Localizacao.atual(app) { httpGet(it) }
+        val ponto = Localizacao.atual(app) { httpGet(it) } ?: throw IllegalStateException("sem localização")
         val url = "https://api.open-meteo.com/v1/forecast?latitude=${ponto.lat}&longitude=${ponto.lon}" +
             "&hourly=precipitation_probability&forecast_hours=${HORAS_A_FRENTE + 2}&timezone=auto&models=${MODELOS.joinToString(",")}"
         val h = JSONObject(httpGet(url) ?: throw IllegalStateException("sem resposta")).getJSONObject("hourly")

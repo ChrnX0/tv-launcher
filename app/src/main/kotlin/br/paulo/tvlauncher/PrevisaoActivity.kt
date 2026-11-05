@@ -46,6 +46,7 @@ class PrevisaoActivity : Activity() {
         const val EXTRA_TEMP = "temp"            // a temperatura mostrada no topo (Int.MIN_VALUE = sem medida)
         const val EXTRA_CHOVENDO = "chovendo"    // o topo diz que chove agora
         const val EXTRA_FALAR = "falar"          // ler a previsão em voz alta ao abrir
+        const val EXTRA_BOM_DIA = "bom_dia"      // falar "Bom dia", a hora e a agenda de hoje junto (despertador)
     }
 
     // Voz: o TextToSpeech do Android (motor do Google, já instalado na TV). Liga só quando a tela foi aberta para falar
@@ -53,6 +54,8 @@ class PrevisaoActivity : Activity() {
     private var voz: TextToSpeech? = null
     private var vozPronta = false
     private var falaPendente: String? = null
+    private var bomDia = false
+    @Volatile private var agendaHoje: String? = null   // lida em segundo plano; quase sempre pronta antes da previsão
 
     private val textoSuave = 0xB3FFFFFF.toInt()
     private val azulChuva = 0xFF8EC5FF.toInt()
@@ -93,7 +96,10 @@ class PrevisaoActivity : Activity() {
         coluna.addView(texto(18f, textoSuave).apply { text = getString(R.string.pv_carregando) })
 
         // Aberta pelo atalho "Boletim do Tempo" (action MAIN) ou com EXTRA_FALAR: prepara a voz enquanto busca os dados.
-        if (intent.action == Intent.ACTION_MAIN || intent.getBooleanExtra(EXTRA_FALAR, false)) {
+        // "Bom dia": o despertador (Parar) ou o atalho de voz "Bom dia" (alias .BomDia, ver o manifesto).
+        bomDia = intent.getBooleanExtra(EXTRA_BOM_DIA, false) || intent.component?.className?.endsWith(".BomDia") == true
+        if (bomDia) Thread { agendaHoje = try { Agenda.resumoHoje(this) } catch (e: Exception) { null } }.start()
+        if (intent.action == Intent.ACTION_MAIN || intent.getBooleanExtra(EXTRA_FALAR, false) || bomDia) {
             voz = TextToSpeech(this) { status ->
                 if (status != TextToSpeech.SUCCESS) return@TextToSpeech
                 val r = voz?.setLanguage(Locale.getDefault()) ?: TextToSpeech.LANG_NOT_SUPPORTED
@@ -126,6 +132,18 @@ class PrevisaoActivity : Activity() {
         super.onDestroy()
     }
 
+    /** "Bom dia! São 7 horas e 5 minutos, quinta-feira, 5 de novembro." (com "horas" e "minutos" por extenso: o
+     *  leitor de voz lê "7:05" de jeitos diferentes conforme o motor). */
+    private fun saudacao(): String {
+        val c = java.util.Calendar.getInstance()
+        val h = c.get(java.util.Calendar.HOUR_OF_DAY); val m = c.get(java.util.Calendar.MINUTE)
+        val ola = when { h < 12 -> "Bom dia!"; h < 18 -> "Boa tarde!"; else -> "Boa noite!" }
+        val horas = if (h == 1) "1 hora" else "$h horas"
+        val agora = when (m) { 0 -> horas; 1 -> "$horas e 1 minuto"; else -> "$horas e $m minutos" }
+        val dia = java.text.SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR")).format(c.time)
+        return "$ola ${if (h == 1) "É" else "São"} $agora, $dia."
+    }
+
     /** "Agora faz 20 graus, chuva. Hoje, máxima de 27 e mínima de 20, com 86 por cento de chance de chuva. Amanhã, ..." */
     private fun boletim(d: Dados, tempAgora: Int, maxHoje: Int, minHoje: Int, chovendo: Boolean): String {
         val b = StringBuilder(getString(R.string.pv_voz_agora, tempAgora, IconesClima.texto(d.codigo, chovendo).lowercase()))
@@ -154,14 +172,14 @@ class PrevisaoActivity : Activity() {
     )
 
     private fun carregar(): Dados? {
-        val ponto = Localizacao.atual(this) { httpGet(it) }
+        val ponto = Localizacao.atual(this) { httpGet(it) } ?: return null
         val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
         val j = JSONObject(httpGet(
             "https://api.open-meteo.com/v1/forecast?latitude=${ponto.lat}&longitude=${ponto.lon}" +
                 "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,is_day" +
                 "&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,visibility,dew_point_2m,uv_index" +
                 "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,precipitation_sum" +
-                "&timezone=auto&forecast_days=7$unidade"
+                "&timezone=auto&forecast_days=${FaixaDias.DIAS}$unidade"
         ) ?: return null)
         val c = j.getJSONObject("current"); val h = j.getJSONObject("hourly"); val d = j.getJSONObject("daily")
         fun <T> lista(o: JSONObject, k: String, f: (org.json.JSONArray, Int) -> T) = o.getJSONArray(k).let { a -> (0 until a.length()).map { f(a, it) } }
@@ -231,6 +249,8 @@ class PrevisaoActivity : Activity() {
             text = getString(R.string.pv_max_min, maxHoje, minHoje, sensacao)
             setPadding(0, dp(4), 0, 0)
         })
+        // O lugar escolhido no painel (LocalClima.kt), para não haver dúvida de onde é a previsão.
+        d.ponto.nome?.let { nome -> txt.addView(texto(16f, textoSuave).apply { text = "📍 $nome"; setPadding(0, dp(4), 0, 0) }) }
         cabecalho.addView(txt)
         coluna.addView(cabecalho)
 
@@ -360,7 +380,10 @@ class PrevisaoActivity : Activity() {
         trio.addView(lua, LinearLayout.LayoutParams(0, -1, 1.15f).apply { marginStart = dp(Grade.VAO / 2) })
         coluna.addView(trio, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
 
-        if (voz != null) falar(boletim(d, tempAgora, maxHoje, minHoje, chovendo))
+        if (voz != null) {
+            val previsao = boletim(d, tempAgora, maxHoje, minHoje, chovendo)
+            falar(if (bomDia) listOfNotNull(saudacao(), previsao, agendaHoje).joinToString(" ") else previsao)
+        }
 
         // O primeiro ponto de parada: a faixa de horas (item "Agora").
         faixa.getChildAt(0)?.post { faixa.getChildAt(0).requestFocus() }

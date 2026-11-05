@@ -30,6 +30,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextClock
 import android.widget.TextView
+import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -92,6 +93,18 @@ class MainActivity : Activity() {
     private lateinit var txtMax: TextView   // "↑ 32°" ao lado da temperatura
     private lateinit var txtMin: TextView   // "↓ 18°"
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
+    private lateinit var faixaDias: LinearLayout      // previsão de 9 dias entre o topo e os apps (FaixaDias.kt)
+    private var ultimosDias: List<FaixaDias.Dia> = emptyList()   // o que a faixa mostra (para não redesenhar igual)
+    // Lugar do clima trocado no painel (LocalClima.kt; o painel roda neste mesmo processo): busca o clima na hora.
+    // Campo (e não lambda solta): o SharedPreferences guarda o ouvinte por referência fraca.
+    private val ouvinteLocal = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, chave ->
+        if (chave == LocalClima.CHAVE_LAT || chave == LocalClima.CHAVE_LON) { ui.removeCallbacks(tarefaClima); ui.postDelayed(tarefaClima, 300) }
+        // Faixa ligada/desligada pelo painel com a HOME na tela: o fundo muda (arco/etiqueta), então recria.
+        if (chave == FaixaDias.CHAVE && FaixaDias.ligada(this) != faixaNaCriacao) ui.post { recreate() }
+    }
+    // A faixa ocupa a mesma altura do arco do sol/lua (tema Escuro) e da etiqueta da obra (Galeria): com ela ligada, o
+    // fundo vem sem essas decorações (foto da TV em 05/11/2026: "nascer 05:28" e o sol caíam em cima das temperaturas).
+    private var faixaNaCriacao = true
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
     private lateinit var fotoPerfil: ImageView        // a bolinha do perfil, no canto superior direito
     private var popup: PopupPerfil? = null            // menu da bolinha: perfis, Configuracoes, DNS, Wi-Fi
@@ -169,6 +182,8 @@ class MainActivity : Activity() {
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
         PrivilegioDO.aplicar(this)   // Device Owner: fixa o nosso protetor e oculta apps substituidos (ver PrivilegioDO.kt)
         PainelWeb.ajustar(this)   // painel no navegador: só abre a porta se estiver ligado e com PIN (ver PainelWeb.kt)
+        HistoricoRede.iniciar(this)   // histórico de rede (ver HistoricoRede.kt); idempotente
+        AutoDesligar.iniciar(this)   // desligar sozinha depois de X min sem controle (ver AutoDesligar.kt)
         if (Config.SHELL_PROPRIO_DIAG) ShellProprio.diagnosticar(this)   // MARCO 1 do shell proprio: loga chave + porta adb (ver ShellProprio.kt)
         // Shizuku embutido (MARCO S3): sobe o servidor se não estiver de pé e liga o vigia (binder, Wi-Fi, 10 min).
         GuardiaoShizuku.vigiar(this)
@@ -180,11 +195,14 @@ class MainActivity : Activity() {
         super.onResume()
         // O tema agora só troca na tela separada de Configurações do launcher (ConfigLauncherActivity), que não
         // tem como chamar recreate() nesta Activity diretamente — então aqui a gente mesmo percebe a troca ao voltar.
-        if (Tema.atual(this) != tema) { recreate(); return }
+        if (Tema.atual(this) != tema || FaixaDias.ligada(this) != faixaNaCriacao) { recreate(); return }
         preencherApps()
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
+        ui.post(tarefaTimer)
+        getSharedPreferences("launcher", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(ouvinteLocal)
+        faixaDias.visibility = if (FaixaDias.ligada(this) && ultimosDias.isNotEmpty()) View.VISIBLE else View.GONE
         vigiarRedeParaClima()   // busca o clima assim que a rede subir no boot, sem esperar o ciclo de 5 min
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         // O atalho do painel só faz sentido com o launcherx do Google ativo (uma consulta ao PackageManager, barata).
@@ -193,6 +211,7 @@ class MainActivity : Activity() {
         Privilegio.religarDepuracaoSemFio(this)   // o Android pode ter desligado a Depuração sem fio no reinício
         Despertador.agendar(this)   // garante o proximo alarme agendado (barato: so le as preferencias)
         Rotinas.agendar(this)   // idem para as rotinas por horário
+        BackupAutomatico.talvezGravar(this)   // cópia diária das configurações (numa thread; no máximo 1x por dia)
         // DNS fixo que parou de responder deixa a TV "sem internet": confere ao voltar à HOME (fora da thread; só testa
         // a rede de verdade se o modo é fixo E a rede perdeu a validação — no caso normal custa quase nada).
         rede.execute { Dns.voltarAoAutomaticoSeQuebrado(this) }
@@ -203,6 +222,8 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaClima)
         ui.removeCallbacks(tarefaEclipse)
         ui.removeCallbacks(tarefaRede)
+        ui.removeCallbacks(tarefaTimer)
+        getSharedPreferences("launcher", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(ouvinteLocal)
         pararVigiaRede()
         menuAberto?.dismiss()
         popup?.fechar()
@@ -385,6 +406,28 @@ class MainActivity : Activity() {
             }
         }
 
+        // Timer (05/11/2026): uma linha embaixo da data, fora do bloco da hora (senão a barra e o clima, que copiam a
+        // altura dele, cresceriam junto). OK nela cancela. Fica escondida sem timer (ver tarefaTimer).
+        txtTimer = texto(18f, Color.WHITE, fonteUi).apply {
+            visibility = View.GONE
+            if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
+            setPadding(f, f, f, f)
+            isFocusable = true
+            isClickable = true
+            setOnClickListener {
+                if (Timer.cancelar(this@MainActivity)) Toast.makeText(this@MainActivity, "Timer cancelado", Toast.LENGTH_SHORT).show()
+                ui.removeCallbacks(tarefaTimer); ui.post(tarefaTimer)
+            }
+            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
+        }
+        topo.addView(txtTimer, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.x(1)) - f })
+        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            // + 4 dp sem descontar a folga: o realce do foco (que ocupa a folga) não encosta na data.
+            val y = v.height + dp(4)
+            if ((txtTimer.layoutParams as FrameLayout.LayoutParams).topMargin != y)
+                txtTimer.layoutParams = (txtTimer.layoutParams as FrameLayout.LayoutParams).apply { topMargin = y }
+        }
+
         // Bolinha: exatamente a coluna 12 (50 dp). Centrada na altura da linha grande (hora/temperatura).
         val bolinha = botaoPerfil()
         topo.addView(bolinha, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(12)) })
@@ -398,6 +441,17 @@ class MainActivity : Activity() {
             painel.translationY = bolinha.translationY
         }
         raiz.addView(topo, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.TOPO) })
+
+        // ---- Previsão de 9 dias (05/11/2026): no vão entre o topo e a linha de apps, de ponta a ponta da grade (12 colunas).
+        // Fica ACIMA da folga do card focado (24 dp), para o card que cresce não cobrir os números.
+        faixaDias = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            visibility = View.GONE   // aparece com a 1ª previsão (e só se ligada nas Configurações)
+        }
+        raiz.addView(faixaDias, FrameLayout.LayoutParams(dp(Grade.largura(12)), dp(ALTURA_FAIXA)).apply {
+            leftMargin = dp(Grade.MARGEM)
+            topMargin = dp(Grade.LINHA_APPS - 28 - ALTURA_FAIXA)
+        })
 
         // ---- Linha de apps (rola na horizontal). O padding de cima/baixo e a folga para o card focado crescer;
         // por isso a rolagem comeca FOLGA acima da linha da grade.
@@ -429,7 +483,8 @@ class MainActivity : Activity() {
             }
         }
 
-        val vivo = criarFundo(this, tema) { bloco -> rede.execute { bloco() } }
+        faixaNaCriacao = FaixaDias.ligada(this)
+        val vivo = criarFundo(this, tema, decoracao = !faixaNaCriacao) { bloco -> rede.execute { bloco() } }
         fundo = vivo
         // Sem fundo preto aqui (nem na janela, ver onCreate): o fundo vivo já cobre a tela inteira e é opaco. Cada camada
         // de tela cheia a mais é a GPU pintando 1920x1080 de novo A CADA QUADRO (medido: 3 camadas, 22 ms por quadro).
@@ -478,6 +533,24 @@ class MainActivity : Activity() {
     }
 
     private lateinit var botaoPainelGoogle: View
+    private lateinit var txtTimer: TextView   // "⏱ 4:32" embaixo da data enquanto um timer corre (ver Timer.kt)
+
+    /** Atualiza o "⏱ 4:32" a cada segundo enquanto a HOME está na frente e há timer; some quando não há. */
+    private val tarefaTimer = object : Runnable {
+        override fun run() {
+            val t = Timer.ativo(this@MainActivity)
+            if (t == null) {
+                if (txtTimer.hasFocus()) linhaApps.requestFocus()   // o foco não pode ficar num texto invisível
+                txtTimer.visibility = View.GONE
+                return
+            }
+            val nome = if (t.nome.isNotBlank()) "  ·  ${t.nome}" else ""
+            txtTimer.text = "⏱  ${Timer.restanteTexto(t.fimMs - System.currentTimeMillis())}$nome"
+            txtTimer.visibility = View.VISIBLE
+            // Na volta do segundo: o texto anda junto com o relógio, sem pular números.
+            ui.postDelayed(this, 1000 - (System.currentTimeMillis() % 1000) + 20)
+        }
+    }
 
     /**
      * Botão discreto do painel do Google TV (notificações, Google Home, timer para dormir, Wi-Fi, Bluetooth): abre a
@@ -577,7 +650,12 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- apps, pilhas e ocultos
 
     /** pacote -> (APK|activity, Item). Vive enquanto o processo da HOME viver (sobrevive à troca de tema). */
-    private companion object { val cacheApps = HashMap<String, Pair<String, Item>>() }
+    private companion object {
+        val cacheApps = HashMap<String, Pair<String, Item>>()
+        // dp: nome do dia (~19) + ícone (6+34+4) + máx/mín (~21) + chuva (5+~17) = ~106, com folga. Com 96 a linha
+        // da chuva era cortada (foto da TV, 05/11/2026).
+        const val ALTURA_FAIXA = 116
+    }
 
     /** Todos os apps de TV instalados, sem ordem e sem tirar os ocultos (quem organiza é montarEntradas). */
     private fun carregarApps(): List<Item> {
@@ -1093,9 +1171,9 @@ class MainActivity : Activity() {
     /**
      * Segurar OK (ou ENTER) num card. Detectamos o "segurar" pelo repeatCount: o Android repete a tecla
      * enquanto ela está pressionada. O que acontece depende de onde:
-     *  - app solto: entra direto no modo mover (arrastar);
+     *  - app solto: menu (Mover, Ocultar da tela inicial, Desinstalar; ver MenuApp);
      *  - pilha: abre o menu (Mover, Remover cards do grupo);
-     *  - app dentro da pasta "Ocultos": menu com "Mostrar na tela inicial".
+     *  - app dentro da pasta "Ocultos": menu com "Mostrar na tela inicial" (e Desinstalar).
      * Devolve true se o evento foi tratado aqui.
      */
     private fun tratarSegurar(event: KeyEvent, focado: View?): Boolean {
@@ -1116,8 +1194,7 @@ class MainActivity : Activity() {
         }
         if (dentroDe != null) return false                    // pasta de "remover do grupo": segurar OK = apertar OK
         return when (lista.firstOrNull { it.token == token }) {
-            is Entrada.App -> { iniciarMover(token, porSegurar = true); true }
-            is Entrada.Pilha -> { engolirUp = true; abrirMenu(token); true }
+            is Entrada.App, is Entrada.Pilha -> { engolirUp = true; abrirMenu(token); true }
             else -> false
         }
     }
@@ -1126,9 +1203,15 @@ class MainActivity : Activity() {
         val entrada = lista.firstOrNull { it.token == token }
         val titulo: String
         val opcoes = mutableListOf<Opcao>()
-        if (pastaToken == TOKEN_OCULTOS) {
-            titulo = nomeDe(token)
-            opcoes += Opcao(getString(R.string.home_mostrar)) { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
+        if (pastaToken == TOKEN_OCULTOS || (pastaToken == null && entrada is Entrada.App)) {
+            titulo = nomeDe(token) + if (PainelApps.eSistema(this, token)) getString(R.string.home_app_sistema) else ""
+            val acoes = MenuApp.acoes(pastaToken == TOKEN_OCULTOS, PainelApps.podeDesinstalar(this, token))
+            for (a in acoes) opcoes += when (a) {
+                MenuApp.Acao.MOSTRAR -> Opcao(getString(R.string.home_mostrar)) { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
+                MenuApp.Acao.MOVER -> Opcao(getString(R.string.home_mover)) { iniciarMover(token, porSegurar = false) }
+                MenuApp.Acao.OCULTAR -> Opcao(getString(R.string.home_ocultar)) { Organizacao.ocultar(this, token); atualizarAposMudanca(null) }
+                MenuApp.Acao.DESINSTALAR -> Opcao(getString(R.string.home_desinstalar)) { confirmarDesinstalar(token) }
+            }
         } else if (pastaToken == null && entrada is Entrada.Pilha) {
             titulo = entrada.titulo
             opcoes += Opcao(getString(R.string.home_mover)) { iniciarMover(token, porSegurar = false) }
@@ -1142,6 +1225,40 @@ class MainActivity : Activity() {
             .setOnDismissListener { engolirUp = false }
             .show()
     }
+
+    /**
+     * Pergunta antes de desinstalar (não tem volta: os dados do app somem junto). O foco começa no "Cancelar", para um
+     * OK distraído não apagar nada. Quem desinstala é o PainelApps.desinstalar: em silêncio, pelo Device Owner, e
+     * esperando o resultado de verdade do Android (fora da thread da tela, porque espera até 60 s).
+     */
+    private fun confirmarDesinstalar(pacote: String) {
+        val nome = nomeDe(pacote)
+        val dialogo = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.home_desinstalar_titulo, nome))
+            .setMessage(R.string.home_desinstalar_aviso)
+            .setNegativeButton(R.string.home_cancelar, null)
+            .setPositiveButton(R.string.home_desinstalar) { _, _ ->
+                mostrarAviso(getString(R.string.home_desinstalando, nome))
+                Thread({
+                    val motivo = PainelApps.desinstalar(this, pacote)
+                    Log.i("TvLauncher.Apps", "desinstalar $pacote pelo menu => ${motivo ?: "ok"}")
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        if (motivo == null) {
+                            Organizacao.mostrar(this, pacote)   // limpa a marca de oculto, se tinha (o app não existe mais)
+                            mostrarAviso(getString(R.string.home_desinstalado, nome))
+                            atualizarAposMudanca(null)
+                        } else {
+                            mostrarAviso(getString(R.string.home_desinstalar_falhou, nome, motivo))
+                        }
+                    }
+                }, "Desinstalar").start()
+            }
+            .show()
+        dialogo.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+    }
+
+    private fun mostrarAviso(texto: String) = android.widget.Toast.makeText(this, texto, android.widget.Toast.LENGTH_LONG).show()
 
     /** Depois de mostrar/ocultar: fecha a pasta aberta, relê tudo e leva o foco para [foco] (ou perto de onde estava). */
     private fun atualizarAposMudanca(foco: String?) {
@@ -1359,15 +1476,15 @@ class MainActivity : Activity() {
         rede.execute {
             try {
                 // Onde estamos: Wi-Fi do Android (±dezenas de m) > IP > Config.kt. Ver Localizacao.kt.
-                val ponto = Localizacao.atual(this) { httpGet(it) }
+                val ponto = Localizacao.atual(this) { httpGet(it) } ?: return@execute
                 val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
                 // Previsao (minima/maxima, chance de chuva, ceu) do modelo da Open-Meteo, no ponto exato.
                 val url = "https://api.open-meteo.com/v1/forecast" +
                     "?latitude=${ponto.lat}&longitude=${ponto.lon}" +
                     "&current=temperature_2m,relative_humidity_2m,weather_code,precipitation,is_day" +
                     "&hourly=precipitation_probability&forecast_hours=24" +
-                    "&daily=temperature_2m_max,temperature_2m_min" +
-                    "&timezone=auto&forecast_days=1$unidade"
+                    "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max" +
+                    "&timezone=auto&forecast_days=${FaixaDias.DIAS}$unidade"
                 val json = JSONObject(httpGet(url) ?: return@execute)
                 val atual = json.getJSONObject("current")
                 val dia = json.getJSONObject("daily")
@@ -1413,7 +1530,7 @@ class MainActivity : Activity() {
                 // dos tres descarta esse exagero. Se a chamada multi-modelo falhar, cai no best_match da chamada principal.
                 val medModelo = chuvaMediana(ponto)
                 val horasData: List<String>; val horasChuva: List<Int>
-                if (medModelo != null) { horasData = medModelo.first; horasChuva = medModelo.second }
+                if (medModelo != null) { horasData = medModelo.horas; horasChuva = medModelo.chuva }
                 else {
                     val hc = json.getJSONObject("hourly").getJSONArray("precipitation_probability")
                     val ht = json.getJSONObject("hourly").getJSONArray("time")
@@ -1445,7 +1562,11 @@ class MainActivity : Activity() {
                 // Decodifica e apara o ícone AQUI, fora da thread da tela (04/11/2026: um ANR de 5 s do launcher tinha
                 // IconesClima.aparar na pilha da thread principal). Na tela, bitmap() já acha pronto no cache.
                 if (IconesClima.ehIcone(icone)) IconesClima.bitmap(this, icone)
+                // A faixa de 9 dias: hoje usa a mesma máxima/mínima do topo (corrigidas pela medida); ícones preparados aqui.
+                val dias = FaixaDias.ler(dia, temp, diasChuva = medModelo?.chuvaDias)
+                dias.forEach { IconesClima.bitmap(this, IconesClima.chave(it.codigo, true, false)) }
                 ui.post {
+                    mostrarDias(dias)
                     pontoAtual = ponto
                     ultimoCodigo = codigo
                     ultimoChovendo = chovendoAgora
@@ -1521,6 +1642,44 @@ class MainActivity : Activity() {
     }
 
 
+    /**
+     * Desenha a faixa de previsão: por dia, o nome, o ícone, "máx° mín°" e "☂ chance%" (como a tela de clima do Google).
+     * Não redesenha se nada mudou (a busca roda a cada 5 min).
+     */
+    private fun mostrarDias(dias: List<FaixaDias.Dia>) {
+        faixaDias.visibility = if (FaixaDias.ligada(this) && dias.isNotEmpty()) View.VISIBLE else View.GONE
+        if (dias == ultimosDias) return
+        ultimosDias = dias
+        faixaDias.removeAllViews()
+        val azulChuva = 0xFF8EC5FF.toInt()
+        dias.forEachIndexed { i, d ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+            item.addView(texto(14f, if (i == 0) textoClaro else textoSuave).apply {
+                text = FaixaDias.rotulo(d, i, getString(R.string.pv_hoje))
+                gravity = Gravity.CENTER
+                includeFontPadding = false
+            })
+            item.addView(IconesClima.imagem(this, IconesClima.chave(d.codigo, true, false)),
+                LinearLayout.LayoutParams(dp(34), dp(34)).apply { topMargin = dp(6); bottomMargin = dp(4) })
+            item.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                addView(texto(16f, Color.WHITE).apply { text = "${d.max}°"; includeFontPadding = false })
+                addView(texto(16f, textoSuave).apply { text = "${d.min}°"; includeFontPadding = false; setPadding(dp(6), 0, 0, 0) })
+            })
+            item.addView(texto(13f, azulChuva).apply {
+                text = "☂ ${d.chuva}%"
+                gravity = Gravity.CENTER
+                includeFontPadding = false
+                setPadding(0, dp(5), 0, 0)
+            })
+            faixaDias.addView(item, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+    }
+
     /** Códigos de clima da Open-Meteo (padrão WMO) -> chave do ícone (IconesClima.kt) + texto. O eclipse (ICONE_ECLIPSE) só entra em atualizarEclipse(). */
     private fun descricaoClima(codigo: Int, dia: Boolean = true, chovendo: Boolean = false): Pair<String, String> {
         val texto = IconesClima.texto(codigo)
@@ -1541,18 +1700,30 @@ class MainActivity : Activity() {
      * e o eixo "time" e compartilhado. null se a chamada falhar (quem chama cai no best_match). Nao verifiquei todos
      * os casos de borda da API; por isso o try e o fallback.
      */
-    private fun chuvaMediana(ponto: Localizacao.Ponto): Pair<List<String>, List<Int>>? = try {
+    /** Chance de chuva pela mediana dos 3 modelos: [chuva] hora a hora (24 h, alinhada com [horas]) e [chuvaDias] por dia. */
+    private class ChuvaModelos(val horas: List<String>, val chuva: List<Int>, val chuvaDias: List<Int>?)
+
+    private fun chuvaMediana(ponto: Localizacao.Ponto): ChuvaModelos? = try {
         val modelos = listOf("ecmwf_ifs025", "icon_global", "gfs_seamless")
+        // Na mesma chamada, a chance máxima de cada dia (para a faixa de 9 dias): o mesmo exagero do ECMWF vale por dia.
         val url = "https://api.open-meteo.com/v1/forecast?latitude=${ponto.lat}&longitude=${ponto.lon}" +
-            "&hourly=precipitation_probability&forecast_hours=24&timezone=auto&models=${modelos.joinToString(",")}"
-        val h = JSONObject(httpGet(url) ?: throw IllegalStateException("sem resposta")).getJSONObject("hourly")
+            "&hourly=precipitation_probability&forecast_hours=24" +
+            "&daily=precipitation_probability_max,precipitation_probability_mean&forecast_days=${FaixaDias.DIAS}" +
+            "&timezone=auto&models=${modelos.joinToString(",")}"
+        val json = JSONObject(httpGet(url) ?: throw IllegalStateException("sem resposta"))
+        val h = json.getJSONObject("hourly")
         val tempo = h.getJSONArray("time")
         val arrays = modelos.mapNotNull { h.optJSONArray("precipitation_probability_$it") }
         if (arrays.isEmpty()) throw IllegalStateException("sem modelos")
         val datas = (0 until tempo.length()).map { tempo.getString(it) }
+        fun valores(a: org.json.JSONArray, n: Int) = (0 until n).map { i -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null }
         // A mesma conta do aviso de chuva (AvisoChuva.mediana), para a HOME e o aviso nunca discordarem.
-        val porModelo = arrays.map { a -> (0 until tempo.length()).map { i -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null } }
-        datas to AvisoChuva.mediana(porModelo)
+        val porModelo = arrays.map { valores(it, tempo.length()) }
+        val d = json.optJSONObject("daily")
+        fun porDia(campo: String) = d?.let { dj -> modelos.mapNotNull { dj.optJSONArray("${campo}_$it") }.map { valores(it, it.length()) } }
+            ?.takeIf { it.isNotEmpty() }?.let { AvisoChuva.mediana(it) }
+        ChuvaModelos(datas, AvisoChuva.mediana(porModelo),
+            FaixaDias.chanceDoDia(porDia("precipitation_probability_max"), porDia("precipitation_probability_mean")))
     } catch (e: Exception) {
         Log.w("TvLauncher.Local", "chuva multi-modelo falhou: $e")
         null
