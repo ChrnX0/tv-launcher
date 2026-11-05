@@ -42,7 +42,7 @@ object Agenda {
                         val off = java.util.TimeZone.getDefault().getOffset(inicio)
                         inicio -= off; fim -= off
                     }
-                    saida.add(Evento(c.getString(0) ?: "(sem título)", inicio, fim, diaInteiro, c.getInt(4) or 0xFF000000.toInt()))
+                    saida.add(Evento(c.getString(0) ?: ctx.getString(R.string.cal_sem_titulo), inicio, fim, diaInteiro, c.getInt(4) or 0xFF000000.toInt()))
                 }
             }
         } catch (e: Exception) {
