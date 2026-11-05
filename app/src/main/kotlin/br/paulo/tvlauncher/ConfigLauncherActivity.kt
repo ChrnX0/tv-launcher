@@ -123,6 +123,18 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaDescanso)
 
+        // Desligar sozinha (AutoDesligar): depois de X min sem ninguém apertar o controle, avisa por 60 s e apaga a TV.
+        fun rotuloDesligar(m: Int) = if (m == 0) "Nunca" else if (m % 60 == 0) "${m / 60} h sem usar" else "$m min sem usar"
+        val ajudaDesligar = "OK muda · avisa 60 s antes; qualquer botão cancela"
+        lateinit var linhaDesligar: TextView
+        linhaDesligar = linha("Desligar a TV: ${rotuloDesligar(AutoDesligar.minutos(this))}", ajudaDesligar) {
+            val o = AutoDesligar.OPCOES
+            val proximo = o[(o.indexOf(AutoDesligar.minutos(this)) + 1) % o.size]
+            AutoDesligar.definir(this, proximo)
+            linhaDesligar.montarLinha("Desligar a TV: ${rotuloDesligar(proximo)}", ajudaDesligar)
+        }
+        adicionar(linhaDesligar)
+
         // ---- Modo visita (ModoVisita.kt): esconde perfil, agenda e os apps marcados abaixo, até desligar.
         // Na HOME, com o modo ligado, o OK na bolinha do perfil oferece "Sair" (o popup não abre).
         secao("Modo visita")

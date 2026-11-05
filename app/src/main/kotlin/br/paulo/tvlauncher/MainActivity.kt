@@ -30,6 +30,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextClock
 import android.widget.TextView
+import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -169,6 +170,8 @@ class MainActivity : Activity() {
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
         PrivilegioDO.aplicar(this)   // Device Owner: fixa o nosso protetor e oculta apps substituidos (ver PrivilegioDO.kt)
         PainelWeb.ajustar(this)   // painel no navegador: só abre a porta se estiver ligado e com PIN (ver PainelWeb.kt)
+        HistoricoRede.iniciar(this)   // histórico de rede (ver HistoricoRede.kt); idempotente
+        AutoDesligar.iniciar(this)   // desligar sozinha depois de X min sem controle (ver AutoDesligar.kt)
         if (Config.SHELL_PROPRIO_DIAG) ShellProprio.diagnosticar(this)   // MARCO 1 do shell proprio: loga chave + porta adb (ver ShellProprio.kt)
         // Shizuku embutido (MARCO S3): sobe o servidor se não estiver de pé e liga o vigia (binder, Wi-Fi, 10 min).
         GuardiaoShizuku.vigiar(this)
@@ -184,6 +187,7 @@ class MainActivity : Activity() {
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
+        ui.post(tarefaTimer)
         vigiarRedeParaClima()   // busca o clima assim que a rede subir no boot, sem esperar o ciclo de 5 min
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         // O atalho do painel só faz sentido com o launcherx do Google ativo (uma consulta ao PackageManager, barata).
@@ -201,6 +205,7 @@ class MainActivity : Activity() {
         ui.removeCallbacks(tarefaClima)
         ui.removeCallbacks(tarefaEclipse)
         ui.removeCallbacks(tarefaRede)
+        ui.removeCallbacks(tarefaTimer)
         pararVigiaRede()
         menuAberto?.dismiss()
         popup?.fechar()
@@ -383,6 +388,27 @@ class MainActivity : Activity() {
             }
         }
 
+        // Timer (05/11/2026): uma linha embaixo da data, fora do bloco da hora (senão a barra e o clima, que copiam a
+        // altura dele, cresceriam junto). OK nela cancela. Fica escondida sem timer (ver tarefaTimer).
+        txtTimer = texto(18f, Color.WHITE, fonteUi).apply {
+            visibility = View.GONE
+            if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
+            setPadding(f, f, f, f)
+            isFocusable = true
+            isClickable = true
+            setOnClickListener {
+                if (Timer.cancelar(this@MainActivity)) Toast.makeText(this@MainActivity, "Timer cancelado", Toast.LENGTH_SHORT).show()
+                ui.removeCallbacks(tarefaTimer); ui.post(tarefaTimer)
+            }
+            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
+        }
+        topo.addView(txtTimer, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.x(1)) - f })
+        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            val y = v.height + dp(6) - f
+            if ((txtTimer.layoutParams as FrameLayout.LayoutParams).topMargin != y)
+                txtTimer.layoutParams = (txtTimer.layoutParams as FrameLayout.LayoutParams).apply { topMargin = y }
+        }
+
         // Bolinha: exatamente a coluna 12 (50 dp). Centrada na altura da linha grande (hora/temperatura).
         val bolinha = botaoPerfil()
         topo.addView(bolinha, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(12)) })
@@ -476,6 +502,24 @@ class MainActivity : Activity() {
     }
 
     private lateinit var botaoPainelGoogle: View
+    private lateinit var txtTimer: TextView   // "⏱ 4:32" embaixo da data enquanto um timer corre (ver Timer.kt)
+
+    /** Atualiza o "⏱ 4:32" a cada segundo enquanto a HOME está na frente e há timer; some quando não há. */
+    private val tarefaTimer = object : Runnable {
+        override fun run() {
+            val t = Timer.ativo(this@MainActivity)
+            if (t == null) {
+                if (txtTimer.hasFocus()) linhaApps.requestFocus()   // o foco não pode ficar num texto invisível
+                txtTimer.visibility = View.GONE
+                return
+            }
+            val nome = if (t.nome.isNotBlank()) "  ·  ${t.nome}" else ""
+            txtTimer.text = "⏱  ${Timer.restanteTexto(t.fimMs - System.currentTimeMillis())}$nome"
+            txtTimer.visibility = View.VISIBLE
+            // Na volta do segundo: o texto anda junto com o relógio, sem pular números.
+            ui.postDelayed(this, 1000 - (System.currentTimeMillis() % 1000) + 20)
+        }
+    }
 
     /**
      * Botão discreto do painel do Google TV (notificações, Google Home, timer para dormir, Wi-Fi, Bluetooth): abre a
