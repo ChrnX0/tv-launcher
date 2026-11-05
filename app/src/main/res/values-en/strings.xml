@@ -169,6 +169,15 @@
     <string name="comum_cancelar">Cancel</string>
     <string name="home_remover">Remove</string>
     <string name="home_mostrar">Show on the home screen</string>
+    <string name="home_ocultar">Hide from the home screen</string>
+    <string name="home_desinstalar">Uninstall</string>
+    <string name="home_app_sistema"> (system app)</string>
+    <string name="home_desinstalar_titulo">Uninstall %1$s?</string>
+    <string name="home_desinstalar_aviso">The app and its data leave the TV. This cannot be undone: to get it back, install it again from the Play Store.</string>
+    <string name="home_cancelar">Cancel</string>
+    <string name="home_desinstalando">Uninstalling %1$s…</string>
+    <string name="home_desinstalado">%1$s was uninstalled.</string>
+    <string name="home_desinstalar_falhou">Could not uninstall %1$s: %2$s</string>
     <string name="home_mover">Move</string>
     <string name="home_remover_cards">Remove cards from the group</string>
     <string name="home_mover_pilha">OK adds to the stack  ·  ◀ ▶ keeps moving  ·  Back cancels</string>

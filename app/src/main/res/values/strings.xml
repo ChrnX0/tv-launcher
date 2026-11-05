@@ -175,6 +175,15 @@
     <string name="comum_cancelar">Cancelar</string>
     <string name="home_remover">Remover</string>
     <string name="home_mostrar">Mostrar na tela inicial</string>
+    <string name="home_ocultar">Ocultar da tela inicial</string>
+    <string name="home_desinstalar">Desinstalar</string>
+    <string name="home_app_sistema"> (app do sistema)</string>
+    <string name="home_desinstalar_titulo">Desinstalar %1$s?</string>
+    <string name="home_desinstalar_aviso">O app e os dados dele saem da TV. Não dá para desfazer: para voltar, só instalando de novo pela Play Store.</string>
+    <string name="home_cancelar">Cancelar</string>
+    <string name="home_desinstalando">Desinstalando %1$s…</string>
+    <string name="home_desinstalado">%1$s foi desinstalado.</string>
+    <string name="home_desinstalar_falhou">Não deu para desinstalar %1$s: %2$s</string>
     <string name="home_mover">Mover</string>
     <string name="home_remover_cards">Remover cards do grupo</string>
     <string name="home_mover_pilha">OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela</string>

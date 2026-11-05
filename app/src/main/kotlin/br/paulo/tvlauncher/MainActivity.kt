@@ -1139,9 +1139,9 @@ class MainActivity : Activity() {
     /**
      * Segurar OK (ou ENTER) num card. Detectamos o "segurar" pelo repeatCount: o Android repete a tecla
      * enquanto ela está pressionada. O que acontece depende de onde:
-     *  - app solto: entra direto no modo mover (arrastar);
+     *  - app solto: menu (Mover, Ocultar da tela inicial, Desinstalar; ver MenuApp);
      *  - pilha: abre o menu (Mover, Remover cards do grupo);
-     *  - app dentro da pasta "Ocultos": menu com "Mostrar na tela inicial".
+     *  - app dentro da pasta "Ocultos": menu com "Mostrar na tela inicial" (e Desinstalar).
      * Devolve true se o evento foi tratado aqui.
      */
     private fun tratarSegurar(event: KeyEvent, focado: View?): Boolean {
@@ -1162,8 +1162,7 @@ class MainActivity : Activity() {
         }
         if (dentroDe != null) return false                    // pasta de "remover do grupo": segurar OK = apertar OK
         return when (lista.firstOrNull { it.token == token }) {
-            is Entrada.App -> { iniciarMover(token, porSegurar = true); true }
-            is Entrada.Pilha -> { engolirUp = true; abrirMenu(token); true }
+            is Entrada.App, is Entrada.Pilha -> { engolirUp = true; abrirMenu(token); true }
             else -> false
         }
     }
@@ -1172,9 +1171,15 @@ class MainActivity : Activity() {
         val entrada = lista.firstOrNull { it.token == token }
         val titulo: String
         val opcoes = mutableListOf<Opcao>()
-        if (pastaToken == TOKEN_OCULTOS) {
-            titulo = nomeDe(token)
-            opcoes += Opcao(getString(R.string.home_mostrar)) { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
+        if (pastaToken == TOKEN_OCULTOS || (pastaToken == null && entrada is Entrada.App)) {
+            titulo = nomeDe(token) + if (PainelApps.eSistema(this, token)) getString(R.string.home_app_sistema) else ""
+            val acoes = MenuApp.acoes(pastaToken == TOKEN_OCULTOS, PainelApps.podeDesinstalar(this, token))
+            for (a in acoes) opcoes += when (a) {
+                MenuApp.Acao.MOSTRAR -> Opcao(getString(R.string.home_mostrar)) { Organizacao.mostrar(this, token); atualizarAposMudanca(token) }
+                MenuApp.Acao.MOVER -> Opcao(getString(R.string.home_mover)) { iniciarMover(token, porSegurar = false) }
+                MenuApp.Acao.OCULTAR -> Opcao(getString(R.string.home_ocultar)) { Organizacao.ocultar(this, token); atualizarAposMudanca(null) }
+                MenuApp.Acao.DESINSTALAR -> Opcao(getString(R.string.home_desinstalar)) { confirmarDesinstalar(token) }
+            }
         } else if (pastaToken == null && entrada is Entrada.Pilha) {
             titulo = entrada.titulo
             opcoes += Opcao(getString(R.string.home_mover)) { iniciarMover(token, porSegurar = false) }
@@ -1188,6 +1193,40 @@ class MainActivity : Activity() {
             .setOnDismissListener { engolirUp = false }
             .show()
     }
+
+    /**
+     * Pergunta antes de desinstalar (não tem volta: os dados do app somem junto). O foco começa no "Cancelar", para um
+     * OK distraído não apagar nada. Quem desinstala é o PainelApps.desinstalar: em silêncio, pelo Device Owner, e
+     * esperando o resultado de verdade do Android (fora da thread da tela, porque espera até 60 s).
+     */
+    private fun confirmarDesinstalar(pacote: String) {
+        val nome = nomeDe(pacote)
+        val dialogo = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.home_desinstalar_titulo, nome))
+            .setMessage(R.string.home_desinstalar_aviso)
+            .setNegativeButton(R.string.home_cancelar, null)
+            .setPositiveButton(R.string.home_desinstalar) { _, _ ->
+                mostrarAviso(getString(R.string.home_desinstalando, nome))
+                Thread({
+                    val motivo = PainelApps.desinstalar(this, pacote)
+                    Log.i("TvLauncher.Apps", "desinstalar $pacote pelo menu => ${motivo ?: "ok"}")
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        if (motivo == null) {
+                            Organizacao.mostrar(this, pacote)   // limpa a marca de oculto, se tinha (o app não existe mais)
+                            mostrarAviso(getString(R.string.home_desinstalado, nome))
+                            atualizarAposMudanca(null)
+                        } else {
+                            mostrarAviso(getString(R.string.home_desinstalar_falhou, nome, motivo))
+                        }
+                    }
+                }, "Desinstalar").start()
+            }
+            .show()
+        dialogo.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+    }
+
+    private fun mostrarAviso(texto: String) = android.widget.Toast.makeText(this, texto, android.widget.Toast.LENGTH_LONG).show()
 
     /** Depois de mostrar/ocultar: fecha a pasta aberta, relê tudo e leva o foco para [foco] (ou perto de onde estava). */
     private fun atualizarAposMudanca(foco: String?) {
