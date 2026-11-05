@@ -136,6 +136,8 @@ function mudarAba(nome) {
   $('abaRede').hidden = nome !== 'rede';
   if (nome === 'rede') carregarRede();
   if (nome === 'controle') carregarAutoDesligar();
+  $('abaClaude').hidden = nome !== 'claude';
+  if (nome === 'claude') carregarMcp();
   $('abaRoteador').hidden = nome !== 'roteador';
   if (nome === 'roteador') carregarRoteador();
   $('abaRegistro').hidden = nome !== 'registro';
@@ -831,6 +833,48 @@ $('btnEsquecerRoteador').addEventListener('click', async () => {
   const r = await confirmar('Esquecer o roteador?', 'Apaga o endereço, a chave guardada, o certificado e a lista de aparelhos conhecidos.',
     'Esquecer', () => chamar('POST', '/api/roteador/esquecer'));
   if (r) { desenharRoteador(r); $('listaAparelhos').replaceChildren(); $('estadoRoteador').textContent = faltaRoteador(r); }
+});
+
+// ---------- Claude pela internet (McpServidor.kt + TunelTailscale.kt) ----------
+
+function desenharMcp(r) {
+  $('chkMcpLigado').checked = r.ligado;
+  let t;
+  if (!r.binario) t = 'Este APK veio sem o túnel (compilado sem Go).';
+  else if (!r.ligado) t = 'Desligado.';
+  else if (!r.tunelConfigurado) t = 'Ligado, mas falta a chave do Tailscale (abaixo).';
+  else if (r.tunelRodando && r.endereco) t = 'No ar. No Claude: Configurações → Conectores → Adicionar conector personalizado → ' + r.endereco;
+  else t = 'Ligado, túnel subindo…' + (r.erro ? ' Último erro: ' + r.erro : '');
+  $('estadoMcp').textContent = t;
+  $('loginsMcp').textContent = r.logins + ' login(s) ativo(s) do Claude.' + (r.temChave ? ' Chave guardada, esperando o 1º login.' : '');
+}
+
+async function carregarMcp() {
+  try { desenharMcp(await chamar('GET', '/api/mcp')); } catch (e) { $('estadoMcp').textContent = e.message; }
+}
+
+async function salvarMcp(corpo, texto) {
+  mostrar($('statusMcp'), 'Salvando…');
+  try { desenharMcp(await chamar('POST', '/api/mcp/config', corpo)); mostrar($('statusMcp'), texto || 'Salvo.'); setTimeout(carregarMcp, 4000); }
+  catch (e) { mostrar($('statusMcp'), e.message); carregarMcp(); }
+}
+
+$('chkMcpLigado').addEventListener('change', (ev) => salvarMcp({ ligado: ev.target.checked }));
+$('formMcp').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const chave = $('campoChaveMcp').value.trim();
+  if (!chave.startsWith('tskey-')) { mostrar($('statusMcp'), 'Cole a chave inteira (começa com tskey-).'); return; }
+  // Guardar a chave pede o PIN de novo (como instalar e desinstalar).
+  const r = await confirmar('Guardar a chave do Tailscale?', 'A TV entra na sua rede Tailscale e publica só o MCP na internet.',
+    'Guardar', () => chamar('POST', '/api/mcp/config', { chave }));
+  $('campoChaveMcp').value = '';
+  if (r) { desenharMcp(r); mostrar($('statusMcp'), 'Chave guardada. O túnel sobe em alguns segundos.'); setTimeout(carregarMcp, 8000); }
+});
+$('btnRevogarMcp').addEventListener('click', () => salvarMcp({ revogar: true }, 'Logins revogados: o Claude pede o PIN de novo.'));
+$('btnEsquecerMcp').addEventListener('click', async () => {
+  const r = await confirmar('Esquecer o Tailscale?', 'A TV sai da rede Tailscale. Para voltar, cole uma chave nova.',
+    'Esquecer', () => chamar('POST', '/api/mcp/config', { esquecer: true }));
+  if (r) desenharMcp(r);
 });
 
 // ---------- envio com progresso (instalar APK e aba Arquivos) ----------

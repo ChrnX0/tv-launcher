@@ -133,6 +133,9 @@ object Config {
     // Um nome fora desta lista é recusado (barreira contra "DNS rebinding"). Para outro nome, acrescente aqui.
     val PAINEL_NOMES = setOf("chromecast", "chromecast.lan", "chromecast.local", "chromecast.localdomain", "chromecast.home.arpa")
 
+    // --- Servidor MCP (McpServidor.kt): só em 127.0.0.1, alcançado de fora apenas pelo túnel do Tailscale (TunelTailscale.kt).
+    const val MCP_PORTA = 8091
+
     // --- Depuração sem fio (adb pela rede, usado pelo computador para instalar e testar): true = o launcher a LIGA de novo
     //     sozinho quando a TV reinicia e sempre que abre, se o Android a tiver desligado. Custo: com ela ligada, a TV deixa uma porta de adb
     //     aberta na rede (só aceita computadores já pareados, com chave). false = fica como o Android deixar (ver Privilegio.religarDepuracaoSemFio).

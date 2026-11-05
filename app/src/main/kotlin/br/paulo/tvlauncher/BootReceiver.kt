@@ -29,6 +29,7 @@ class BootReceiver : BroadcastReceiver() {
         // Shizuku embutido (MARCO S3): sobe o servidor sozinho (espera o Wi-Fi e a depuração sem fio) e fica vigiando.
         GuardiaoShizuku.vigiar(context)
         GuardiaoShizuku.garantir(context, "boot")
+        McpServidor.ajustar(context); TunelTailscale.ajustar(context)   // MCP pela internet (se ligado)
         PainelWeb.ajustar(context)   // painel no navegador (se ligado): já de pé antes de alguém abrir a HOME
         BackupAutomatico.talvezGravar(context)   // cópia diária das configurações (ver BackupAutomatico.kt)
         HistoricoRede.iniciar(context)   // histórico de rede: mede desde o boot

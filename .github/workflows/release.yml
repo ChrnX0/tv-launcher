@@ -45,6 +45,12 @@ jobs:
           yes | "$SDKM" --licenses > /dev/null || true
           "$SDKM" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;4.1.2"
 
+      # Go para o túnel do Tailscale (tunel/, vira libtsnet.so dentro do APK; ver compilarTunel em app/build.gradle.kts).
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tunel/go.mod
+          cache-dependency-path: tunel/go.sum
+
       - uses: gradle/actions/setup-gradle@v5
 
       - name: Chave de assinatura

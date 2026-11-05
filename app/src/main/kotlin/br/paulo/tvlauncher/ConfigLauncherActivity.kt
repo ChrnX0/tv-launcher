@@ -327,6 +327,32 @@ class ConfigLauncherActivity : Activity() {
         adicionar(linhaPin)
         val acessos = PainelArmazem.resumoRegistro(this, 3)
         adicionar(info("Últimos acessos", if (acessos.isEmpty()) "nenhum ainda" else acessos.joinToString("\n")).apply { maxLines = 4 })
+        // ---- Claude pela internet (McpServidor + TunelTailscale, 05/11/2026). A chave do Tailscale se cola no painel (PIN).
+        secao("Claude pela internet (MCP)")
+        lateinit var linhaMcp: TextView
+        fun detalheMcp(): String {
+            val nome = TunelTailscale.nome(this)
+            return when {
+                !PainelArmazem.temPin(this) -> "desligado · defina o PIN do painel primeiro (é o login)"
+                !McpServidor.ligado(this) -> "desligado · OK liga"
+                !TunelTailscale.configurado(this) -> "ligado, falta a chave do Tailscale (painel > Configurações) · OK desliga"
+                TunelTailscale.rodando() && nome != null -> "ligado · https://$nome/mcp · OK desliga"
+                else -> "ligado, túnel subindo${TunelTailscale.ultimoErro(this)?.let { " (último erro: $it)" } ?: ""} · OK desliga"
+            }
+        }
+        linhaMcp = linha("Acesso pelo Claude", detalheMcp()) {
+            if (!PainelArmazem.temPin(this)) { linhaMcp.detalhe(detalheMcp()); return@linha }
+            McpServidor.definirLigado(this, !McpServidor.ligado(this))
+            linhaMcp.detalhe(detalheMcp())
+            ui.postDelayed({ if (!isDestroyed) linhaMcp.detalhe(detalheMcp()) }, 3000)
+        }
+        adicionar(linhaMcp)
+        lateinit var linhaLogins: TextView
+        linhaLogins = linha("Logins do Claude", "${McpServidor.logins(this)} ativo(s) · OK revoga todos") {
+            McpServidor.revogar(this)
+            linhaLogins.detalhe("${McpServidor.logins(this)} ativo(s) · revogados")
+        }
+        adicionar(linhaLogins)
         // ---- Limpeza de apps de fábrica (Debloat.kt, 05/11/2026): só os apps já testados nesta TV, com desfazer.
         secao("Limpeza de apps de fábrica")
         val limpaveis = Debloat.disponiveis(this)
