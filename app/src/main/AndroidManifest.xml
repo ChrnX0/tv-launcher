@@ -297,6 +297,7 @@
                 <!-- Recado na tela e aviso de chuva (teste). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.RECADO" />
                 <action android:name="br.paulo.tvlauncher.CHUVA" />
+                <action android:name="br.paulo.tvlauncher.UNIFI" />
                 <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />
                 <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
@@ -327,6 +328,16 @@
         <receiver
             android:name=".ResultadoDesinstalarReceiver"
             android:exported="false" />
+
+        <!-- Confirmação no controle do "Reconectar a TV" pedido pelo painel (UnifiCliente). Mesma receita da confirmação
+             do Shizuku: transparente, fora dos recentes, numa tarefa própria. -->
+        <activity
+            android:name=".ConfirmarRoteadorActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTop"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Device owner (ver AdminReceiver.kt). Exportado porque o sistema precisa chamá-lo; só o sistema tem BIND_DEVICE_ADMIN. -->
         <receiver
