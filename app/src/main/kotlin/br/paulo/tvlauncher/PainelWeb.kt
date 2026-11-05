@@ -321,6 +321,7 @@ object PainelWeb {
             "/api/tela/tecla" -> if (req.metodo == "POST") return tecla(req)
             "/api/tela/texto" -> if (req.metodo == "POST") return texto(req, ip)
             "/api/tv/reiniciar" -> if (req.metodo == "POST") return reiniciarTv(token, ip)
+            "/api/recado" -> if (req.metodo == "POST") return recado(req, ip)
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
         }
 
@@ -582,6 +583,22 @@ object PainelWeb {
         // O texto em si não vai para o registro (pode ser uma senha digitada pelo painel).
         PainelArmazem.registrar(app, ip, "digitar ${t.length} caractere(s)", motivo ?: "ok")
         return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    /** Recado na TV (05/11/2026): {texto, segundos, som}. Ver Recado.kt e AvisoTv.kt. */
+    private fun recado(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val texto = Recado.limpar(o.optString("texto"))
+            ?: return erro(400, "escreva o recado (até ${Recado.MAX_CARACTERES} caracteres)")
+        val segundos = Recado.duracao(if (o.has("segundos")) o.optInt("segundos") else null)
+        val r = AvisoTv.mostrar(app, "Recado", texto, segundos, som = o.optBoolean("som", true), guardarSeApagada = true)
+        // O texto não vai para o registro, só o tamanho (mesma regra do "digitar"): o registro é para ver o que mexeu na TV.
+        PainelArmazem.registrar(app, ip, "recado de ${texto.length} caractere(s)", r.name.lowercase())
+        return when (r) {
+            AvisoTv.Resultado.MOSTRADO -> json(200, JSONObject().put("ok", true).put("situacao", "na tela"))
+            AvisoTv.Resultado.GUARDADO -> json(200, JSONObject().put("ok", true).put("situacao", "guardado"))
+            else -> erro(409, "a acessibilidade do launcher está desligada na TV: sem ela o recado não aparece")
+        }
     }
 
     private fun reiniciarTv(token: String?, ip: String): Resposta {
