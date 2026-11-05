@@ -250,7 +250,8 @@ class ConfigLauncherActivity : Activity() {
         val acessos = PainelArmazem.resumoRegistro(this, 3)
         adicionar(info("Últimos acessos", if (acessos.isEmpty()) "nenhum ainda" else acessos.joinToString("\n")).apply { maxLines = 4 })
 
-        // ---- IA na nuvem (bloco 6, PedidoIa.kt): pedidos em português pelo painel, com a chave Gemini do dono.
+        // ---- IA na nuvem (bloco 6, PedidoIa.kt): pedidos em português pelo painel, com a chave do dono (Gemini, Claude,
+        // OpenAI ou Perplexity; provedor escolhido no painel). As linhas mostram o provedor ativo.
         // Desligada por padrão. LIGAR é só aqui, na TV: o painel cadastra a chave, mas não liga.
         secao("IA na nuvem")
         lateinit var linhaIa: TextView
@@ -260,7 +261,7 @@ class ConfigLauncherActivity : Activity() {
             IaArmazem.ligada(this) -> "ligada, mas falta a chave (cadastre pelo painel) · OK desliga"
             else -> "desligada · OK liga (só vai para a nuvem a frase pedida e os nomes dos apps)"
         }
-        linhaIa = linha("IA na nuvem (Gemini)", detalheIa()) {
+        linhaIa = linha("IA na nuvem (${IaArmazem.provedor(this).nome})", detalheIa()) {
             IaArmazem.definirLigada(this, !IaArmazem.ligada(this))
             linhaIa.detalhe(detalheIa())
         }

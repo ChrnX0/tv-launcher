@@ -901,17 +901,61 @@ $('btnReiniciarTv').addEventListener('click', async () => {
 
 // ---------- Falar: IA na nuvem (PedidoIa.kt) ----------
 
+// Onde pegar a chave de cada IA (só links de documentação; a chave nunca passa por aqui).
+const LINKS_CHAVE = {
+  gemini: 'https://aistudio.google.com/apikey',
+  claude: 'https://platform.claude.com/settings/keys',
+  openai: 'https://platform.openai.com/api-keys',
+  perplexity: 'https://www.perplexity.ai/account/api/keys',
+};
+let estadoIa = null;
+
+/** A IA cuja chave/modelo o formulário mostra: a escolhida na lista (que é a ativa, depois de trocar). */
+function provedorIa() {
+  return estadoIa?.provedores.find((p) => p.id === $('campoProvedor').value) ?? null;
+}
+
 async function carregarIa() {
   try {
-    const e = await chamar('GET', '/api/ia');
+    const e = estadoIa = await chamar('GET', '/api/ia');
+    const sel = $('campoProvedor');
+    sel.replaceChildren();
+    for (const p of e.provedores) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.nome + (p.chave ? ` · chave ${p.chave}` : ' · sem chave');
+      sel.appendChild(o);
+    }
+    sel.value = e.provedor;
+    const ativo = provedorIa();
     let aviso = '';
     if (!e.ligada) aviso = 'A IA está desligada. Ligue em Configurações do launcher › IA na nuvem, na TV.';
-    else if (!e.chave) aviso = 'Falta cadastrar a chave de API (abaixo).';
-    else aviso = 'O que você pedir aparece na TV, e só acontece se alguém apertar OK no controle.';
+    else if (!e.chave) aviso = `Falta cadastrar a chave do ${ativo.nome} (abaixo).`;
+    else aviso = `Usando ${ativo.nome}. O que você pedir aparece na TV, e só acontece se alguém apertar OK no controle.`;
     $('avisoIa').textContent = aviso;
-    $('chaveIa').textContent = e.chave ? `Chave cadastrada (${e.chave}). Modelo: ${e.modelo}.` : `Nenhuma chave. Modelo: ${e.modelo}.`;
+    $('chaveIa').textContent = (e.chave ? `Chave cadastrada (${e.chave}).` : 'Nenhuma chave.') + ` Modelo: ${e.modelo}.`;
     $('campoModelo').value = e.modelo;
+    $('campoModelo').placeholder = ativo.modeloPadrao;
+    $('linkChaveIa').href = LINKS_CHAVE[ativo.id];
   } catch (e) { $('avisoIa').textContent = e.message; }
+}
+
+// Trocar a IA na lista já troca a ativa na TV (só entre as chaves que você cadastrou).
+$('campoProvedor').addEventListener('change', async () => {
+  try {
+    await chamar('POST', '/api/ia/provedor', { provedor: $('campoProvedor').value });
+    mostrar($('statusChave'), '');
+  } catch (e) { mostrar($('statusChave'), e.message); }
+  carregarIa();
+});
+
+/** Mesmo teste do servidor (ComandosIa.detectar): só para avisar, nunca para barrar. */
+function detectarIa(chave) {
+  if (chave.startsWith('sk-ant-')) return 'claude';
+  if (chave.startsWith('pplx-')) return 'perplexity';
+  if (chave.startsWith('sk-')) return 'openai';
+  if (chave.startsWith('AQ.') || chave.startsWith('AIza')) return 'gemini';
+  return null;
 }
 
 let pedidoAtual = 0;
@@ -954,27 +998,43 @@ function mostrarPedido(p) {
 
 $('formChave').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  // Tira espaços e quebras de linha que vêm junto ao colar. Aceita o formato novo "AQ.…" e o antigo "AIza…".
+  // Tira espaços e quebras de linha que vêm junto ao colar.
   const chave = $('campoChave').value.replace(/\s+/g, '');
-  if (!/^[A-Za-z0-9._-]{30,200}$/.test(chave)) {
-    mostrar($('statusChave'), `Isso não parece uma chave do Google AI Studio: esperado "AQ.…" ou "AIza…", de 30 a 200 letras, números, . - _ (veio com ${chave.length} caracteres).`);
+  if (!/^[A-Za-z0-9._-]{20,300}$/.test(chave)) {
+    mostrar($('statusChave'), `Isso não parece uma chave de API: esperado de 20 a 300 letras, números, . - _ (veio com ${chave.length} caracteres).`);
     return;
   }
-  const ok = await confirmar('Guardar a chave na TV?', 'Os pedidos da aba Falar passam a usar esta chave (e a cota dela).', 'Guardar',
-    () => chamar('POST', '/api/ia/chave', { chave }));
-  if (ok) { $('campoChave').value = ''; mostrar($('statusChave'), 'Chave guardada.'); carregarIa(); }
+  // Se o começo da chave diz de qual IA ela é, guarda nessa (ex.: colou "sk-ant-…" com Gemini escolhido).
+  const escolhido = provedorIa();
+  const detectado = estadoIa?.provedores.find((p) => p.id === detectarIa(chave)) ?? null;
+  const destino = detectado ?? escolhido;
+  if (!destino) return;
+  const texto = (detectado && detectado.id !== escolhido?.id ? `Pelo começo, é uma chave do ${detectado.nome}. ` : '') +
+    `Guardar como chave do ${destino.nome}? Os pedidos que usarem essa IA passam a gastar a cota desta chave.`;
+  const r = await confirmar('Guardar a chave na TV?', texto, 'Guardar',
+    () => chamar('POST', '/api/ia/chave', { chave, provedor: destino.id }));
+  if (r) {
+    $('campoChave').value = '';
+    mostrar($('statusChave'), `Chave do ${destino.nome} guardada.` + (r.aviso ? ' Atenção: ' + r.aviso + '.' : ''));
+    carregarIa();
+  }
 });
 
 $('btnApagarChave').addEventListener('click', async () => {
-  const ok = await confirmar('Apagar a chave?', 'A IA para de funcionar até cadastrar outra.', 'Apagar',
-    () => chamar('POST', '/api/ia/chave', { apagar: true }));
+  const p = provedorIa();
+  if (!p) return;
+  const ok = await confirmar(`Apagar a chave do ${p.nome}?`, 'Essa IA para de funcionar até cadastrar outra.', 'Apagar',
+    () => chamar('POST', '/api/ia/chave', { apagar: true, provedor: p.id }));
   if (ok) { mostrar($('statusChave'), 'Chave apagada.'); carregarIa(); }
 });
 
 $('formModelo').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  const p = provedorIa();
+  if (!p) return;
   try {
-    await chamar('POST', '/api/ia/modelo', { modelo: $('campoModelo').value.trim() });
+    // Vazio volta ao padrão daquela IA.
+    await chamar('POST', '/api/ia/modelo', { modelo: $('campoModelo').value.trim() || p.modeloPadrao, provedor: p.id });
     mostrar($('statusChave'), 'Modelo trocado.');
     carregarIa();
   } catch (e) { mostrar($('statusChave'), e.message); }

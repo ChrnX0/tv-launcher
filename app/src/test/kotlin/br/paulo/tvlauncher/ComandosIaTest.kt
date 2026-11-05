@@ -91,6 +91,47 @@ class ComandosIaTest {
         assertFalse(ComandosIa.modeloValido("gemini:generateContent?x"))
     }
 
+    @Test fun detectaProvedorPelaChave() {
+        // Chaves FALSAS: só o começo importa.
+        assertEquals(ComandosIa.Provedor.CLAUDE, ComandosIa.Provedor.detectar("sk-ant-api03-xxxxxxxxxxxxxxxx"))
+        assertEquals(ComandosIa.Provedor.OPENAI, ComandosIa.Provedor.detectar("sk-proj-xxxxxxxxxxxxxxxxxxxx"))
+        assertEquals(ComandosIa.Provedor.PERPLEXITY, ComandosIa.Provedor.detectar("pplx-xxxxxxxxxxxxxxxxxxxx"))
+        assertEquals(ComandosIa.Provedor.GEMINI, ComandosIa.Provedor.detectar("AQ.xxxxxxxxxxxxxxxxxxxx"))
+        assertEquals(ComandosIa.Provedor.GEMINI, ComandosIa.Provedor.detectar("AIzaSyxxxxxxxxxxxxxxxx"))
+        assertNull(ComandosIa.Provedor.detectar("xyz-desconhecida-1234567890"))
+        assertEquals(ComandosIa.Provedor.OPENAI, ComandosIa.Provedor.porId("openai"))
+        assertNull(ComandosIa.Provedor.porId("../gemini"))
+        assertNull(ComandosIa.Provedor.porId(null))
+        // Chave de formato desconhecido continua aceita (o formato muda; a 1ª chamada é o teste real).
+        assertTrue(ComandosIa.chaveValida("xyz-desconhecida-1234567890"))
+        assertTrue(ComandosIa.chaveValida("sk-ant-api03-" + "x".repeat(95)))
+        assertTrue(ComandosIa.modeloValido("claude-haiku-5-5"))
+        assertTrue(ComandosIa.modeloValido("gpt-5.4-mini"))
+        assertTrue(ComandosIa.modeloValido("sonar"))
+        for (p in ComandosIa.Provedor.values()) assertTrue(p.id, ComandosIa.modeloValido(p.modeloPadrao))
+    }
+
+    @Test fun esquemaNosDoisFormatos() {
+        // Gemini (OpenAPI): tipos em MAIÚSCULAS, sem additionalProperties.
+        val g = ComandosIa.esquema(openApi = true)
+        assertEquals("OBJECT", g.getString("type"))
+        assertFalse(g.has("additionalProperties"))
+        // JSON Schema (Claude, OpenAI, Perplexity): minúsculas e additionalProperties=false em todo objeto.
+        val j = ComandosIa.esquema(openApi = false)
+        assertEquals("object", j.getString("type"))
+        assertEquals(false, j.get("additionalProperties"))
+        val acao = j.getJSONObject("properties").getJSONObject("acoes").getJSONObject("items")
+        assertEquals("object", acao.getString("type"))
+        assertEquals(false, acao.get("additionalProperties"))
+        assertFalse(j.toString().contains("\"OBJECT\"") || j.toString().contains("\"STRING\""))
+    }
+
+    @Test fun jsonDentroDeTextoAindaConfere() {
+        // Alguns modelos embrulham o JSON em ```json … ``` ou em uma frase; o plano B pega o trecho entre { e }.
+        val p = ComandosIa.conferir("Claro!\n```json\n{\"acoes\":[{\"tipo\":\"midia\",\"acao\":\"pausar\"}],\"resposta\":\"ok\"}\n```", apps)
+        assertEquals(1, p.acoes.size)
+    }
+
     @Test fun esquemaEInstrucoesSaemSemErro() {
         val e = ComandosIa.esquema()
         assertTrue(e.getJSONObject("properties").has("acoes"))
