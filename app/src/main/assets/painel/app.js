@@ -132,6 +132,7 @@ function mudarAba(nome) {
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
+  if (nome === 'backup') carregarCopias();
   if (nome === 'arquivos') abrirPasta(pastaAtual);
 }
 for (const b of document.querySelectorAll('.aba')) b.addEventListener('click', () => mudarAba(b.dataset.aba));
@@ -434,6 +435,48 @@ async function baixar(caminho, nome, status) {
 }
 $('btnBaixar').addEventListener('click', () => baixar('/api/backup', 'launcher-backup.json', $('statusBaixar')));
 $('btnBaixarAnterior').addEventListener('click', () => baixar('/api/backup/anterior', 'launcher-antes-de-restaurar.json', $('statusBackup')));
+
+// ---------- cópias automáticas (BackupAutomatico.kt) ----------
+
+/** "backup-20261105.json" -> "05/11/2026". */
+function diaDaCopia(nome) {
+  const m = /^backup-(\d{4})(\d{2})(\d{2})\.json$/.exec(nome);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : nome;
+}
+
+async function carregarCopias() {
+  const lista = $('listaCopias');
+  const status = $('statusCopias');
+  lista.replaceChildren();
+  mostrar(status, '');
+  let r;
+  try { r = await chamar('GET', '/api/backup/automaticos'); } catch (e) { mostrar(status, e.message); return; }
+  if (!r.copias.length) { mostrar(status, 'Nenhuma cópia ainda: a primeira sai quando a HOME abrir.'); return; }
+  for (const c of r.copias) {
+    const linha = document.createElement('div');
+    linha.className = 'linha-registro';
+    const dia = document.createElement('span');
+    dia.className = 'quando';
+    dia.textContent = `${diaDaCopia(c.nome)} · ${Math.max(1, Math.round(c.tamanho / 1024))} KB`;
+    const baixarBtn = document.createElement('button');
+    baixarBtn.type = 'button'; baixarBtn.className = 'link'; baixarBtn.textContent = 'baixar';
+    baixarBtn.addEventListener('click', () => baixar(`/api/backup/automatico?nome=${encodeURIComponent(c.nome)}`, `launcher-${c.nome}`, status));
+    const voltarBtn = document.createElement('button');
+    voltarBtn.type = 'button'; voltarBtn.className = 'link'; voltarBtn.textContent = 'voltar a este dia';
+    voltarBtn.addEventListener('click', async () => {
+      const emUso = await tvEmUso();
+      const ok = await confirmar('Voltar as configurações?',
+        `Substitui as configurações do launcher pelas de ${diaDaCopia(c.nome)} e reinicia o launcher na TV (a tela pisca).` +
+        (emUso ? ` Atenção: a TV está em uso agora (${emUso}).` : ''),
+        'Voltar', () => chamar('POST', `/api/backup/automatico/restaurar?nome=${encodeURIComponent(c.nome)}`));
+      if (!ok) return;
+      mostrar(status, `Restaurado (${ok.chaves} configurações). O launcher está reiniciando…`);
+      esperarVoltar(status);
+    });
+    linha.append(dia, ' ', baixarBtn, ' · ', voltarBtn);
+    lista.appendChild(linha);
+  }
+}
 
 // ---------- acessos ----------
 
