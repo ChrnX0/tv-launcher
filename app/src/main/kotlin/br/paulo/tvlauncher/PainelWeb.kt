@@ -567,6 +567,9 @@ object PainelWeb {
     }
 
     private fun fotoTela(): Resposta {
+        // TV em espera: a tela está apagada e o Android recusa a foto. Responde já, com o motivo claro, sem acordar nada.
+        val pm = app.getSystemService(android.os.PowerManager::class.java)
+        if (pm != null && !pm.isInteractive) return erro(409, "A TV está em espera. Toque em Acordar para ver a tela.")
         val (jpg, motivo) = PainelControle.foto()
         return if (jpg != null) Resposta(200, "image/jpeg", jpg) else erro(503, motivo ?: "sem foto")
     }
