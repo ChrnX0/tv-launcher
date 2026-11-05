@@ -232,6 +232,73 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <!-- Atalhos de voz (ver AtalhoVozActivity): cada alias é um "app" com nome falável, para o Gemini abrir
+             ("Ok Google, abrir Desligar em 30 minutos"). A tela não desenha nada: faz o comando e fecha. -->
+        <activity
+            android:name=".AtalhoVozActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity-alias
+            android:name=".VozDesligar30"
+            android:exported="true"
+            android:label="Desligar em 30 minutos"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozDesligar60"
+            android:exported="true"
+            android:label="Desligar em 1 hora"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozNaoDesligar"
+            android:exported="true"
+            android:label="Não desligar a TV"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozDiagnostico"
+            android:exported="true"
+            android:label="Diagnóstico da TV"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".VozAgenda"
+            android:exported="true"
+            android:label="Minha agenda"
+            android:targetActivity=".AtalhoVozActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <!-- Os dois alarmes do "desligar em X min" (aviso 1 min antes e a hora de apagar). Só o próprio app chama. -->
+        <receiver
+            android:name=".DesligamentoReceiver"
+            android:exported="false" />
         <!-- Agenda do perfil ativo (abre no OK da data do topo) -->
         <activity
             android:name=".CalendarioActivity"
