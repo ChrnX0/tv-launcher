@@ -38,6 +38,7 @@
       <button class="aba" data-aba="arquivos">Arquivos</button>
       <button class="aba" data-aba="saude">Saúde</button>
       <button class="aba" data-aba="fotos">Fotos</button>
+      <button class="aba" data-aba="shizuku">Shizuku</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -133,6 +134,20 @@
         <p id="statusFotos" class="aviso" hidden></p>
       </div>
       <div id="gradeFotos" class="grade-fotos"></div>
+    </section>
+
+    <section id="abaShizuku" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Shizuku do launcher</h2>
+        <p id="estadoShizuku" class="aviso"></p>
+        <p class="aviso-curto">Permitir dá a um app os poderes do adb (shell) nesta TV. Só permita apps em que você confia.</p>
+        <div id="listaShizuku" class="lista-registro"></div>
+        <p id="statusShizuku" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Quando cada app ligou o servidor</h2>
+        <div id="histShizuku" class="lista-registro"></div>
+      </div>
     </section>
 
     <section id="abaBackup" class="painel-aba" hidden>
