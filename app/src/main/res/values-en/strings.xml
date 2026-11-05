@@ -152,4 +152,83 @@
         <item>Fri</item>
         <item>Sat</item>
     </string-array>
+    <!-- MainActivity.kt -->
+    <string name="home_ocultos">Hidden (%1$d)</string>
+    <string name="fmt_data_longa">EEEE, MMMM d</string>
+    <string name="home_perfil">Profile</string>
+    <string name="home_painel_google">Google panel</string>
+    <string name="home_visita_titulo">Guest mode on</string>
+    <string name="home_visita_msg">The profile, calendar and chosen apps are hidden. Leave guest mode?</string>
+    <string name="home_continuar">Keep</string>
+    <string name="home_sair">Leave</string>
+    <string name="home_qual_sai">Which app leaves the group?</string>
+    <string name="home_ocultos_dica">OK opens  ·  hold OK to show on the home screen  ·  Back closes</string>
+    <string name="home_remover_dica">OK picks the app to remove  ·  Back closes</string>
+    <string name="home_remover_titulo">Remove %1$s from the group?</string>
+    <string name="home_remover_msg">It goes back to being a loose card.</string>
+    <string name="comum_cancelar">Cancel</string>
+    <string name="home_remover">Remove</string>
+    <string name="home_mostrar">Show on the home screen</string>
+    <string name="home_mover">Move</string>
+    <string name="home_remover_cards">Remove cards from the group</string>
+    <string name="home_mover_pilha">OK adds to the stack  ·  ◀ ▶ keeps moving  ·  Back cancels</string>
+    <string name="home_mover_forma">OK makes a stack  ·  ◀ ▶ keeps moving  ·  Back cancels</string>
+    <string name="home_mover_app">◀ ▶ move · OK confirms · Back cancels · ▲ hide · ▼ automatic order</string>
+    <string name="home_mover_dica">◀ ▶ move · OK confirms · Back cancels · ▼ automatic order</string>
+    <string name="home_chovendo">Raining now</string>
+    <string name="home_chuva_agora">%1$s - Rain %2$d%% right now</string>
+    <string name="home_chuva_em">%1$s - Rain %2$d%% in %3$d h</string>
+    <!-- AlarmesActivity.kt -->
+    <string name="al_criado">Alarm set: %1$s</string>
+    <string name="al_um_app">an app</string>
+    <string name="al_criar_q">Set an alarm for %1$s?</string>
+    <string name="al_pedido">Requested by %1$s.</string>
+    <string name="al_criar">Set</string>
+    <string name="al_titulo">Alarm clock</string>
+    <string name="al_nenhum">No alarm on</string>
+    <string name="al_proximo">Next: %1$s</string>
+    <string name="al_novo_mais">+  New alarm</string>
+    <string name="al_ligado">On</string>
+    <string name="al_desligado">Off</string>
+    <string name="al_novo">New alarm</string>
+    <string name="al_editar">Edit alarm</string>
+    <string name="al_editor_dica">▲ ▼ change hour and minute (hold to go fast) · OK marks the days</string>
+    <string name="al_nome">Name (optional)</string>
+    <string name="al_som">Sound: %1$s</string>
+    <string name="al_ouvir">Listen</string>
+    <string name="al_apagar">Delete</string>
+    <string name="al_hoje">today</string>
+    <string name="al_amanha">tomorrow</string>
+    <string name="al_dia_as">%1$s at %2$s</string>
+    <!-- AlarmeTocandoActivity.kt -->
+    <string name="al_parar">Stop</string>
+    <string name="al_soneca">Snooze 10 min</string>
+    <!-- PopupPerfil.kt -->
+    <string name="pp_sem_conta">No Google account</string>
+    <string name="pp_ativo">  ·  active</string>
+    <string name="pp_adicionar">Add profile</string>
+    <string name="pp_launcher_det">Appearance, DNS, diagnostics</string>
+    <string name="pp_sistema">System</string>
+    <string name="pp_sistema_det">Android settings</string>
+    <string name="pp_bt_det">Pair accessory</string>
+    <string name="pp_audio">Audio output</string>
+    <string name="pp_audio_det">Sound and speakers</string>
+    <string name="pp_carregando">Loading…</string>
+    <string name="pp_conectar">Connect</string>
+    <string name="pp_conectado">Connected</string>
+    <!-- CalendarioActivity.kt -->
+    <string name="cal_sem_conta">no Google account</string>
+    <string name="cal_dica">◀ ▶ change the month</string>
+    <string name="cal_30">Next 30 days</string>
+    <string name="cal_nenhuma_conta">No Google account on the TV</string>
+    <string name="cal_nada">Nothing scheduled (or the calendar is still syncing)</string>
+    <string name="fmt_mes_ano">MMMM yyyy</string>
+    <string name="cal_dia_todo">All day</string>
+    <string name="cal_sem_titulo">(no title)</string>
+    <!-- ProtetorTela.kt -->
+    <string name="pt_chovendo">  ·  raining</string>
+    <string name="pt_lua">Moon</string>
+    <string name="pt_sol">Sun</string>
+    <string name="pt_umidade">Humidity</string>
+    <string name="pt_chuva">Rain</string>
 </resources>

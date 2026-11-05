@@ -158,4 +158,83 @@
         <item>Sex</item>
         <item>Sáb</item>
     </string-array>
+    <!-- MainActivity.kt -->
+    <string name="home_ocultos">Ocultos (%1$d)</string>
+    <string name="fmt_data_longa">EEEE, d \'de\' MMMM</string>
+    <string name="home_perfil">Perfil</string>
+    <string name="home_painel_google">Painel do Google</string>
+    <string name="home_visita_titulo">Modo visita ligado</string>
+    <string name="home_visita_msg">O perfil, a agenda e os apps escolhidos estão escondidos. Sair do modo visita?</string>
+    <string name="home_continuar">Continuar</string>
+    <string name="home_sair">Sair</string>
+    <string name="home_qual_sai">Qual app sai do grupo?</string>
+    <string name="home_ocultos_dica">OK abre  ·  segure OK para mostrar na tela inicial  ·  Voltar fecha</string>
+    <string name="home_remover_dica">OK escolhe o app a remover  ·  Voltar fecha</string>
+    <string name="home_remover_titulo">Remover %1$s do grupo?</string>
+    <string name="home_remover_msg">Ele volta a ser um card solto.</string>
+    <string name="comum_cancelar">Cancelar</string>
+    <string name="home_remover">Remover</string>
+    <string name="home_mostrar">Mostrar na tela inicial</string>
+    <string name="home_mover">Mover</string>
+    <string name="home_remover_cards">Remover cards do grupo</string>
+    <string name="home_mover_pilha">OK coloca na pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela</string>
+    <string name="home_mover_forma">OK forma a pilha  ·  ◀ ▶ continua andando  ·  Voltar cancela</string>
+    <string name="home_mover_app">◀ ▶ mover · OK confirma · Voltar cancela · ▲ ocultar · ▼ ordem automática</string>
+    <string name="home_mover_dica">◀ ▶ mover · OK confirma · Voltar cancela · ▼ ordem automática</string>
+    <string name="home_chovendo">Chovendo agora</string>
+    <string name="home_chuva_agora">%1$s - Chuva %2$d%% neste momento</string>
+    <string name="home_chuva_em">%1$s - Chuva %2$d%% em %3$d h</string>
+    <!-- AlarmesActivity.kt -->
+    <string name="al_criado">Alarme criado: %1$s</string>
+    <string name="al_um_app">um app</string>
+    <string name="al_criar_q">Criar alarme às %1$s?</string>
+    <string name="al_pedido">Pedido de %1$s.</string>
+    <string name="al_criar">Criar</string>
+    <string name="al_titulo">Despertador</string>
+    <string name="al_nenhum">Nenhum alarme ligado</string>
+    <string name="al_proximo">Próximo: %1$s</string>
+    <string name="al_novo_mais">+  Novo alarme</string>
+    <string name="al_ligado">Ligado</string>
+    <string name="al_desligado">Desligado</string>
+    <string name="al_novo">Novo alarme</string>
+    <string name="al_editar">Editar alarme</string>
+    <string name="al_editor_dica">▲ ▼ mudam hora e minuto (segure para ir rápido) · OK marca os dias</string>
+    <string name="al_nome">Nome (opcional)</string>
+    <string name="al_som">Som: %1$s</string>
+    <string name="al_ouvir">Ouvir</string>
+    <string name="al_apagar">Apagar</string>
+    <string name="al_hoje">hoje</string>
+    <string name="al_amanha">amanhã</string>
+    <string name="al_dia_as">%1$s às %2$s</string>
+    <!-- AlarmeTocandoActivity.kt -->
+    <string name="al_parar">Parar</string>
+    <string name="al_soneca">Soneca 10 min</string>
+    <!-- PopupPerfil.kt -->
+    <string name="pp_sem_conta">Sem conta Google</string>
+    <string name="pp_ativo">  ·  ativo</string>
+    <string name="pp_adicionar">Adicionar perfil</string>
+    <string name="pp_launcher_det">Aparência, DNS, diagnóstico</string>
+    <string name="pp_sistema">Sistema</string>
+    <string name="pp_sistema_det">Configurações do Android</string>
+    <string name="pp_bt_det">Parear acessório</string>
+    <string name="pp_audio">Saída de áudio</string>
+    <string name="pp_audio_det">Som e alto-falantes</string>
+    <string name="pp_carregando">Carregando…</string>
+    <string name="pp_conectar">Conectar</string>
+    <string name="pp_conectado">Conectado</string>
+    <!-- CalendarioActivity.kt -->
+    <string name="cal_sem_conta">sem conta Google</string>
+    <string name="cal_dica">◀ ▶ trocam o mês</string>
+    <string name="cal_30">Próximos 30 dias</string>
+    <string name="cal_nenhuma_conta">Nenhuma conta Google na TV</string>
+    <string name="cal_nada">Nada marcado (ou a agenda ainda está sincronizando)</string>
+    <string name="fmt_mes_ano">MMMM \'de\' yyyy</string>
+    <string name="cal_dia_todo">Dia todo</string>
+    <string name="cal_sem_titulo">(sem título)</string>
+    <!-- ProtetorTela.kt -->
+    <string name="pt_chovendo">  ·  chovendo</string>
+    <string name="pt_lua">Lua</string>
+    <string name="pt_sol">Sol</string>
+    <string name="pt_umidade">Umidade</string>
+    <string name="pt_chuva">Chuva</string>
 </resources>
