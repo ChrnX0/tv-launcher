@@ -113,4 +113,6 @@ dependencies {
     // Testes que rodam no computador (gradlew testReleaseUnitTest), sem TV: a parte do painel no navegador que não
     // usa o Android (PainelHttp, PainelSeguranca). Não entra no APK.
     testImplementation("junit:junit:4.13.2")
+    // org.json de verdade nos testes: o android.jar dos testes só tem "cascas" que lançam exceção.
+    testImplementation("org.json:json:20240303")
 }

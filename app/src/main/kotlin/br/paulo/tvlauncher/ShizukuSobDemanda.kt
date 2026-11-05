@@ -58,7 +58,10 @@ object ShizukuSobDemanda {
 
     private fun clienteNaFrente(app: Context, pacote: String, como: String) {
         ultimoCliente = SystemClock.elapsedRealtime()
-        if (!Shizuku.pingBinder()) ServidorShizuku.anotar(app, "[sob demanda] $pacote $como: subindo o servidor")
+        if (!Shizuku.pingBinder()) {
+            ServidorShizuku.anotar(app, "[sob demanda] $pacote $como: subindo o servidor")
+            PainelShizuku.anotarSubida(app, pacote)   // histórico da aba Shizuku do painel
+        }
         GuardiaoShizuku.garantir(app, "sob demanda: $pacote")
         agendarDesligar(app)
     }

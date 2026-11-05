@@ -109,6 +109,8 @@ function mudarAba(nome) {
   $('abaControle').hidden = nome !== 'controle';
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
+  $('abaShizuku').hidden = nome !== 'shizuku';
+  if (nome === 'shizuku') carregarShizuku();
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
@@ -414,6 +416,49 @@ async function baixar(caminho, nome, status) {
 }
 $('btnBaixar').addEventListener('click', () => baixar('/api/backup', 'launcher-backup.json', $('statusBaixar')));
 $('btnBaixarAnterior').addEventListener('click', () => baixar('/api/backup/anterior', 'launcher-antes-de-restaurar.json', $('statusBackup')));
+
+// ---------- Shizuku (PainelShizuku.kt) ----------
+
+async function carregarShizuku() {
+  const lista = $('listaShizuku'), hist = $('histShizuku'), status = $('statusShizuku');
+  lista.replaceChildren(); hist.replaceChildren(); mostrar(status, '');
+  let r;
+  try { r = await chamar('GET', '/api/shizuku'); } catch (e) { mostrar(status, e.message); return; }
+  $('estadoShizuku').textContent = `Modo: ${r.modo}. Servidor ${r.rodando ? 'rodando' : 'parado'}.` +
+    (r.rodando ? '' : ' Com ele parado não dá para ver nem mudar quem tem acesso (ele sobe quando um desses apps abre).');
+  if (!r.apps.length) lista.appendChild(Object.assign(document.createElement('p'), { className: 'aviso', textContent: 'Nenhum app instalado pede o Shizuku.' }));
+  for (const a of r.apps) {
+    const linha = document.createElement('div');
+    linha.className = 'linha-registro';
+    const estado = a.permitido === undefined ? 'estado desconhecido' : a.permitido ? 'permitido' : 'sem acesso';
+    linha.append(`${a.nome} · ${estado} `);
+    if (a.permitido !== undefined) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'link'; b.textContent = a.permitido ? 'revogar' : 'permitir';
+      b.addEventListener('click', async () => {
+        const acao = a.permitido ? 'revogar' : 'permitir';
+        const fazer = () => chamar('POST', '/api/shizuku/app', { pacote: a.pacote, acao });
+        try {
+          if (acao === 'permitir') {
+            const ok = await confirmar('Permitir o Shizuku?', `${a.nome} vai poder fazer na TV o que o adb faz.`, 'Permitir', fazer);
+            if (!ok) return;
+          } else await fazer();
+          carregarShizuku();
+        } catch (e) { mostrar(status, e.message); }
+      });
+      linha.appendChild(b);
+    }
+    lista.appendChild(linha);
+  }
+  if (!r.historico.length) hist.appendChild(Object.assign(document.createElement('p'), { className: 'aviso', textContent: 'Nenhuma subida registrada ainda.' }));
+  for (const h of r.historico) {
+    const linha = document.createElement('div');
+    linha.className = 'linha-registro';
+    const q = document.createElement('span'); q.className = 'quando'; q.textContent = new Date(h.t).toLocaleString('pt-BR');
+    linha.append(q, ' ', h.nome);
+    hist.appendChild(linha);
+  }
+}
 
 // ---------- acessos ----------
 
