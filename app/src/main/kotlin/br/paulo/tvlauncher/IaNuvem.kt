@@ -54,7 +54,11 @@ object IaNuvem {
                 Log.w(TAG, "Gemini respondeu HTTP $codigo")
                 throw Falha(when (codigo) {
                     400 -> if (texto.contains("API_KEY_INVALID") || texto.contains("API key not valid")) "a chave de API não é válida" else "o Google recusou o pedido (400)"
-                    401, 403 -> "a chave não tem acesso à Gemini API (HTTP $codigo)"
+                    // Chaves novas "AQ." de algumas contas voltam 401 ACCESS_TOKEN_TYPE_UNSUPPORTED (relatos no fórum do
+                    // Google, 2026): o problema é a chave/conta, não o launcher.
+                    401 -> if (texto.contains("ACCESS_TOKEN_TYPE_UNSUPPORTED")) "o Google não aceitou esta chave \"AQ.\" na Gemini API " +
+                        "(ACCESS_TOKEN_TYPE_UNSUPPORTED); gere outra no AI Studio" else "o Google recusou a chave (HTTP 401)"
+                    403 -> "a chave não tem acesso à Gemini API (HTTP 403)"
                     404 -> "o modelo \"$modelo\" não existe para esta chave"
                     429 -> "a cota da chave acabou por agora (HTTP 429); tente mais tarde"
                     in 500..599 -> "o Google está com problema agora (HTTP $codigo)"
