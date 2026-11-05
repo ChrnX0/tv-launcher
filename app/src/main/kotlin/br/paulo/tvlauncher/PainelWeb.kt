@@ -394,6 +394,10 @@ object PainelWeb {
                     return autoDesligar()
                 }
             }
+            "/api/clima" -> when (req.metodo) {
+                "GET" -> return json(200, estadoClima())
+                "POST" -> return mudarClima(req, ip)
+            }
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
             // IA na nuvem (bloco 6, PedidoIa.kt). Ligar a IA não tem rota: só pelas Configurações, na TV.
             "/api/ia" -> if (req.metodo == "GET") return iaEstado()
@@ -780,6 +784,40 @@ object PainelWeb {
         .put("minutos", AutoDesligar.minutos(app))
         .put("opcoes", org.json.JSONArray(AutoDesligar.OPCOES))
         .put("ultimoDesligamento", AutoDesligar.ultimoDesligamento))
+
+    /** O lugar do clima: o escolhido (ou null = automático), o ponto que a última busca usou e a faixa de 9 dias. */
+    private fun estadoClima(): JSONObject {
+        val fixo = LocalClima.ler(app)
+        val c = app.getSharedPreferences("clima", Context.MODE_PRIVATE)
+        return JSONObject()
+            .put("fixo", fixo?.let { JSONObject().put("nome", it.nome).put("lat", it.lat).put("lon", it.lon) } ?: JSONObject.NULL)
+            .put("usado", if (c.contains("lat")) JSONObject().put("lat", c.getFloat("lat", 0f).toDouble()).put("lon", c.getFloat("lon", 0f).toDouble()) else JSONObject.NULL)
+            .put("faixa", FaixaDias.ligada(app))
+    }
+
+    /** {"nome","coordenadas"} fixa o lugar; {"automatico":true} volta ao automático; {"faixa":bool} liga/desliga a faixa. */
+    private fun mudarClima(req: Requisicao, ip: String): Resposta {
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        when {
+            o.has("faixa") -> {
+                FaixaDias.definirLigada(app, o.optBoolean("faixa", true))
+                PainelArmazem.registrar(app, ip, "faixa de 9 dias ${if (FaixaDias.ligada(app)) "ligada" else "desligada"}", "ok")
+            }
+            o.optBoolean("automatico", false) -> {
+                LocalClima.limpar(app)
+                PainelArmazem.registrar(app, ip, "clima: localização automática", "ok")
+            }
+            else -> {
+                val (lat, lon) = LocalClima.lerCoordenadas(o.optString("coordenadas"))
+                    ?: return erro(400, "coordenadas inválidas: cole do Google Maps, ex.: -21.1795, -47.8105")
+                val nome = LocalClima.limparNome(o.optString("nome"))
+                LocalClima.gravar(app, LocalClima.Lugar(nome, lat, lon))
+                // As coordenadas não vão para o registro (são o endereço da casa), só o nome.
+                PainelArmazem.registrar(app, ip, "clima: lugar \"$nome\"", "ok")
+            }
+        }
+        return json(200, estadoClima().put("ok", true))
+    }
 
     private fun reiniciarTv(token: String?, ip: String): Resposta {
         if (!sessoes.elevada(token)) return precisaPin()
