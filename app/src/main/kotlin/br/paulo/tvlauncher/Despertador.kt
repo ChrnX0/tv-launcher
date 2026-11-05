@@ -145,11 +145,11 @@ object Despertador {
     fun horaTexto(a: Alarme) = "%02d:%02d".format(a.hora, a.minuto)
 
     /** "Todo dia", "Seg a sex", "Só uma vez", ou os dias marcados ("S T Q"). */
-    fun diasTexto(dias: Int): String = when (dias) {
-        0 -> "Uma vez"
-        0b1111111 -> "Todo dia"
-        0b0111110 -> "Seg a sex"
-        0b1000001 -> "Fim de semana"
-        else -> listOf("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb").filterIndexed { i, _ -> dias and (1 shl i) != 0 }.joinToString(" ")
+    fun diasTexto(ctx: Context, dias: Int): String = when (dias) {
+        0 -> ctx.getString(R.string.dia_uma_vez)
+        0b1111111 -> ctx.getString(R.string.dia_todo)
+        0b0111110 -> ctx.getString(R.string.dia_seg_sex)
+        0b1000001 -> ctx.getString(R.string.dia_fim)
+        else -> ctx.resources.getStringArray(R.array.dias_curtos).filterIndexed { i, _ -> dias and (1 shl i) != 0 }.joinToString(" ")
     }
 }

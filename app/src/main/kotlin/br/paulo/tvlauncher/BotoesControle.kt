@@ -14,7 +14,7 @@ import android.view.KeyEvent
  *
  * Como chega aqui: o serviço de acessibilidade (AutorizaShizukuService.onKeyEvent) vê a tecla ANTES do sistema.
  * Devolvendo true, o sistema nunca a recebe: o Netflix não abre sozinho e o YouTube (que o Home do Google tratava) passa a funcionar.
- * Códigos medidos no controle da Sala em 01/11/2026 (log TvLauncher.Tecla): Netflix = BUTTON_4, YouTube = BUTTON_3.
+ * Códigos medidos num controle do Chromecast com Google TV em 01/11/2026 (log TvLauncher.Tecla): Netflix = BUTTON_4, YouTube = BUTTON_3.
  */
 object BotoesControle {
     private const val TAG = "TvLauncher.Botao"
@@ -24,7 +24,8 @@ object BotoesControle {
     class Botao(val tecla: Int, val nome: String, val padrao: String)
 
     val BOTOES = listOf(
-        Botao(KeyEvent.KEYCODE_BUTTON_4, "Netflix", "com.onestream.player"),
+        // Padrão do botão Netflix: o Netflix (ou o que estiver em botao_netflix no pessoal.properties, fora do git).
+        Botao(KeyEvent.KEYCODE_BUTTON_4, "Netflix", BuildConfig.BOTAO_NETFLIX),
         Botao(KeyEvent.KEYCODE_BUTTON_3, "YouTube", "com.google.android.youtube.tv"),
     )
 

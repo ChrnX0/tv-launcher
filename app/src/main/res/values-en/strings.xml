@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ConfigLauncherActivity.kt -->
+    <string name="cfg_vpn_conectada">connected</string>
+    <string name="cfg_vpn_nenhuma">none</string>
+    <string name="cfg_vpn_desconectada">disconnected</string>
+    <string name="cfg_vpn_nao_fixa">" — the launcher does not pin a VPN"</string>
+    <string name="cfg_vpn_adguard">" — AdGuard VPN app, always on · OK opens the app"</string>
+    <string name="cfg_titulo">Launcher settings</string>
+    <string name="cfg_diag">Diagnose the TV</string>
+    <string name="cfg_diag_det">internet, DNS, VPN and why an app stopped — all at once</string>
+    <string name="cfg_sec_aparencia">Appearance</string>
+    <string name="cfg_tema">Theme: %1$s</string>
+    <string name="cfg_tema_det">switches to the next look</string>
+    <string name="cfg_pilhas">Automatic stacks</string>
+    <string name="cfg_pilhas_on">on: loose apps group by category (video, music, games…) · OK turns off</string>
+    <string name="cfg_pilhas_off">off · OK turns on (the stacks you made stay)</string>
+    <string name="cfg_sec_descanso">Screen saver</string>
+    <string name="cfg_nunca">Never</string>
+    <string name="cfg_min">%1$d min</string>
+    <string name="cfg_iniciar_apos">Start after: %1$s</string>
+    <string name="cfg_descanso_det">OK changes the idle time before the screen saver</string>
+    <string name="cfg_nao_gravou_do">could not save (Device Owner inactive?)</string>
+    <string name="cfg_visita">Guest mode</string>
+    <string name="cfg_visita_on">on — profile, calendar and the apps marked below are hidden · OK turns off</string>
+    <string name="cfg_visita_off">off — OK hides the profile, the calendar and the apps marked below</string>
+    <string name="cfg_rotinas">Routines</string>
+    <string name="cfg_rotinas_det">turn on, open an app or turn off the TV at a set time</string>
+    <string name="cfg_sec_atualizacao">Updates</string>
+    <string name="cfg_atualizar">Check for a new version</string>
+    <string name="cfg_atualizar_det">version %1$s · %2$s · OK checks now</string>
+    <string name="cfg_procurando">checking GitHub…</string>
+    <string name="cfg_sec_rede">Network</string>
+    <string name="cfg_dns">Private DNS</string>
+    <string name="cfg_dns_caiu">" · %1$s did not answer, switched back to automatic"</string>
+    <string name="cfg_velocidade">Test internet speed</string>
+    <string name="cfg_velocidade_det">downloads 25 MB and measures</string>
+    <string name="cfg_testando">Testing…</string>
+    <string name="cfg_sec_ocultos">Hidden apps</string>
+    <string name="cfg_oculto">hidden — OK shows</string>
+    <string name="cfg_visivel">visible — OK hides</string>
+    <string name="cfg_nao_mudou_do">could not change (Device Owner inactive?)</string>
+    <string name="cfg_sec_ligado">What is on — %1$s</string>
+    <string name="cfg_ligado">on</string>
+    <string name="cfg_so_pc">" · only with a computer (adb)"</string>
+    <string name="cfg_tenta_ligar">" · OK tries to turn on"</string>
+    <string name="cfg_perm_fixas">Fixed permissions granted</string>
+    <string name="cfg_sec_shizuku">Launcher Shizuku</string>
+    <string name="cfg_shz_rodando">running (uid %1$d, version %2$d)</string>
+    <string name="cfg_shz_parado">stopped</string>
+    <string name="cfg_shz_sob">starts when an app asks, stops after 5 min unused</string>
+    <string name="cfg_shz_sempre">always up, restarts if it dies</string>
+    <string name="cfg_shz_desligado">does not start</string>
+    <string name="cfg_shz_det">%1$s (%2$s) · now: %3$s — OK changes the mode</string>
+    <string name="cfg_servidor">Server</string>
+    <string name="cfg_parear">Pair without a PC</string>
+    <string name="cfg_parear_det">opens the Android pairing screen with a launcher keypad on top</string>
+    <string name="cfg_acess_off">the launcher accessibility service is off</string>
+    <string name="cfg_sec_diagnostico">Diagnostics</string>
+    <string name="cfg_versao">Launcher version</string>
+    <string name="cfg_desconhecida">unknown</string>
+    <string name="cfg_depuracao">Wireless debugging</string>
+    <string name="cfg_depuracao_on">kept on by the launcher</string>
+    <string name="cfg_depuracao_android">as Android leaves it</string>
+    <string name="cfg_chave">Own shell key</string>
+    <string name="cfg_calculando">computing…</string>
+    <string name="cfg_erro">error: %1$s</string>
+    <string name="cfg_licencas">Licenses and credits</string>
+    <string name="cfg_licencas_det">third-party code, fonts, icons and data used here</string>
+    <string name="cfg_some_visita">hidden in guest mode — OK keeps it</string>
+    <string name="cfg_aparece_visita">shown in guest mode — OK hides it</string>
+    <string name="cfg_apps_acesso">Apps with access</string>
+    <string name="cfg_nenhum_pediu">no installed app asked for Shizuku access</string>
+    <string name="cfg_permitido">allowed — OK revokes</string>
+    <string name="cfg_sem_acesso">no access — OK allows</string>
+    <string name="cfg_nao_mudou">could not change: %1$s</string>
+    <!-- Recursos.kt -->
+    <string name="rec_do_sem">without it: no hiding apps, no pinned HOME or VPN, no screen saver timeout</string>
+    <string name="rec_agenda">Calendar</string>
+    <string name="rec_agenda_sem">without it: the calendar shows no events</string>
+    <string name="rec_local">Location</string>
+    <string name="rec_local_sem">without it: weather uses the city from the IP and Wi-Fi does not show the network name</string>
+    <string name="rec_contas">Accounts</string>
+    <string name="rec_contas_sem">without it: the profile dot does not show the account initial</string>
+    <string name="rec_uso">App usage</string>
+    <string name="rec_uso_sem">without it: apps are not sorted by recent use</string>
+    <string name="rec_sobre">Overlay</string>
+    <string name="rec_sobre_sem">without it: notes and PC-free pairing do not show over apps</string>
+    <string name="rec_seguras">Secure settings</string>
+    <string name="rec_seguras_sem">without it: no DNS change and no auto-restart of the key service and wireless debugging (only with a PC or the launcher shell)</string>
+    <string name="rec_teclas">Key service</string>
+    <string name="rec_teclas_sem">without it: HOME may open the Google launcher and the Netflix/YouTube keys are not remapped</string>
+    <string name="rec_tudo">everything on</string>
+    <string name="rec_faltam">%1$d of %2$d features missing · OK on an item tries to turn it on</string>
+    <!-- BoasVindasActivity.kt -->
+    <string name="bv_titulo">Welcome</string>
+    <string name="bv_texto">The home screen, clock, weather, alarm and screen saver already work. Turn on the rest here if you want (%1$s).</string>
+    <string name="bv_comecar">Start</string>
+    <string name="bv_comecar_det">goes to the home screen</string>
+    <string name="bv_perm">Turn on calendar, location and accounts</string>
+    <string name="bv_perm_det">calendar events, weather for your city, account initial on the profile</string>
+    <string name="bv_teclas">Turn on the key service</string>
+    <string name="bv_teclas_det">Accessibility &gt; Launcher: makes HOME always come back here</string>
+    <string name="bv_tudo">See everything you can turn on</string>
+    <!-- LicencasActivity.kt -->
+    <string name="lic_sem_arquivo">License file not found.</string>
+    <!-- Rotinas.kt -->
+    <string name="rot_ligar">Turn on the TV</string>
+    <string name="rot_abrir_um">Turn on and open an app</string>
+    <string name="rot_desligar">Turn off the TV</string>
+    <string name="rot_abrir">Turn on and open %1$s</string>
+    <string name="rot_um_app">an app (choose)</string>
+    <string name="rot_se_ocioso">" if nobody touched it for %1$s"</string>
+    <string name="rot_sempre">always</string>
+    <!-- RotinasActivity.kt -->
+    <string name="rot_nenhuma">no routine on</string>
+    <string name="rot_proxima">next: %1$s</string>
+    <string name="rot_nova_mais">+ New routine</string>
+    <string name="rot_nova_det">turn on, open an app or turn off at a set time</string>
+    <string name="rot_desligada_sufixo">" · off"</string>
+    <string name="rot_nova">New routine</string>
+    <string name="rot_editar">Edit routine</string>
+    <string name="rot_editor_det">OK changes each line · BACK leaves without saving</string>
+    <string name="rot_hora">Time: %1$s</string>
+    <string name="rot_dias">Days: %1$s</string>
+    <string name="rot_acao">Action: %1$s</string>
+    <string name="rot_app">App: %1$s</string>
+    <string name="rot_nenhum">none</string>
+    <string name="rot_ocioso">Only if nobody touched it for: %1$s</string>
+    <string name="rot_ligada">On</string>
+    <string name="rot_desligada">Off</string>
+    <string name="rot_hora_det">◀ ▶ 5 minutes · OK +1 hour</string>
+    <string name="rot_dias_det">OK: every day, Mon to Fri, weekend, once</string>
+    <string name="rot_ok_muda">OK changes</string>
+    <string name="rot_app_det">OK or ▶ next · ◀ previous</string>
+    <string name="rot_ocioso_det">does not interrupt someone watching</string>
+    <string name="rot_ativa_det">OK turns this routine on/off</string>
+    <string name="rot_salvar">Save</string>
+    <string name="rot_escolha_app">Choose the app</string>
+    <string name="rot_apagar">Delete this routine</string>
+    <!-- Despertador.kt -->
+    <string name="dia_uma_vez">Once</string>
+    <string name="dia_todo">Every day</string>
+    <string name="dia_seg_sex">Mon to Fri</string>
+    <string name="dia_fim">Weekend</string>
+    <string-array name="dias_curtos">
+        <item>Sun</item>
+        <item>Mon</item>
+        <item>Tue</item>
+        <item>Wed</item>
+        <item>Thu</item>
+        <item>Fri</item>
+        <item>Sat</item>
+    </string-array>
+    <!-- MainActivity.kt -->
+    <string name="home_ocultos">Hidden (%1$d)</string>
+    <string name="fmt_data_longa">EEEE, MMMM d</string>
+    <string name="home_perfil">Profile</string>
+    <string name="home_painel_google">Google panel</string>
+    <string name="home_visita_titulo">Guest mode on</string>
+    <string name="home_visita_msg">The profile, calendar and chosen apps are hidden. Leave guest mode?</string>
+    <string name="home_continuar">Keep</string>
+    <string name="home_sair">Leave</string>
+    <string name="home_qual_sai">Which app leaves the group?</string>
+    <string name="home_ocultos_dica">OK opens  ·  hold OK to show on the home screen  ·  Back closes</string>
+    <string name="home_remover_dica">OK picks the app to remove  ·  Back closes</string>
+    <string name="home_remover_titulo">Remove %1$s from the group?</string>
+    <string name="home_remover_msg">It goes back to being a loose card.</string>
+    <string name="comum_cancelar">Cancel</string>
+    <string name="home_remover">Remove</string>
+    <string name="home_mostrar">Show on the home screen</string>
+    <string name="home_mover">Move</string>
+    <string name="home_remover_cards">Remove cards from the group</string>
+    <string name="home_mover_pilha">OK adds to the stack  ·  ◀ ▶ keeps moving  ·  Back cancels</string>
+    <string name="home_mover_forma">OK makes a stack  ·  ◀ ▶ keeps moving  ·  Back cancels</string>
+    <string name="home_mover_app">◀ ▶ move · OK confirms · Back cancels · ▲ hide · ▼ automatic order</string>
+    <string name="home_mover_dica">◀ ▶ move · OK confirms · Back cancels · ▼ automatic order</string>
+    <string name="home_chovendo">Raining now</string>
+    <string name="home_chuva_agora">%1$s - Rain %2$d%% right now</string>
+    <string name="home_chuva_em">%1$s - Rain %2$d%% in %3$d h</string>
+    <!-- AlarmesActivity.kt -->
+    <string name="al_criado">Alarm set: %1$s</string>
+    <string name="al_um_app">an app</string>
+    <string name="al_criar_q">Set an alarm for %1$s?</string>
+    <string name="al_pedido">Requested by %1$s.</string>
+    <string name="al_criar">Set</string>
+    <string name="al_titulo">Alarm clock</string>
+    <string name="al_nenhum">No alarm on</string>
+    <string name="al_proximo">Next: %1$s</string>
+    <string name="al_novo_mais">+  New alarm</string>
+    <string name="al_ligado">On</string>
+    <string name="al_desligado">Off</string>
+    <string name="al_novo">New alarm</string>
+    <string name="al_editar">Edit alarm</string>
+    <string name="al_editor_dica">▲ ▼ change hour and minute (hold to go fast) · OK marks the days</string>
+    <string name="al_nome">Name (optional)</string>
+    <string name="al_som">Sound: %1$s</string>
+    <string name="al_ouvir">Listen</string>
+    <string name="al_apagar">Delete</string>
+    <string name="al_hoje">today</string>
+    <string name="al_amanha">tomorrow</string>
+    <string name="al_dia_as">%1$s at %2$s</string>
+    <!-- AlarmeTocandoActivity.kt -->
+    <string name="al_parar">Stop</string>
+    <string name="al_soneca">Snooze 10 min</string>
+    <!-- PopupPerfil.kt -->
+    <string name="pp_sem_conta">No Google account</string>
+    <string name="pp_ativo">"  ·  active"</string>
+    <string name="pp_adicionar">Add profile</string>
+    <string name="pp_launcher_det">Appearance, DNS, diagnostics</string>
+    <string name="pp_sistema">System</string>
+    <string name="pp_sistema_det">Android settings</string>
+    <string name="pp_bt_det">Pair accessory</string>
+    <string name="pp_audio">Audio output</string>
+    <string name="pp_audio_det">Sound and speakers</string>
+    <string name="pp_carregando">Loading…</string>
+    <string name="pp_conectar">Connect</string>
+    <string name="pp_conectado">Connected</string>
+    <!-- CalendarioActivity.kt -->
+    <string name="cal_sem_conta">no Google account</string>
+    <string name="cal_dica">◀ ▶ change the month</string>
+    <string name="cal_30">Next 30 days</string>
+    <string name="cal_nenhuma_conta">No Google account on the TV</string>
+    <string name="cal_nada">Nothing scheduled (or the calendar is still syncing)</string>
+    <string name="fmt_mes_ano">MMMM yyyy</string>
+    <string name="cal_dia_todo">All day</string>
+    <string name="cal_sem_titulo">(no title)</string>
+    <!-- ProtetorTela.kt -->
+    <string name="pt_chovendo">"  ·  raining"</string>
+    <string name="pt_lua">Moon</string>
+    <string name="pt_sol">Sun</string>
+    <string name="pt_umidade">Humidity</string>
+    <string name="pt_chuva">Rain</string>
+    <!-- IconesClima.kt -->
+    <string name="cl_chuva">Rain</string>
+    <string name="cl_limpo">Clear sky</string>
+    <string name="cl_poucas">Few clouds</string>
+    <string name="cl_parcial">Partly cloudy</string>
+    <string name="cl_nublado">Cloudy</string>
+    <string name="cl_neblina">Fog</string>
+    <string name="cl_garoa_fraca">Light drizzle</string>
+    <string name="cl_garoa">Drizzle</string>
+    <string name="cl_garoa_forte">Heavy drizzle</string>
+    <string name="cl_garoa_cong">Freezing drizzle</string>
+    <string name="cl_chuva_fraca">Light rain</string>
+    <string name="cl_chuva_forte">Heavy rain</string>
+    <string name="cl_chuva_cong">Freezing rain</string>
+    <string name="cl_neve_fraca">Light snow</string>
+    <string name="cl_neve">Snow</string>
+    <string name="cl_neve_forte">Heavy snow</string>
+    <string name="cl_graos">Snow grains</string>
+    <string name="cl_panc_fracas">Light showers</string>
+    <string name="cl_panc">Rain showers</string>
+    <string name="cl_panc_fortes">Heavy showers</string>
+    <string name="cl_panc_neve">Snow showers</string>
+    <string name="cl_tempestade">Thunderstorm</string>
+    <string name="cl_granizo">Thunderstorm with hail</string>
+    <!-- Lua.kt -->
+    <string name="lua_cheia_em">full in %1$d d</string>
+    <string name="lua_nova_em">new in %1$d d</string>
+    <string-array name="fases_lua">
+        <item>New moon</item>
+        <item>Waxing crescent</item>
+        <item>First quarter</item>
+        <item>Waxing gibbous</item>
+        <item>Full moon</item>
+        <item>Waning gibbous</item>
+        <item>Last quarter</item>
+        <item>Waning crescent</item>
+    </string-array>
+    <!-- PrevisaoActivity.kt -->
+    <string name="pv_carregando">Loading the forecast…</string>
+    <string name="pv_voz_agora">"It is now %1$d degrees, %2$s. "</string>
+    <string name="pv_voz_hoje">Today, a high of %1$d and a low of %2$d</string>
+    <string name="pv_voz_chuva">", with a %1$d percent chance of rain. "</string>
+    <string name="pv_voz_sem_chuva">", no rain expected. "</string>
+    <string name="pv_voz_amanha">Tomorrow, %1$s, a high of %2$d and a low of %3$d</string>
+    <string name="pv_voz_amanha_chuva">, a %1$d percent chance of rain</string>
+    <string name="pv_sem">No forecast now (no internet or source down).</string>
+    <string name="pv_max_min">high %1$d°   low %2$d°   ·   feels like %3$d°</string>
+    <string name="pv_24h">Next 24 hours</string>
+    <string name="pv_agora">Now</string>
+    <string name="pv_chance">Chance of rain</string>
+    <string name="pv_7d">Next 7 days</string>
+    <string name="pv_hoje">Today</string>
+    <string name="pv_mais_quente">Warmer</string>
+    <string name="pv_mais_frio">Colder</string>
+    <string name="pv_igual">Same as actual</string>
+    <string name="pv_detalhes">Details</string>
+    <string name="pv_sensacao">Feels like</string>
+    <string name="pv_vento">Wind</string>
+    <string name="pv_uv">UV index</string>
+    <string name="pv_visib">Visibility</string>
+    <string name="pv_orvalho">Dew point</string>
+    <string name="pv_pressao">Pressure</string>
+    <string name="pv_chuva_hoje">Rain today</string>
+    <string name="pv_ar">Air quality</string>
+    <string name="pv_sem_dados">No data now</string>
+    <string name="uv_baixo">Low</string>
+    <string name="uv_moderado">Moderate</string>
+    <string name="uv_alto">High</string>
+    <string name="uv_muito_alto">Very high</string>
+    <string name="uv_extremo">Extreme</string>
+    <string name="aq_boa">Good</string>
+    <string name="aq_moderada">Moderate</string>
+    <string name="aq_sensiveis">Unhealthy for sensitive</string>
+    <string name="aq_ruim">Unhealthy</string>
+    <string name="aq_muito_ruim">Very unhealthy</string>
+    <string name="aq_perigosa">Hazardous</string>
+    <string-array name="rosa_ventos">
+        <item>N</item>
+        <item>NE</item>
+        <item>E</item>
+        <item>SE</item>
+        <item>S</item>
+        <item>SW</item>
+        <item>W</item>
+        <item>NW</item>
+    </string-array>
+    <!-- Tema.kt -->
+    <string name="tema_escuro">Dark</string>
+    <string name="tema_galeria">Gallery</string>
+    <!-- SomAlarme.kt -->
+    <string name="som_suave">Soft</string>
+    <string name="som_classico">Classic</string>
+    <string name="som_sino">Bell</string>
+    <string name="som_direto">Full volume</string>
+    <string name="som_rampa1">Rises over 1 min</string>
+    <string name="som_rampa2">Rises over 2 min</string>
+    <!-- Velocidade.kt -->
+    <string name="vel_resultado">Internet: %1$.0f Mbps (downloaded %2$.0f MB in %3$.1f s)</string>
+    <string name="vel_falhou">Test failed (no internet or server down)</string>
+    <!-- Rede.kt -->
+    <!-- EscolherAppActivity.kt -->
+    <string name="esc_atual">"  ·  current"</string>
+    <string name="esc_botao">%1$s button opens:</string>
+    <!-- Config.kt -->
+    <string name="shz_modo_desligado">off</string>
+    <string name="shz_modo_sob">on demand</string>
+    <string name="shz_modo_sempre">always on</string>
+    <!-- Fundos.kt -->
+    <string name="fd_nascer">sunrise %1$s</string>
+    <string name="fd_por">sunset %1$s</string>
+    <!-- DnsActivity.kt -->
+    <string name="dns_dica">OK: use   ·   hold OK on one of your servers: remove   ·   Back: exit</string>
+    <string name="dns_auto">Automatic</string>
+    <string name="dns_auto_det">Uses the router DNS and encrypts when it accepts (Android default)</string>
+    <string name="dns_desl">Off</string>
+    <string name="dns_desl_det">Plain DNS, no encryption</string>
+    <string name="dns_publicos">Public servers</string>
+    <string name="dns_meus">My servers</string>
+    <string name="dns_adicionar">+  Add server</string>
+    <string name="dns_adicionar_det">DNS-over-TLS address, like dns.example.com</string>
+    <string name="dns_sem_permissao">"No permission to change the DNS. On a computer: "</string>
+    <string name="dns_troque_antes">switch servers before removing this one</string>
+    <string name="dns_remover_q">Remove %1$s?</string>
+    <string name="dns_remover">Remove</string>
+    <string name="dns_nome_opc">Name (optional)</string>
+    <string name="dns_endereco_ex">Address, e.g. dns.example.com</string>
+    <string name="dns_adicionar_tit">Add DNS server</string>
+    <string name="dns_salvar_usar">Save and use</string>
+    <string name="dns_invalido">Invalid address. Use a name like dns.example.com (Android does not accept an IP number).</string>
+    <string name="dns_em_uso">In use: %1$s</string>
+    <string name="dns_testando">testing…</string>
+    <string name="dns_falha">FAILED: no name resolved. Pick another server or Automatic.</string>
+    <string name="dns_res_sem_cripto">resolving in %1$d ms (no encryption)</string>
+    <string name="dns_res_tls">resolving in %1$d ms   ·   TLS active</string>
+    <string name="dns_res_com">" with %1$s"</string>
+    <string name="dns_res_sem_tls">resolving in %1$d ms   ·   no TLS right now</string>
+    <!-- Dns.kt -->
+    <string name="dns_adguard_pessoal">AdGuard (personal)</string>
+    <string name="dns_personalizado">Custom (%1$s)</string>
+    <string name="dns_rot_auto">automatic</string>
+    <string name="dns_rot_desl">off</string>
+    <!-- Diagnostico.kt -->
+    <string name="diag_resumo">Summary</string>
+    <string name="diag_wifi_desc">disconnected: the TV is not on any network</string>
+    <string name="diag_lat">%1$d ms to the internet</string>
+    <string name="diag_sem_resp">no answer from the internet</string>
+    <string name="diag_wifi">%1$s · signal %2$d dBm · %3$d Mbps · %4$s</string>
+    <string name="diag_validou">Android validated the Wi-Fi</string>
+    <string name="diag_nao_validou">Android did NOT validate the Wi-Fi</string>
+    <string name="diag_net_ok">working (test in %1$d ms) · %2$s</string>
+    <string name="diag_net_falhou">the test did not reach Google · %1$s</string>
+    <string name="diag_net_estranha">odd answer (%1$d): the network may want a login · %2$s</string>
+    <string name="diag_cripto">encryption active</string>
+    <string name="diag_sem_cripto">encryption NOT active</string>
+    <string name="diag_resolve">resolves names (%1$d ms)</string>
+    <string name="diag_nao_resolve">does NOT resolve names</string>
+    <string name="diag_caiu">%1$s failed earlier and I switched back to automatic</string>
+    <string name="diag_nenhum_app">no app</string>
+    <string name="diag_vpn_nada">no VPN pinned or on</string>
+    <string name="diag_vpn_desc">%1$s pinned, but DISCONNECTED (internet keeps working without VPN)</string>
+    <string name="diag_vpn_nao_validada">%1$s connected, but Android did not validate the tunnel</string>
+    <string name="diag_vpn_ok">%1$s connected and working</string>
+    <string name="diag_r_sem_wifi">the TV has no Wi-Fi</string>
+    <string name="diag_r_dns_fora">the DNS does not answer: the internet seems down</string>
+    <string name="diag_r_net_fora">the internet is not getting through (router or provider)</string>
+    <string name="diag_r_dns">the DNS does not resolve names: apps cannot find their servers</string>
+    <string name="diag_r_net">the DNS works, but the internet does not answer</string>
+    <string name="diag_r_vpn">network ok; only the VPN is down (apps work without it)</string>
+    <string name="diag_r_atencao">network working, with points of attention below</string>
+    <string name="diag_r_ok">network ok. If an app stopped, see what happened to it below</string>
+    <string name="diag_usava">" · was using %1$d MB"</string>
+    <string name="diag_texto">Reason: %1$s\nProcess: %2$s\nImportance: %3$s</string>
+    <string name="diag_detalhe">\nAndroid detail: %1$s</string>
+    <string name="diag_m_memoria">closed for lack of memory</string>
+    <string name="diag_m_crash">crashed</string>
+    <string name="diag_m_nativo">crashed (native)</string>
+    <string name="diag_m_anr">stopped responding (ANR)</string>
+    <string name="diag_m_iniciar">could not start</string>
+    <string name="diag_m_recurso">closed for using too many resources</string>
+    <string name="diag_m_dependencia">closed because an app it depends on died</string>
+    <string name="diag_m_sinal">ended by the system (signal)</string>
+    <string name="diag_m_permissao">restarted by a permission change</string>
+    <string name="diag_i_tela">was on screen</string>
+    <string name="diag_i_visivel">visible</string>
+    <string name="diag_i_servico">running in the background</string>
+    <string name="diag_i_cache">in the background (cached)</string>
+    <!-- DiagnosticoActivity.kt -->
+    <string name="diag_titulo">Diagnostics</string>
+    <string name="diag_refazer">Check again</string>
+    <string name="diag_refazer_det">runs all the checks again</string>
+    <string name="diag_verificando">checking…</string>
+    <string name="diag_apps">Apps (last 7 days)</string>
+    <string name="diag_lendo">Reading the app history</string>
+    <string name="diag_sem_perm">No permission to read other apps\' crashes</string>
+    <string name="diag_sem_perm_det">the launcher grants itself READ_LOGS and DUMP through its own shell; wait a few minutes or restart the TV</string>
+    <string name="diag_nada">nothing recorded</string>
+    <string name="diag_erros">Launcher errors (recorded by it)</string>
+    <string name="diag_sem_erros">No errors recorded</string>
+    <string name="diag_sem_erros_det">the launcher keeps its last %1$d crashes here</string>
+    <string name="diag_erro">Launcher error</string>
+    <string name="diag_apagar">Delete recorded errors</string>
+    <string name="diag_apagar_det">clears the list above (touches nothing else)</string>
+    <string name="diag_rodape">%1$s · arrows scroll · BACK returns</string>
+    <string name="diag_app_ok">No crash, freeze or abnormal exit in the last 7 days.\n\nIf the app opens but loads nothing, the problem is usually the network: see the Network section on the previous screen.</string>
+    <!-- Atualizador.kt -->
+    <string name="atu_nunca">not checked yet</string>
+    <string name="atu_android9">needs Android 9 or newer</string>
+    <string name="atu_ocupado">already checking</string>
+    <string name="atu_erro">error: %1$s %2$s</string>
+    <string name="atu_em_dia">up to date (installed %1$d, latest %2$d)</string>
+    <string name="atu_sem_apk">Release %1$d has no APK or SHA-256</string>
+    <string name="atu_sha">Release %1$d: SHA-256 does not match, not installed</string>
+    <string name="atu_ilegivel">Release %1$d: unreadable APK</string>
+    <string name="atu_pacote">Release %1$d: different package (%2$s)</string>
+    <string name="atu_versao">Release %1$d: APK version (%2$d) does not match the tag</string>
+    <string name="atu_chave">Release %1$d signed with another key: not installing (normal on a TV updated from a PC)</string>
+    <string name="atu_disponivel">version %1$d available (installed %2$d)</string>
+    <string name="atu_instalando">installing %1$d (installed %2$d)</string>
+    <string name="atu_ok">updated</string>
+    <string name="atu_falhou">install failed (%1$d): %2$s</string>
+</resources>
