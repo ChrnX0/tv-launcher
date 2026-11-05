@@ -11,6 +11,8 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.view.View
+import android.widget.ImageView
 import android.widget.TextClock
 import android.widget.TextView
 import java.text.SimpleDateFormat
@@ -98,13 +100,54 @@ class ProtetorTela : DreamService() {
         montarDados(fonteMedia, fonteLeve)
 
         // Mesmo grafite do tema Escuro (ver Fundos.kt: FundoEscuro), simplificado para o sonho ficar barato.
+        // Com fotos enviadas pelo painel (FotosProtetor.kt), elas ficam por trás, com um véu escuro para o relógio ler.
+        fotos = FotosProtetor.listar(this).shuffled()
         setContentView(FrameLayout(this).apply {
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(0xFF0E1317.toInt(), 0xFF0A0D10.toInt(), 0xFF07090B.toInt()))
+            if (fotos.isNotEmpty()) {
+                for (v in camadas) addView(v.apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }, FrameLayout.LayoutParams(-1, -1))
+                addView(View(this@ProtetorTela).apply {
+                    background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x66000000, 0x33000000, 0x99000000.toInt()))
+                }, FrameLayout.LayoutParams(-1, -1))
+            }
             addView(coluna, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         })
+        if (fotos.isNotEmpty()) ui.post(trocarFoto)
         ui.postDelayed(deslocar, 60_000)
         ui.postDelayed(atualizarDados, ATUALIZAR_MS)
+    }
+
+    // ---------------------------------------------------------------- fotos (FotosProtetor.kt)
+    private var fotos: List<java.io.File> = emptyList()
+    private val camadas by lazy { arrayOf(ImageView(this), ImageView(this)) }
+    private var indiceFoto = -1
+    private var camadaAtual = 0
+    private val carregador = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    /** Decodifica a próxima foto fora da thread da tela e esmaece da atual para ela em 2 s. */
+    private val trocarFoto = object : Runnable {
+        override fun run() {
+            if (fotos.isEmpty()) return
+            indiceFoto = (indiceFoto + 1) % fotos.size
+            val f = fotos[indiceFoto]
+            val m = resources.displayMetrics
+            carregador.execute {
+                val bmp = FotosProtetor.carregar(f, m.widthPixels, m.heightPixels)
+                ui.post {
+                    if (carregador.isShutdown) return@post   // o protetor já fechou enquanto a foto carregava
+                    if (bmp != null) {
+                        val entra = camadas[1 - camadaAtual]
+                        val sai = camadas[camadaAtual]
+                        entra.setImageBitmap(bmp)
+                        entra.animate().alpha(1f).setDuration(2000).start()
+                        sai.animate().alpha(0f).setDuration(2000).withEndAction { sai.setImageDrawable(null) }.start()   // solta a memória
+                        camadaAtual = 1 - camadaAtual
+                    }
+                    ui.postDelayed(this, FotosProtetor.TROCA_MS)
+                }
+            }
+        }
     }
 
     // Antes, tudo abaixo era lido UMA vez ao entrar no sonho (revisão de 04/11/2026): num protetor de 6 h o clima e o
@@ -205,6 +248,9 @@ class ProtetorTela : DreamService() {
     override fun onDetachedFromWindow() {
         ui.removeCallbacks(deslocar)
         ui.removeCallbacks(atualizarDados)
+        ui.removeCallbacks(trocarFoto)
+        carregador.shutdownNow()
+        camadas.forEach { it.setImageDrawable(null) }
         super.onDetachedFromWindow()
     }
 

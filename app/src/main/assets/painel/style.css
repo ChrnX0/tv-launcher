@@ -9,6 +9,7 @@
   --acento: #4da3ff;
   --perigo: #ff5d5d;
   --ok: #4dd68a;
+  --alerta: #ffcf6b;
 }
 * { box-sizing: border-box; }
 /* O atributo "hidden" tem a mesma especificidade de uma classe; sem o !important, uma classe que define
@@ -154,9 +155,39 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 }
 .recado-opcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .recado-opcoes button { margin-left: auto; }
+/* Aba Saúde: os números em blocos (05/11/2026). */
+.numeros-saude { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.numero { background: var(--superficie2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.numero strong { font-size: 17px; }
+.numero span { color: var(--texto-fraco); font-size: 13px; }
+.numero.ruim strong { color: var(--perigo); }
+/* Aba Fotos (05/11/2026): miniaturas das fotos do protetor. */
+.grade-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.foto { margin: 0; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; }
+.foto img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--superficie2); }
+.foto figcaption { padding: 6px 8px; font-size: 13px; color: var(--texto-fraco); overflow-wrap: anywhere; }
+/* Aba Falar (IA na nuvem) */
+#campoFrase { width: 100%; box-sizing: border-box; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px; resize: vertical;
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); }
+.lista-acoes { margin: 8px 0 0; padding-left: 20px; }
+.lista-acoes .recusada { opacity: .7; }
+/* ---------- aba Rede (histórico) e desligar sozinha ---------- */
+.periodo.ativo { outline: 2px solid var(--acento); }
+.resumo-rede { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.bloco-rede { background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.bloco-rede strong { font-size: 20px; }
+.bloco-rede span { font-size: 12px; color: var(--texto-fraco); }
+.bloco-rede.ruim strong { color: var(--perigo); }
+.grafico-rede { width: 100%; height: 160px; display: block; }
+.legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.cor { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; }
+.cor.ok { background: var(--ok); } .cor.dns { background: var(--alerta); } .cor.fora { background: var(--perigo); } .cor.vazio { background: var(--superficie2); }
+#abaRede h2 { font-size: 16px; margin: 20px 0 10px; }
 
 /* Aba Roteador */
 .form-roteador { display: grid; gap: 6px; max-width: 420px; }
 .impressao { font-family: monospace; font-size: 12px; word-break: break-all; white-space: pre-line; }
 .dicas { margin: 6px 0 0 18px; padding: 0; }
 .dicas li { margin-bottom: 6px; }
+#formClima { margin-top: 12px; }
+#formClima .recado-opcoes button[type=submit] { margin-left: 0; }
