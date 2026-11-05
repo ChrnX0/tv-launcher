@@ -286,7 +286,8 @@ class MainActivity : Activity() {
             setPadding(f, f + dp(4), f, f)
             isFocusable = true
             isClickable = true
-            setOnClickListener { startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
+            // No modo visita a agenda (do perfil ativo) não abre.
+            setOnClickListener { if (!ModoVisita.ativo(this@MainActivity)) startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
         }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(-f, -f, -f, -f) })
         topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
@@ -448,7 +449,7 @@ class MainActivity : Activity() {
     /** A bolinha do perfil, no canto superior direito: mostra a foto/inicial da conta ativa e abre o popup (OK). */
     private fun botaoPerfil(): View {
         fotoPerfil = ImageView(this).apply {
-            setImageBitmap(Perfil.avatar(this@MainActivity, dp(44)))
+            setImageBitmap(avatarDaBolinha())
             scaleType = ImageView.ScaleType.CENTER_CROP
             clipToOutline = true
             outlineProvider = object : ViewOutlineProvider() {
@@ -509,8 +510,12 @@ class MainActivity : Activity() {
 
     /** Redesenha a bolinha: a conta ativa mudou, ou chegou uma foto nova. */
     private fun atualizarFotoPerfil() {
-        fotoPerfil.setImageBitmap(Perfil.avatar(this, dp(44)))
+        fotoPerfil.setImageBitmap(avatarDaBolinha())
     }
+
+    /** A foto da conta ativa; no modo visita, o boneco genérico (conta = null), para não mostrar quem é o dono. */
+    private fun avatarDaBolinha() =
+        if (ModoVisita.ativo(this)) Perfil.avatar(this, dp(44), conta = null) else Perfil.avatar(this, dp(44))
 
 
     /** Contorno branco dos blocos do topo (hora, clima) quando estao com foco. */
@@ -532,6 +537,8 @@ class MainActivity : Activity() {
 
     /** Abre o menu do perfil (trocar perfil, Configurações, DNS, Wi-Fi). Ver PopupPerfil.kt. */
     private fun abrirPopup() {
+        // No modo visita o popup (perfis, Configurações, Wi-Fi) não abre: só a pergunta para sair do modo.
+        if (ModoVisita.ativo(this)) { perguntarSairDaVisita(); return }
         val menu = popup ?: PopupPerfil(
             tela = this,
             aoTrocarPerfil = { atualizarFotoPerfil() },
@@ -539,6 +546,22 @@ class MainActivity : Activity() {
         ).also { popup = it }
         menu.abrir(ultimaRede)
         atualizarRede()   // uma medição nova chega em instantes e atualiza o menu aberto
+    }
+
+    /** Modo visita: o OK na bolinha pergunta se é para sair. O foco começa em "Continuar", para não sair sem querer. */
+    private fun perguntarSairDaVisita() {
+        val dialogo = AlertDialog.Builder(this)
+            .setTitle("Modo visita ligado")
+            .setMessage("O perfil, a agenda e os apps escolhidos estão escondidos. Sair do modo visita?")
+            .setNegativeButton("Continuar", null)
+            .setPositiveButton("Sair") { _, _ ->
+                ModoVisita.definir(this, false)
+                atualizarFotoPerfil()
+                reorganizar()   // os apps já estão carregados: só refaz a linha
+            }
+            .show()
+        dialogo.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+        menuAberto = dialogo
     }
 
     /** Anel ao redor da foto: quase invisível normalmente, branco quando o botão está focado. */
@@ -585,7 +608,10 @@ class MainActivity : Activity() {
      */
     private fun montarEntradas(todos: List<Item>): MutableList<Entrada> {
         val ocultos = Organizacao.ocultos(this)
-        val visiveis = todos.filter { it.pacote !in ocultos }
+        // Modo visita (ModoVisita.kt): os apps escolhidos somem também, e o card "Apps ocultos" não aparece.
+        val naVisita = ModoVisita.ativo(this)
+        val daVisita = if (naVisita) ModoVisita.apps(this) else emptySet()
+        val visiveis = todos.filter { it.pacote !in ocultos && it.pacote !in daVisita }
         val porPacote = visiveis.associateBy { it.pacote }
 
         // Pilhas: só valem com 2+ apps instalados e visíveis. Um app nunca fica em duas pilhas.
@@ -620,7 +646,7 @@ class MainActivity : Activity() {
             }
         }
         val escondidos = todos.filter { it.pacote in ocultos }.sortedBy { it.nome.lowercase() }
-        if (escondidos.isNotEmpty()) entradas.add(Entrada.Ocultos(escondidos))
+        if (escondidos.isNotEmpty() && !naVisita) entradas.add(Entrada.Ocultos(escondidos))
         return entradas
     }
 
