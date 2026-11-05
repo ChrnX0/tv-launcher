@@ -221,6 +221,36 @@ class ConfigLauncherActivity : Activity() {
         val acessos = PainelArmazem.resumoRegistro(this, 3)
         adicionar(info("Últimos acessos", if (acessos.isEmpty()) "nenhum ainda" else acessos.joinToString("\n")).apply { maxLines = 4 })
 
+        // ---- IA na nuvem (bloco 6, PedidoIa.kt): pedidos em português pelo painel, com a chave Gemini do dono.
+        // Desligada por padrão. LIGAR é só aqui, na TV: o painel cadastra a chave, mas não liga.
+        secao("IA na nuvem")
+        lateinit var linhaIa: TextView
+        lateinit var linhaChaveIa: TextView
+        fun detalheIa(): String = when {
+            IaArmazem.ligada(this) && IaArmazem.temChave(this) -> "ligada · pedidos pelo painel, aba Falar, sempre com confirmação aqui · OK desliga"
+            IaArmazem.ligada(this) -> "ligada, mas falta a chave (cadastre pelo painel) · OK desliga"
+            else -> "desligada · OK liga (só vai para a nuvem a frase pedida e os nomes dos apps)"
+        }
+        linhaIa = linha("IA na nuvem (Gemini)", detalheIa()) {
+            IaArmazem.definirLigada(this, !IaArmazem.ligada(this))
+            linhaIa.detalhe(detalheIa())
+        }
+        adicionar(linhaIa)
+        fun detalheChaveIa() = IaArmazem.finalDaChave(this)?.let { "cadastrada ($it), guardada cifrada · OK apaga" }
+            ?: "nenhuma · cadastre pelo painel no navegador, em Falar"
+        var confirmarApagar = false
+        linhaChaveIa = linha("Chave de API", detalheChaveIa()) {
+            if (!IaArmazem.temChave(this)) return@linha
+            // Dois OKs para apagar: um OK sem querer não perde a chave.
+            if (!confirmarApagar) { confirmarApagar = true; linhaChaveIa.detalhe("OK de novo para APAGAR a chave"); return@linha }
+            confirmarApagar = false
+            IaArmazem.definirChave(this, null)
+            linhaChaveIa.detalhe(detalheChaveIa())
+            linhaIa.detalhe(detalheIa())
+        }
+        adicionar(linhaChaveIa)
+        adicionar(info("Modelo", IaArmazem.modelo(this) + " · troca pelo painel"))
+
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         secao("Permissões")
         val dono = PrivilegioDO.somosDonos(this)

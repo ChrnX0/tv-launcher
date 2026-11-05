@@ -32,6 +32,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
         const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
+        const val IA_TESTE = "br.paulo.tvlauncher.IA_TESTE"     // confirmação da IA com resposta falsa, sem nuvem (só adb)
+        const val IA_ESTADO = "br.paulo.tvlauncher.IA_ESTADO"   // situação da IA e do último pedido (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -90,6 +92,21 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                         } finally { pendente.finish() }
                     }.start()
                 }
+            }
+            // Só pelo adb: testa a tela de confirmação e a execução SEM nuvem e sem chave. A "resposta" faz o papel do
+            // JSON da IA e passa pela mesma conferência (ComandosIa.conferir). Ex.:
+            //   am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "abre a previsão"
+            //     --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}'
+            //     -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver
+            IA_TESTE -> if (this is ControleShizukuAdbReceiver) {
+                val r = intent.getStringExtra("resposta")
+                resultData = if (r == null) "falta --es resposta" else PedidoIa.pedir(ctx, intent.getStringExtra("frase") ?: "teste", "adb", r).let {
+                    "id=${it.id} situacao=${it.situacao} ${it.mensagem}"
+                }
+            }
+            IA_ESTADO -> if (this is ControleShizukuAdbReceiver) {
+                resultData = "ligada=${IaArmazem.ligada(ctx)} chave=${IaArmazem.finalDaChave(ctx) ?: "nenhuma"} modelo=${IaArmazem.modelo(ctx)} " +
+                    "ultimo=${PedidoIa.ultimo()?.json() ?: "nenhum"}"
             }
             // Só chega pelo receiver do adb (o filtro de ROTULOS está só nele): o painel do PC pergunta o nome real
             // dos apps, que o adb não sabe dizer. Resposta: JSON {pacote: nome}.
