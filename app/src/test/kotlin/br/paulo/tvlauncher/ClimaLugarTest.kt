@@ -69,6 +69,14 @@ class ClimaLugarTest {
         assertEquals(listOf(55, 80, 80), FaixaDias.ler(daily(3), null, diasChuva = listOf(55)).map { it.chuva })
     }
 
+    @Test fun chanceDoDiaEOMeioTermoEntrePicoEMedia() {
+        // Números de 05/11/2026 (mediana ECMWF/ICON/GFS): pico 76/43/71, média 21/13/27 -> 49/28/49 (Google: 55/15/55).
+        assertEquals(listOf(49, 28, 49), FaixaDias.chanceDoDia(listOf(76, 43, 71), listOf(21, 13, 27)))
+        assertEquals(listOf(76, 43), FaixaDias.chanceDoDia(listOf(76, 43), null))          // sem média: o pico
+        assertEquals(listOf(49, 43), FaixaDias.chanceDoDia(listOf(76, 43), listOf(21)))    // média mais curta
+        assertNull(FaixaDias.chanceDoDia(null, listOf(21)))
+    }
+
     @Test fun pulaDiaSemDadoENaoPassaDoPedido() {
         val d = daily().put("temperature_2m_max", JSONArray(listOf(30.0, JSONObject.NULL, 31.0)))
         assertEquals(listOf("2026-11-05", "2026-11-07"), FaixaDias.ler(d, null).map { it.data })
