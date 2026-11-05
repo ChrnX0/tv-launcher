@@ -31,6 +31,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val ROTULOS = "br.paulo.tvlauncher.ROTULOS"   // nomes dos apps para o painel (só adb)
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
+        const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -95,6 +96,13 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }, 500)
+            }
+            // Só pelo adb (05/11/2026): sem extra, lista as rotinas e a próxima; com --ei id N, roda a rotina N agora.
+            ROTINA -> {
+                val id = intent.getIntExtra("id", 0)
+                if (id > 0) { Rotinas.rodar(ctx, id); resultData = "rodou $id" }
+                else resultData = Rotinas.paraJson(Rotinas.listar(ctx)) + " proxima=" + (Rotinas.proxima(ctx)?.let { "${it.first.id}@${it.second}" } ?: "nenhuma") +
+                    " semTecla=${Rotinas.minutosSemTecla()}min"
             }
         }
     }
