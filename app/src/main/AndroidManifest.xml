@@ -92,6 +92,21 @@
         android:label="Início"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
+        <!-- Rotinas por horário (Rotinas.kt): a tela, a tela invisível que acorda a TV, e o receiver do alarme
+             (não exportado: só o PendingIntent do próprio launcher chega nele). -->
+        <activity
+            android:name=".RotinasActivity"
+            android:exported="false"
+            android:label="Rotinas" />
+        <activity
+            android:name=".RotinaAcordarActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <receiver
+            android:name=".RotinaReceiver"
+            android:exported="false" />
         <activity
             android:name=".LicencasActivity"
             android:exported="false"
@@ -263,6 +278,8 @@
                 <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.OCULTAR" />
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
+                <!-- Rotinas por horário: listar e rodar uma agora (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.ROTINA" />
                 <!-- Registro local de erros: listar e gravar um de teste (05/11/2026). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.ERROS" />
                 <action android:name="br.paulo.tvlauncher.TESTE_ERRO" />
