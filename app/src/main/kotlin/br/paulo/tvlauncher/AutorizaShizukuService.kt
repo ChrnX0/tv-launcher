@@ -24,6 +24,7 @@ class AutorizaShizukuService : AccessibilityService() {
         AvisoChuva.vigiar(this)   // aviso de chuva por cima de qualquer tela (a cada 30 min, só com a tela acesa)
         HistoricoRede.iniciar(this)   // histórico de rede (para o painel) e o "desligar sozinha": também voltam daqui
         AutoDesligar.iniciar(this)
+        UnifiCliente.vigiar(this) // aparelho novo no roteador UniFi (a cada 5 min, só com o aviso ligado no painel)
     }
     override fun onUnbind(intent: android.content.Intent?): Boolean { instancia = null; return super.onUnbind(intent) }
     override fun onDestroy() { instancia = null; super.onDestroy() }

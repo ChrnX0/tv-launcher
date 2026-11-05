@@ -183,3 +183,9 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .cor { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; }
 .cor.ok { background: var(--ok); } .cor.dns { background: var(--alerta); } .cor.fora { background: var(--perigo); } .cor.vazio { background: var(--superficie2); }
 #abaRede h2 { font-size: 16px; margin: 20px 0 10px; }
+
+/* Aba Roteador */
+.form-roteador { display: grid; gap: 6px; max-width: 420px; }
+.impressao { font-family: monospace; font-size: 12px; word-break: break-all; white-space: pre-line; }
+.dicas { margin: 6px 0 0 18px; padding: 0; }
+.dicas li { margin-bottom: 6px; }
