@@ -93,6 +93,10 @@
         android:theme="@android:style/Theme.Material.NoActionBar">
 
         <activity
+            android:name=".LicencasActivity"
+            android:exported="false"
+            android:label="Licenças" />
+        <activity
             android:name=".DiagnosticoActivity"
             android:exported="false"
             android:label="Diagnóstico" />
