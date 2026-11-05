@@ -16,10 +16,8 @@ object Lua {
     private const val CICLO_DIAS = 29.530588853
     private const val LUA_NOVA_REFERENCIA_MS = 947_182_440_000L   // 2000-01-06 18:14 UTC
 
-    private val NOMES = arrayOf(
-        "Lua nova", "Lua crescente", "Quarto crescente", "Crescente gibosa",
-        "Lua cheia", "Minguante gibosa", "Quarto minguante", "Lua minguante"
-    )
+    // Os nomes das fases ficam em res/values/strings.xml ("fases_lua"), traduzidos pelo idioma da TV.
+    private val NOMES get() = LauncherApp.instancia.resources.getStringArray(R.array.fases_lua)
 
     // Emojis na ordem das fases, como vistos do hemisfério norte (iluminada à direita enquanto cresce).
     private val EMOJIS = arrayOf("🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘")
@@ -64,9 +62,9 @@ object Lua {
         val diasParaCheia = if (idade < metade) metade - idade else CICLO_DIAS - idade + metade
         val diasParaNova = CICLO_DIAS - idade
         val proxima = if (diasParaCheia <= diasParaNova) {
-            "cheia em ${ceil(diasParaCheia).toInt()} d"
+            txt(R.string.lua_cheia_em, ceil(diasParaCheia).toInt())
         } else {
-            "nova em ${ceil(diasParaNova).toInt()} d"
+            txt(R.string.lua_nova_em, ceil(diasParaNova).toInt())
         }
         return "${emoji(agoraMs, latitude)}  ${NOMES[indiceDaFase(idade)]}  ·  $iluminada%  ·  $proxima"
     }

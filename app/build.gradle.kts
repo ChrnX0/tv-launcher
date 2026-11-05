@@ -83,9 +83,9 @@ android {
         create("release") {
             if (keystoreDoAmbiente != null) {
                 storeFile = file(keystoreDoAmbiente)
-                storePassword = System.getenv("ASSINATURA_SENHA")?.takeIf { it.isNotBlank() } ?: "android"           // padrão do keystore debug
-                keyAlias = System.getenv("ASSINATURA_ALIAS")?.takeIf { it.isNotBlank() } ?: "androiddebugkey"
-                keyPassword = System.getenv("ASSINATURA_SENHA_CHAVE") ?: storePassword
+                storePassword = System.getenv("ASSINATURA_SENHA")?.trim()?.takeIf { it.isNotBlank() } ?: "android"           // padrão do keystore debug
+                keyAlias = System.getenv("ASSINATURA_ALIAS")?.trim()?.takeIf { it.isNotBlank() } ?: "androiddebugkey"
+                keyPassword = System.getenv("ASSINATURA_SENHA_CHAVE")?.trim()?.takeIf { it.isNotBlank() } ?: storePassword
             }
         }
     }
@@ -136,4 +136,10 @@ dependencies {
     // O src/main/baseline-prof.txt vai dentro do APK, e este pacote grava o perfil na pasta do app quando ele abre
     // (ou pelo broadcast INSTALL_PROFILE, usado pelo build3.ps1). Depois o compile -m speed-profile passa a valer.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+
+    // Testes que rodam no computador (gradlew testReleaseUnitTest), sem TV: a parte do painel no navegador que não
+    // usa o Android (PainelHttp, PainelSeguranca). Não entra no APK.
+    testImplementation("junit:junit:4.13.2")
+    // org.json de verdade nos testes: o android.jar dos testes só tem "cascas" que lançam exceção.
+    testImplementation("org.json:json:20240303")
 }

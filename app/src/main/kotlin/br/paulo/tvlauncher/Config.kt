@@ -71,7 +71,10 @@ object Config {
     //  - SOB_DEMANDA (padrão): sobe quando um app que pede o Shizuku (uses-permission API_V23) vai para a frente, e
     //    desce depois de 5 min sem nenhum deles na frente (ver ShizukuSobDemanda.kt).
     //  - SEMPRE: sobe no boot e o vigia religa se cair (o comportamento antigo do "ativo").
-    enum class ModoShizuku(val rotulo: String) { DESLIGADO("desligado"), SOB_DEMANDA("sob demanda"), SEMPRE("sempre ligado") }
+    enum class ModoShizuku(private val id: Int) {
+        DESLIGADO(R.string.shz_modo_desligado), SOB_DEMANDA(R.string.shz_modo_sob), SEMPRE(R.string.shz_modo_sempre);
+        val rotulo: String get() = txt(id)   // no idioma da TV
+    }
     fun modoShizuku(ctx: android.content.Context): ModoShizuku {
         val p = ctx.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
         p.getString("shizuku_modo", null)?.let { s -> ModoShizuku.values().firstOrNull { it.name == s }?.let { return it } }
@@ -94,6 +97,11 @@ object Config {
     // A causa ainda não foi investigada. Pista: o AdGuard VPN tinha sido atualizado pela Play Store em 03/11, 13:58.
     // Antes de pôr um pacote aqui de novo, resolver isso (ex.: o 1-Stream nas exclusões do app de VPN).
     const val VPN_FIXA = ""
+    // Atualização automática pelo GitHub Releases (Atualizador.kt, 05/11/2026). Só instala APK do MESMO pacote e assinado
+    // com a MESMA chave do launcher instalado; numa TV atualizada pelo PC (chave própria) o Release é sempre recusado.
+    // Num fork: troque o repositório para o seu.
+    const val ATUALIZACAO_AUTOMATICA = true
+    const val ATUALIZACAO_REPO = "ChrnX0/tv-launcher"
     // OTIMIZAR_MEMORIA: ocultar os apps de APPS_OCULTAR pelo Device Owner, liberando a memoria que seguravam (reversivel).
     const val OTIMIZAR_MEMORIA = true
     // Apps que o launcher substitui e por isso oculta. Comecar so pelo dreamx (protetor de fabrica, trocado pelo nosso).
