@@ -158,3 +158,8 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .numero strong { font-size: 17px; }
 .numero span { color: var(--texto-fraco); font-size: 13px; }
 .numero.ruim strong { color: var(--perigo); }
+/* Aba Fotos (05/11/2026): miniaturas das fotos do protetor. */
+.grade-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.foto { margin: 0; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; }
+.foto img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--superficie2); }
+.foto figcaption { padding: 6px 8px; font-size: 13px; color: var(--texto-fraco); overflow-wrap: anywhere; }
