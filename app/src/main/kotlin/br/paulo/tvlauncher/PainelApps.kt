@@ -38,13 +38,7 @@ object PainelApps {
      * o launcher do Google (o Gemini, a página de filme e o painel do Google dependem dele, ver Config.APPS_OCULTAR)
      * e os serviços do Google. Mais dois que mudam em tempo de execução: o teclado ativo e o app da VPN fixa.
      */
-    private val PROTEGIDOS_FIXOS = setOf(
-        "br.paulo.tvlauncher", "android", "com.android.systemui", "com.android.tv.settings", "com.android.settings",
-        "com.android.packageinstaller", "com.google.android.packageinstaller",
-        "com.android.permissioncontroller", "com.google.android.permissioncontroller",
-        "com.google.android.apps.tv.launcherx", "com.google.android.gms", "com.google.android.gsf",
-        "com.android.providers.settings", "com.android.shell",
-    )
+    private val PROTEGIDOS_FIXOS = MenuApp.PROTEGIDOS_FIXOS   // a lista mora no MenuApp para os testes alcançarem
 
     fun protegido(ctx: Context, pacote: String): Boolean {
         if (pacote in PROTEGIDOS_FIXOS || pacote == ctx.packageName) return true
@@ -91,7 +85,14 @@ object PainelApps {
         !protegido(ctx, ai.packageName) && (!sistema(ai) || abrivel)
 
     /** Desinstalar: só app instalado pelo usuário (sem FLAG_SYSTEM). App de sistema só se oculta. */
-    private fun podeDesinstalar(ctx: Context, ai: ApplicationInfo) = !protegido(ctx, ai.packageName) && !sistema(ai)
+    private fun podeDesinstalar(ctx: Context, ai: ApplicationInfo) =
+        MenuApp.podeDesinstalar(ai.packageName, ctx.packageName, sistema(ai), protegido(ctx, ai.packageName))
+
+    /** Para o menu de segurar OK na tela inicial: a mesma regra do painel. False se o app não existe. */
+    fun podeDesinstalar(ctx: Context, pacote: String): Boolean = infoApp(ctx, pacote)?.let { podeDesinstalar(ctx, it) } ?: false
+
+    /** True se é app de fábrica (não sai com desinstalar). */
+    fun eSistema(ctx: Context, pacote: String): Boolean = infoApp(ctx, pacote)?.let { sistema(it) } ?: false
 
     fun listar(ctx: Context): JSONArray {
         val pm = ctx.packageManager
@@ -180,7 +181,7 @@ object PainelApps {
      */
     fun desinstalar(ctx: Context, pacote: String): String? {
         val ai = infoApp(ctx, pacote) ?: return "app não encontrado"
-        if (!podeDesinstalar(ctx, ai)) return "este app não pode ser desinstalado pelo painel (é do sistema ou protegido)"
+        if (!podeDesinstalar(ctx, ai)) return "este app não pode ser desinstalado (é do sistema ou protegido)"
         if (!PrivilegioDO.somosDonos(ctx)) return "o launcher não é mais o dono do aparelho (Device Owner)"
         val id = proximoId.getAndIncrement()
         val espera = Espera()
