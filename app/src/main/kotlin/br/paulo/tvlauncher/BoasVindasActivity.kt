@@ -72,6 +72,9 @@ class BoasVindasActivity : Activity() {
             getString(R.string.bv_perm_det)) { requestPermissions(faltam, PEDIDO) })
         if (AutorizaShizukuService.instancia == null) lista.addView(linha(getString(R.string.bv_teclas),
             getString(R.string.bv_teclas_det)) { abrir(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
+        lista.addView(linha("Usar com o Claude (opcional)", "Claude, ChatGPT ou Codex consultam a TV e pedem ações, de qualquer lugar. Passo a passo com QR code.") {
+            abrir(Intent(this, ConectarClaudeActivity::class.java))
+        })
         lista.addView(linha(getString(R.string.bv_tudo), getString(R.string.cfg_titulo)) {
             abrir(Intent(this, ConfigLauncherActivity::class.java))
         })

@@ -35,7 +35,9 @@ class McpAutorizacaoTest {
     @Test fun soAceitaVoltaParaOClaudeOuLocal() {
         assertTrue(McpAutorizacao.redirectPermitido("https://claude.ai/api/mcp/auth_callback"))
         assertTrue(McpAutorizacao.redirectPermitido("https://claude.com/api/mcp/auth_callback"))
+        assertTrue(McpAutorizacao.redirectPermitido("https://chatgpt.com/connector_platform_oauth_redirect"))
         assertTrue(McpAutorizacao.redirectPermitido("http://localhost:33418/callback"))
+        assertFalse(McpAutorizacao.redirectPermitido("https://chatgpt.com.mal.com/cb"))
         assertTrue(McpAutorizacao.redirectPermitido("http://127.0.0.1:5000/cb"))
         assertFalse(McpAutorizacao.redirectPermitido("http://claude.ai/cb"))            // sem TLS
         assertFalse(McpAutorizacao.redirectPermitido("https://claude.ai.mal.com/cb"))

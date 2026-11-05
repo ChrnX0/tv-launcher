@@ -260,14 +260,35 @@
         <label><input id="chkMcpLigado" type="checkbox"> Ligar o acesso pelo Claude</label>
       </div>
       <div class="cartao">
-        <h2>Chave do Tailscale</h2>
-        <p class="aviso">No console do Tailscale: Settings → Keys → Generate auth key (pode ser de uso único). Antes, em
-          Access controls, deixe o Funnel liberado e, em DNS, ligue o HTTPS. A chave fica cifrada na TV e é apagada
-          sozinha depois do primeiro login.</p>
-        <form id="formMcp" autocomplete="off">
-          <input id="campoChaveMcp" type="password" maxlength="200" autocomplete="off" placeholder="tskey-auth-...">
-          <button type="submit" class="botao-primario">Salvar</button>
+        <h2 id="passoTitulo">Conectar</h2>
+        <p id="passoTexto" class="aviso" style="white-space: pre-line"></p>
+        <img id="passoQr" alt="QR code" width="240" height="240" hidden>
+        <p><a id="passoLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir neste aparelho</a></p>
+      </div>
+      <div class="cartao">
+        <h2>Rede Tailscale</h2>
+        <label><input id="chkMcpRede" type="checkbox"> Abrir o painel pelos aparelhos da minha conta Tailscale e deixar o Claude ver a
+          lista deles (só a lista; não mexe neles)</label>
+        <p class="aviso-curto">Desligado: a TV só publica o MCP. Ligado: http://tv-sala:8080 abre este painel de qualquer aparelho da
+          conta Tailscale, com o mesmo PIN, nunca pela internet aberta.</p>
+        <form id="formAtalhos" autocomplete="off">
+          <label for="campoAtalhos">Atalhos de porta (servidor de mídia em outro lugar)</label>
+          <input id="campoAtalhos" type="text" maxlength="400" placeholder="ex.: nas:8096">
+          <button type="submit" class="botao-secundario">Salvar atalhos</button>
         </form>
+        <p class="aviso-curto">Cada "aparelho:porta" vira http://127.0.0.1:porta na TV: no Jellyfin, Emby ou Kodi, use esse endereço
+          como servidor. Só com a rede Tailscale ligada. Na mesma rede de casa não precisa.</p>
+      </div>
+      <div class="cartao">
+        <details>
+          <summary>Prefere usar uma chave do Tailscale?</summary>
+          <p class="aviso">Console do Tailscale: Settings → Keys → Generate auth key. A chave fica cifrada na TV e é apagada
+            depois do primeiro login.</p>
+          <form id="formMcp" autocomplete="off">
+            <input id="campoChaveMcp" type="password" maxlength="200" autocomplete="off" placeholder="tskey-auth-...">
+            <button type="submit" class="botao-primario">Salvar</button>
+          </form>
+        </details>
         <p id="statusMcp" class="aviso" hidden></p>
       </div>
       <div class="cartao">

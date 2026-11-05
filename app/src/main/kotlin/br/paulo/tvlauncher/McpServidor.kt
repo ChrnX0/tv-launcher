@@ -264,7 +264,9 @@ object McpServidor {
     private fun paginaPin(p: Map<String, String>, nome: String, aviso: String?, redirect: String): Resposta {
         val ocultos = listOf("client_id", "redirect_uri", "response_type", "code_challenge", "code_challenge_method", "state", "scope", "resource")
             .mapNotNull { k -> p[k]?.let { "<input type=\"hidden\" name=\"$k\" value=\"${esc(it)}\">" } }.joinToString("")
-        val corpo = "<p><b>${esc(nome)}</b> quer usar as ferramentas da TV da sala.</p>" +
+        // O nome vem do próprio cliente (pode mentir); o destino da volta não: mostramos os dois.
+        val destino = try { URI(redirect).host ?: "?" } catch (e: Exception) { "?" }
+        val corpo = "<p><b>${esc(nome)}</b> (volta para <b>${esc(destino)}</b>) quer usar as ferramentas da TV da sala.</p>" +
             "<p>Ações só acontecem depois de um OK no controle da TV.</p>" +
             (aviso?.let { "<p class=\"aviso\">${esc(it)}</p>" } ?: "") +
             "<form method=\"post\" action=\"/authorize\">$ocultos" +
