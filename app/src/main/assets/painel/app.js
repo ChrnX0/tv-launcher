@@ -107,6 +107,8 @@ function mudarAba(nome) {
   $('abaApps').hidden = nome !== 'apps';
   $('abaArquivos').hidden = nome !== 'arquivos';
   $('abaControle').hidden = nome !== 'controle';
+  $('abaFalar').hidden = nome !== 'falar';
+  if (nome === 'falar') carregarIa();
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
   $('abaRegistro').hidden = nome !== 'registro';
@@ -895,6 +897,83 @@ $('btnReiniciarTv').addEventListener('click', async () => {
   const ok = await confirmar('Reiniciar a TV?', 'A TV desliga e liga de novo (cerca de 1 min). O painel volta sozinho depois.' +
     (emUso ? ` Atenção: a TV está em uso agora (${emUso}).` : ''), 'Reiniciar', () => chamar('POST', '/api/tv/reiniciar', {}));
   if (ok) mostrar($('statusControle'), 'Reiniciando… o painel volta em cerca de 1 min.');
+});
+
+// ---------- Falar: IA na nuvem (PedidoIa.kt) ----------
+
+async function carregarIa() {
+  try {
+    const e = await chamar('GET', '/api/ia');
+    let aviso = '';
+    if (!e.ligada) aviso = 'A IA está desligada. Ligue em Configurações do launcher › IA na nuvem, na TV.';
+    else if (!e.chave) aviso = 'Falta cadastrar a chave de API (abaixo).';
+    else aviso = 'O que você pedir aparece na TV, e só acontece se alguém apertar OK no controle.';
+    $('avisoIa').textContent = aviso;
+    $('chaveIa').textContent = e.chave ? `Chave cadastrada (${e.chave}). Modelo: ${e.modelo}.` : `Nenhuma chave. Modelo: ${e.modelo}.`;
+    $('campoModelo').value = e.modelo;
+  } catch (e) { $('avisoIa').textContent = e.message; }
+}
+
+let pedidoAtual = 0;
+$('formFalar').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const frase = $('campoFrase').value.trim();
+  if (!frase) return;
+  const meu = ++pedidoAtual;
+  $('btnFalar').disabled = true;
+  $('acoesFalar').hidden = true;
+  mostrar($('statusFalar'), 'Perguntando à IA…');
+  try {
+    let p = await chamar('POST', '/api/ia/pedir', { frase });
+    // Acompanha até sair de "pensando"/"esperando" (no máximo ~75 s: 60 s de espera na TV + a IA).
+    for (let i = 0; i < 75 && (p.situacao === 'pensando' || p.situacao === 'esperando'); i++) {
+      if (meu !== pedidoAtual) return;
+      mostrarPedido(p);
+      await new Promise((r) => setTimeout(r, 1000));
+      p = await chamar('GET', '/api/ia/pedido?id=' + encodeURIComponent(p.id));
+    }
+    if (meu === pedidoAtual) mostrarPedido(p);
+  } catch (e) {
+    if (meu === pedidoAtual) mostrar($('statusFalar'), e.message);
+  } finally {
+    if (meu === pedidoAtual) $('btnFalar').disabled = false;
+  }
+});
+
+function mostrarPedido(p) {
+  let texto = p.texto.charAt(0).toUpperCase() + p.texto.slice(1);
+  if (p.situacao === 'esperando') texto = 'Confirme na TV: aperte OK em "Executar" com o controle.';
+  if (p.mensagem) texto += ' · ' + p.mensagem;
+  mostrar($('statusFalar'), texto);
+  const ul = $('acoesFalar');
+  ul.replaceChildren();
+  for (const a of p.acoes) { const li = document.createElement('li'); li.textContent = a; ul.appendChild(li); }
+  for (const r of p.recusadas) { const li = document.createElement('li'); li.className = 'recusada'; li.textContent = 'Recusado: ' + r; ul.appendChild(li); }
+  ul.hidden = ul.childElementCount === 0;
+}
+
+$('formChave').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const chave = $('campoChave').value.trim();
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(chave)) { mostrar($('statusChave'), 'Isso não parece uma chave de API do Google AI Studio.'); return; }
+  const ok = await confirmar('Guardar a chave na TV?', 'Os pedidos da aba Falar passam a usar esta chave (e a cota dela).', 'Guardar',
+    () => chamar('POST', '/api/ia/chave', { chave }));
+  if (ok) { $('campoChave').value = ''; mostrar($('statusChave'), 'Chave guardada.'); carregarIa(); }
+});
+
+$('btnApagarChave').addEventListener('click', async () => {
+  const ok = await confirmar('Apagar a chave?', 'A IA para de funcionar até cadastrar outra.', 'Apagar',
+    () => chamar('POST', '/api/ia/chave', { apagar: true }));
+  if (ok) { mostrar($('statusChave'), 'Chave apagada.'); carregarIa(); }
+});
+
+$('formModelo').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  try {
+    await chamar('POST', '/api/ia/modelo', { modelo: $('campoModelo').value.trim() });
+    mostrar($('statusChave'), 'Modelo trocado.');
+    carregarIa();
+  } catch (e) { mostrar($('statusChave'), e.message); }
 });
 
 // ---------- início ----------

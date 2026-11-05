@@ -143,3 +143,9 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .dpad .ok { border-radius: 50%; font-weight: 700; }
 .teclas { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 8px; width: 100%; max-width: 420px; }
 .acoes-app { justify-content: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+
+/* Aba Falar (IA na nuvem) */
+#campoFrase { width: 100%; box-sizing: border-box; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px; resize: vertical;
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); }
+.lista-acoes { margin: 8px 0 0; padding-left: 20px; }
+.lista-acoes .recusada { opacity: .7; }

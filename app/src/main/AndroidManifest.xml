@@ -268,6 +268,9 @@
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
                 <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />
+                <!-- IA na nuvem: testar a confirmação sem chave e ver o estado (só adb, ver PedidoIa). -->
+                <action android:name="br.paulo.tvlauncher.IA_TESTE" />
+                <action android:name="br.paulo.tvlauncher.IA_ESTADO" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama
@@ -289,6 +292,17 @@
         <receiver
             android:name=".ResultadoDesinstalarReceiver"
             android:exported="false" />
+
+        <!-- Confirmação NA TV de um pedido à IA na nuvem (bloco 6, ver PedidoIa.kt). Só o próprio launcher abre.
+             taskAffinity vazio: abre numa tarefa própria. Na tarefa da HOME, ela traria a HOME para a frente e, ao
+             fechar, a pessoa cairia na tela inicial em vez de voltar ao app que estava vendo (ex.: "pausa"). -->
+        <activity
+            android:name=".ConfirmarIaActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTop"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Device owner (ver AdminReceiver.kt). Exportado porque o sistema precisa chamá-lo; só o sistema tem BIND_DEVICE_ADMIN. -->
         <receiver
