@@ -99,7 +99,12 @@ class MainActivity : Activity() {
     // Campo (e não lambda solta): o SharedPreferences guarda o ouvinte por referência fraca.
     private val ouvinteLocal = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, chave ->
         if (chave == LocalClima.CHAVE_LAT || chave == LocalClima.CHAVE_LON) { ui.removeCallbacks(tarefaClima); ui.postDelayed(tarefaClima, 300) }
+        // Faixa ligada/desligada pelo painel com a HOME na tela: o fundo muda (arco/etiqueta), então recria.
+        if (chave == FaixaDias.CHAVE && FaixaDias.ligada(this) != faixaNaCriacao) ui.post { recreate() }
     }
+    // A faixa ocupa a mesma altura do arco do sol/lua (tema Escuro) e da etiqueta da obra (Galeria): com ela ligada, o
+    // fundo vem sem essas decorações (foto da TV em 05/11/2026: "nascer 05:28" e o sol caíam em cima das temperaturas).
+    private var faixaNaCriacao = true
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
     private lateinit var fotoPerfil: ImageView        // a bolinha do perfil, no canto superior direito
     private var popup: PopupPerfil? = null            // menu da bolinha: perfis, Configuracoes, DNS, Wi-Fi
@@ -190,7 +195,7 @@ class MainActivity : Activity() {
         super.onResume()
         // O tema agora só troca na tela separada de Configurações do launcher (ConfigLauncherActivity), que não
         // tem como chamar recreate() nesta Activity diretamente — então aqui a gente mesmo percebe a troca ao voltar.
-        if (Tema.atual(this) != tema) { recreate(); return }
+        if (Tema.atual(this) != tema || FaixaDias.ligada(this) != faixaNaCriacao) { recreate(); return }
         preencherApps()
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
@@ -478,7 +483,8 @@ class MainActivity : Activity() {
             }
         }
 
-        val vivo = criarFundo(this, tema) { bloco -> rede.execute { bloco() } }
+        faixaNaCriacao = FaixaDias.ligada(this)
+        val vivo = criarFundo(this, tema, decoracao = !faixaNaCriacao) { bloco -> rede.execute { bloco() } }
         fundo = vivo
         // Sem fundo preto aqui (nem na janela, ver onCreate): o fundo vivo já cobre a tela inteira e é opaco. Cada camada
         // de tela cheia a mais é a GPU pintando 1920x1080 de novo A CADA QUADRO (medido: 3 camadas, 22 ms por quadro).
@@ -646,7 +652,9 @@ class MainActivity : Activity() {
     /** pacote -> (APK|activity, Item). Vive enquanto o processo da HOME viver (sobrevive à troca de tema). */
     private companion object {
         val cacheApps = HashMap<String, Pair<String, Item>>()
-        const val ALTURA_FAIXA = 96   // dp: nome do dia + ícone + máx/mín + chuva
+        // dp: nome do dia (~19) + ícone (6+34+4) + máx/mín (~21) + chuva (5+~17) = ~106, com folga. Com 96 a linha
+        // da chuva era cortada (foto da TV, 05/11/2026).
+        const val ALTURA_FAIXA = 116
     }
 
     /** Todos os apps de TV instalados, sem ordem e sem tirar os ocultos (quem organiza é montarEntradas). */

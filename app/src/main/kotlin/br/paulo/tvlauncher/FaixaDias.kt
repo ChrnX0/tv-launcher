@@ -13,7 +13,7 @@ import java.util.Locale
 object FaixaDias {
     const val DIAS = 9                      // o mesmo que a tela do Google mostra
     private const val PREFS = "launcher"
-    private const val CHAVE = "home_faixa_dias"
+    const val CHAVE = "home_faixa_dias"
 
     data class Dia(val data: String, val codigo: Int, val max: Int, val min: Int, val chuva: Int)
 
