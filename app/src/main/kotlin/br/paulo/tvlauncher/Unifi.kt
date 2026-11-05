@@ -232,4 +232,19 @@ object Unifi {
     fun dicaSatisfacao(s: SinalRoteador?): String? = s?.satisfacao?.takeIf { it in 0..59 }?.let {
         "O próprio UniFi dá nota $it de 100 para a conexão da TV. Experimente \"Reconectar a TV\": ela escolhe de novo o melhor ponto de acesso."
     }
+
+    /**
+     * Resumo de uma resposta para diagnóstico, SEM valores (nada de MAC, IP ou nome): o "rc" da API antiga, quantos itens
+     * vieram em "data" e os nomes dos campos do 1º item. Ex.: "rc=ok, 10 itens, campos: ip, mac, signal…".
+     */
+    fun resumoResposta(texto: String): String = try {
+        val o = JSONObject(texto)
+        val rc = o.optJSONObject("meta")?.optString("rc")?.takeIf { it.isNotEmpty() }
+        val dados = o.optJSONArray("data")
+        val campos = dados?.optJSONObject(0)?.keys()?.asSequence()?.toList()?.sorted()?.take(25)?.joinToString(", ")
+        listOfNotNull(rc?.let { "rc=$it" }, dados?.let { "${it.length()} itens" } ?: "sem \"data\"",
+            campos?.let { "campos: $it" }).joinToString(", ")
+    } catch (e: Exception) {
+        "não é JSON (${texto.length} caracteres, começa com \"${texto.take(15).filter { it.isLetterOrDigit() || it in "<>{}[ !" }}\")"
+    }
 }

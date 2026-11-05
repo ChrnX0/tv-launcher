@@ -138,4 +138,12 @@ class UnifiTest {
         assertTrue(!Unifi.refValida("../api"))
         assertTrue(!Unifi.refValida(""))
     }
+
+    @Test fun resumoSemValores() {
+        val r = Unifi.resumoResposta("""{"meta":{"rc":"ok"},"data":[{"mac":"aa:bb:cc:00:00:01","ip":"192.168.0.5","signal":-50}]}""")
+        assertEquals("rc=ok, 1 itens, campos: ip, mac, signal", r)
+        assertTrue(!r.contains("192.168"))
+        assertEquals("rc=ok, 0 itens", Unifi.resumoResposta("""{"meta":{"rc":"ok"},"data":[]}"""))
+        assertTrue(Unifi.resumoResposta("<html>login</html>").startsWith("não é JSON"))
+    }
 }
