@@ -42,6 +42,7 @@
       <button class="aba" data-aba="fotos">Fotos</button>
       <button class="aba" data-aba="shizuku">Shizuku</button>
       <button class="aba" data-aba="rede">Rede</button>
+      <button class="aba" data-aba="roteador">Roteador</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -214,6 +215,60 @@
       <div class="cartao">
         <h2>Quando cada app ligou o servidor</h2>
         <div id="histShizuku" class="lista-registro"></div>
+      </div>
+    </section>
+
+    <section id="abaRoteador" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Roteador UniFi</h2>
+        <p class="aviso">Só leitura: a TV vê os aparelhos conectados e se o roteador responde. Ela não bloqueia nem muda nada no roteador.
+          A chave fica cifrada na TV e nunca volta para esta página (só os 4 últimos caracteres).</p>
+        <form id="formRoteador" class="form-roteador" autocomplete="off">
+          <label for="campoEnderecoRoteador">Endereço do roteador na rede de casa</label>
+          <input id="campoEnderecoRoteador" type="text" inputmode="decimal" maxlength="21" placeholder="ex.: 192.168.0.1">
+          <label for="campoChaveRoteador">Chave de API <span id="chaveAtualRoteador" class="aviso-curto"></span></label>
+          <input id="campoChaveRoteador" type="password" maxlength="200" autocomplete="off"
+                 placeholder="criada no UniFi em Configurações → Integrações">
+          <button type="submit" class="botao-primario">Salvar</button>
+        </form>
+        <p class="aviso-curto">Trocar o endereço apaga a chave e o certificado guardados (é preciso colar a chave de novo).</p>
+        <p id="statusRoteador" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Certificado do roteador</h2>
+        <p class="aviso">O roteador usa um certificado próprio. A TV só fala com ele depois de você conferir a impressão digital:
+          abra https://&lt;endereço do roteador&gt; no computador, clique no cadeado e compare com a SHA-256 abaixo.</p>
+        <p id="certAtualRoteador" class="impressao"></p>
+        <button type="button" class="botao-secundario" id="btnLerCert">Ler o certificado</button>
+        <div id="certNovoRoteador" hidden>
+          <p id="certNovoTexto" class="impressao"></p>
+          <button type="button" class="botao-primario" id="btnConfiarCert">É esse: confiar</button>
+        </div>
+      </div>
+      <div class="cartao">
+        <h2>Ligar</h2>
+        <label><input id="chkRoteadorLigado" type="checkbox"> Ler o roteador</label><br>
+        <label><input id="chkRoteadorAviso" type="checkbox"> Recado na TV quando aparecer um aparelho nunca visto (confere a cada 5 min)</label>
+        <p id="infoConhecidos" class="aviso-curto"></p>
+        <button type="button" class="link" id="btnEsquecerRoteador">Esquecer o roteador (apaga endereço, chave e lista)</button>
+      </div>
+      <div class="cartao">
+        <div class="cabeca-modal">
+          <h2>Wi-Fi da TV</h2>
+          <button type="button" class="botao-secundario" id="btnWifiTv">Diagnosticar</button>
+        </div>
+        <p class="aviso-curto">Sinal, banda e velocidade medidos pela própria TV; ponto de acesso, canal e retransmissões vêm do roteador.
+          Nada é mudado no roteador: as dicas dizem o que ajustar no app do UniFi.</p>
+        <p id="estadoWifiTv" class="aviso"></p>
+        <ul id="dicasWifiTv" class="dicas"></ul>
+      </div>
+      <div class="cartao">
+        <div class="cabeca-modal">
+          <h2>Aparelhos conectados</h2>
+          <button type="button" class="botao-secundario" id="btnAtualizarAparelhos">Atualizar</button>
+        </div>
+        <p id="estadoRoteador" class="aviso"></p>
+        <div id="listaAparelhos" class="lista-registro"></div>
       </div>
     </section>
 

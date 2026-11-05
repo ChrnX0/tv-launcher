@@ -41,6 +41,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val IA_TESTE = "br.paulo.tvlauncher.IA_TESTE"     // confirmação da IA com resposta falsa, sem nuvem (só adb)
         const val IA_ESTADO = "br.paulo.tvlauncher.IA_ESTADO"   // situação da IA e do último pedido (só adb)
         const val AUTO_DESLIGAR = "br.paulo.tvlauncher.AUTO_DESLIGAR"   // desligar sozinha: ver/definir/testar (só adb)
+        const val UNIFI = "br.paulo.tvlauncher.UNIFI"     // verificar aparelho novo no roteador agora (só adb, testes)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -159,6 +160,10 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 if (intent.hasExtra("minutos")) AutoDesligar.definir(ctx, intent.getIntExtra("minutos", -1))
                 if (intent.getBooleanExtra("aviso", false)) { AutoDesligar.iniciar(ctx); AutoDesligar.testarAviso() }
                 resultData = "minutos=${AutoDesligar.minutos(ctx)}"
+            }
+            UNIFI -> if (this is ControleShizukuAdbReceiver) {
+                val pendente = goAsync()   // HTTP: fora da thread principal
+                Thread { try { pendente.resultData = UnifiCliente.verificarNovos(ctx) } finally { pendente.finish() } }.start()
             }
             REINICIAR -> {
                 resultData = "reiniciando pid=${android.os.Process.myPid()}"
