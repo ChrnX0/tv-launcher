@@ -23,3 +23,6 @@ botao_netflix=com.netflix.ninja
 # Para quebrar a linha, termine com "\" (regra do formato .properties). Vazio = nunca mostra eclipse.
 # Exemplo (fictício): eclipses=2030-01-01T10:00:00Z,2030-01-01T11:00:00Z,2030-01-01T12:00:00Z,0.5
 eclipses=
+
+# IP da TV na rede local (só o build3.ps1 usa, para achar a porta da depuração sem fio). Não entra no APK.
+tv_ip=
