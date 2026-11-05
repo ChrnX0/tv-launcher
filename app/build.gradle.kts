@@ -55,8 +55,8 @@ android {
         create("release") {
             if (keystoreDoAmbiente != null) {
                 storeFile = file(keystoreDoAmbiente)
-                storePassword = System.getenv("ASSINATURA_SENHA") ?: "android"           // padrão do keystore debug
-                keyAlias = System.getenv("ASSINATURA_ALIAS") ?: "androiddebugkey"
+                storePassword = System.getenv("ASSINATURA_SENHA")?.takeIf { it.isNotBlank() } ?: "android"           // padrão do keystore debug
+                keyAlias = System.getenv("ASSINATURA_ALIAS")?.takeIf { it.isNotBlank() } ?: "androiddebugkey"
                 keyPassword = System.getenv("ASSINATURA_SENHA_CHAVE") ?: storePassword
             }
         }
