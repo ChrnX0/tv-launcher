@@ -24,6 +24,8 @@ class McpFerramentas(ctx: Context) : McpProtocolo.Ferramentas {
         "diagnostico_rede" -> diagnostico().toString()
         "historico_rede" -> HistoricoRede.json(app, argumentos.optInt("horas", 24).coerceIn(1, 168)).toString()
         "aparelhos_rede" -> aparelhos().toString()
+        "aparelhos_tailscale" -> if (!TunelTailscale.redeLigada(app)) throw McpProtocolo.ErroFerramenta("a opção Rede Tailscale está desligada nas Configurações da TV")
+            else TunelTailscale.pares ?: throw McpProtocolo.ErroFerramenta("a lista ainda não chegou (o túnel manda a cada minuto)")
         "apps" -> JSONObject(PedidoIa.appsDaHome(app) as Map<*, *>).toString()
         "agenda_hoje" -> Agenda.resumoHoje(app) ?: "nada na agenda hoje (ou a agenda não está ligada)"
         "pedir_acoes" -> pedir(argumentos).toString()
@@ -95,6 +97,7 @@ class McpFerramentas(ctx: Context) : McpProtocolo.Ferramentas {
             .put(ferramenta("historico_rede", "Histórico de rede da TV (quedas, latência, DNS, sinal) nas últimas N horas.",
                 JSONObject().put("horas", JSONObject().put("type", "integer").put("minimum", 1).put("maximum", 168))))
             .put(ferramenta("aparelhos_rede", "Aparelhos conectados no roteador UniFi da casa (nome, IP, tipo)."))
+            .put(ferramenta("aparelhos_tailscale", "Aparelhos da conta Tailscale do dono (nome, sistema, online). Só com a opção Rede Tailscale ligada na TV."))
             .put(ferramenta("apps", "Apps que a tela inicial mostra (pacote -> nome). Só estes podem ser abertos."))
             .put(ferramenta("agenda_hoje", "Resumo dos compromissos de hoje do perfil atual da TV."))
             .put(ferramenta("pedir_acoes",

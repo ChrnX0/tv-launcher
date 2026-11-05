@@ -38,7 +38,10 @@ class McpAutorizacao(
         const val MAX_CLIENTES = 10
         const val MAX_TOKENS = 40
         /** Para onde o login pode voltar: o Claude na web/app e o Claude Code/Desktop no computador. */
-        val HOSTS_HTTPS = setOf("claude.ai", "claude.com")
+        // Clientes na nuvem que voltam por https: Claude, ChatGPT (connector_platform_oauth_redirect e connector/oauth/*)
+        // e VS Code web. Os de linha de comando e apps de computador (Claude Code, Codex, Gemini CLI, Cursor, VS Code)
+        // voltam para localhost/127.0.0.1 (HOSTS_LOCAIS).
+        val HOSTS_HTTPS = setOf("claude.ai", "claude.com", "chatgpt.com", "vscode.dev")
         val HOSTS_LOCAIS = setOf("localhost", "127.0.0.1")
 
         fun resumo(texto: String): String = MessageDigest.getInstance("SHA-256").digest(texto.toByteArray(Charsets.UTF_8))

@@ -414,3 +414,9 @@ e curto. Commits/push: branch própria + PR em rascunho (permissão global de 04
   (precisa do Go; sem Go o APK sai sem o túnel) como `libtsnet.so` e rodado por `TunelTailscale.kt` (religa com espera crescente).
   O painel :8080 NÃO passa pelo túnel. Chave do Tailscale: painel > aba Claude (PIN de novo), cifrada no Keystore e apagada
   depois do 1º login. APK: 3,1 -> 11,8 MB por causa do binário (21 MB descompactado).
+  Login sem chave (05/11 noite): o túnel imprime `LOGIN <url>` / `ATIVAR <url>` (HTTPS+Funnel em conta nova) e a TV
+  (`ConectarClaudeActivity`, também no assistente de boas-vindas) e o painel (aba Claude, `/api/mcp/qr`) mostram como QR code
+  (zxing core). Clientes aceitos no OAuth: claude.ai/claude.com, chatgpt.com, vscode.dev e localhost (Codex, Claude Code, Cursor).
+  Opção "Rede Tailscale" (DESLIGADA por padrão, escolha do Paulo): painel em http://tv-sala:8080 pelos aparelhos da conta,
+  ferramenta MCP `aparelhos_tailscale` (só lista) e atalhos de porta (`AtalhosTunel.kt`: "nas:8096" -> 127.0.0.1:8096 na TV,
+  para Jellyfin/Kodi alcançarem um NAS em outro lugar). Não testado na TV.

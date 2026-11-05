@@ -196,7 +196,14 @@ object PainelWeb {
         return !remoto.isLoopbackAddress && ChecagensPainel.mesmaRede(local.address, remoto.address, prefixo)
     }
 
-    private fun nomesPermitidos(): Set<String> = ipsDaRede() + Config.PAINEL_NOMES
+    private fun nomesPermitidos(): Set<String> = ipsDaRede() + Config.PAINEL_NOMES + nomesTailscale()
+
+    /** Opção "rede Tailscale" ligada: o nome da TV na conta (curto e completo), que o túnel repassa para cá. */
+    private fun nomesTailscale(): Set<String> {
+        if (!TunelTailscale.redeLigada(app)) return emptySet()
+        val completo = TunelTailscale.nome(app) ?: return emptySet()
+        return setOf(completo, completo.substringBefore('.'))
+    }
 
     // ---------------------------------------------------------------- atender uma requisição
 
@@ -401,6 +408,10 @@ object PainelWeb {
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
             "/api/mcp" -> if (req.metodo == "GET") return json(200, mcpEstado())
             "/api/mcp/config" -> if (req.metodo == "POST") return mcpConfig(req, token, ip)
+            "/api/mcp/qr" -> if (req.metodo == "GET") {
+                val texto = ConectarClaudeActivity.Passo.agora(app).qr ?: return erro(404, "sem código agora")
+                return Resposta(200, "image/png", QrCodigo.png(texto))
+            }
             "/api/roteador" -> if (req.metodo == "GET") return json(200, roteadorEstado())
             "/api/roteador/config" -> if (req.metodo == "POST") return roteadorConfig(req, ip)
             "/api/roteador/certificado" -> if (req.metodo == "POST") return roteadorCertificado(ip)
@@ -867,6 +878,12 @@ object PainelWeb {
         .put("erro", TunelTailscale.ultimoErro(app) ?: JSONObject.NULL)
         .put("logins", McpServidor.logins(app))
         .put("binario", TunelTailscale.binario(app).exists())
+        .put("conta", TunelTailscale.conta(app) ?: JSONObject.NULL)
+        .put("rede", TunelTailscale.redeLigada(app))
+        .put("atalhos", TunelTailscale.atalhos(app))
+        .put("passo", ConectarClaudeActivity.Passo.agora(app).let {
+            JSONObject().put("id", it.id).put("titulo", it.titulo).put("texto", it.texto).put("qr", it.qr ?: JSONObject.NULL)
+        })
 
     /** Ligar/desligar, colar a chave do Tailscale (PIN de novo), revogar logins, esquecer o Tailscale (PIN de novo). */
     private fun mcpConfig(req: Requisicao, token: String?, ip: String): Resposta {
@@ -884,6 +901,12 @@ object PainelWeb {
             TunelTailscale.esquecer(app); mudou.add("esquecer Tailscale")
         }
         if (o.optBoolean("revogar")) { McpServidor.revogar(app); mudou.add("revogar logins") }
+        if (o.has("atalhos")) {
+            if (!TunelTailscale.definirAtalhos(app, o.optString("atalhos")))
+                return erro(400, "atalhos inválidos: use aparelho:porta separados por vírgula (máximo ${AtalhosTunel.MAXIMO}), ex.: nas:8096")
+            mudou.add("atalhos")
+        }
+        if (o.has("rede")) { TunelTailscale.definirRede(app, o.optBoolean("rede")); mudou.add("rede=${o.optBoolean("rede")}") }
         if (o.has("ligado")) {
             if (o.optBoolean("ligado") && !PainelArmazem.temPin(app)) return erro(400, "defina o PIN antes")
             McpServidor.definirLigado(app, o.optBoolean("ligado")); mudou.add("ligado=${o.optBoolean("ligado")}")

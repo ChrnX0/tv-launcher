@@ -335,7 +335,7 @@ class ConfigLauncherActivity : Activity() {
             return when {
                 !PainelArmazem.temPin(this) -> "desligado · defina o PIN do painel primeiro (é o login)"
                 !McpServidor.ligado(this) -> "desligado · OK liga"
-                !TunelTailscale.configurado(this) -> "ligado, falta a chave do Tailscale (painel > Configurações) · OK desliga"
+                TunelTailscale.urlLogin != null || TunelTailscale.urlAtivar != null -> "ligado, falta entrar no Tailscale: abra \"Conectar\" abaixo · OK desliga"
                 TunelTailscale.rodando() && nome != null -> "ligado · https://$nome/mcp · OK desliga"
                 else -> "ligado, túnel subindo${TunelTailscale.ultimoErro(this)?.let { " (último erro: $it)" } ?: ""} · OK desliga"
             }
@@ -347,6 +347,16 @@ class ConfigLauncherActivity : Activity() {
             ui.postDelayed({ if (!isDestroyed) linhaMcp.detalhe(detalheMcp()) }, 3000)
         }
         adicionar(linhaMcp)
+        adicionar(linha("Conectar (QR code)", "passo a passo: login no Tailscale e endereço para o Claude, ChatGPT, Codex…") {
+            startActivity(android.content.Intent(this, ConectarClaudeActivity::class.java))
+        })
+        lateinit var linhaRede: TextView
+        fun detalheRede() = if (TunelTailscale.redeLigada(this)) "ligada: painel pelos aparelhos da conta Tailscale e lista deles para o Claude · OK desliga"
+            else "desligada: só o MCP vai para a internet · OK liga (painel pelos aparelhos da conta Tailscale)"
+        linhaRede = linha("Rede Tailscale", detalheRede()) {
+            TunelTailscale.definirRede(this, !TunelTailscale.redeLigada(this)); linhaRede.detalhe(detalheRede())
+        }
+        adicionar(linhaRede)
         lateinit var linhaLogins: TextView
         linhaLogins = linha("Logins do Claude", "${McpServidor.logins(this)} ativo(s) · OK revoga todos") {
             McpServidor.revogar(this)
