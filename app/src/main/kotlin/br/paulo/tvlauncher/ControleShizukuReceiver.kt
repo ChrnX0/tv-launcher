@@ -31,6 +31,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val ROTULOS = "br.paulo.tvlauncher.ROTULOS"   // nomes dos apps para o painel (só adb)
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
+        const val DEBLOAT = "br.paulo.tvlauncher.DEBLOAT"       // candidatos da limpeza e o estado deles (só adb)
         const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
         const val ERROS = "br.paulo.tvlauncher.ERROS"           // listar o registro local de erros (só adb)
         const val TESTE_ERRO = "br.paulo.tvlauncher.TESTE_ERRO" // gravar um erro de teste no registro (só adb)
@@ -99,6 +100,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }, 500)
             }
+            // Só pelo adb (05/11/2026): para testar candidatos da limpeza (Debloat.kt) antes de liberá-los na TV.
+            DEBLOAT -> resultData = Debloat.relatorio(ctx)
             // Só pelo adb (05/11/2026): sem extra, lista as rotinas e a próxima; com --ei id N, roda a rotina N agora.
             ROTINA -> {
                 val id = intent.getIntExtra("id", 0)

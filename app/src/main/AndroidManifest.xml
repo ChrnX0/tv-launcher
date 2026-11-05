@@ -283,6 +283,8 @@
                 <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.OCULTAR" />
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
+                <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.DEBLOAT" />
                 <!-- Rotinas por horário: listar e rodar uma agora (05/11/2026). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.ROTINA" />
                 <!-- Registro local de erros: listar e gravar um de teste (05/11/2026). Só neste receiver (DUMP). -->
