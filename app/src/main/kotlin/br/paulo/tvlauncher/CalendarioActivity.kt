@@ -40,7 +40,7 @@ class CalendarioActivity : Activity() {
     private val textoSuave = 0xFF93A19A.toInt()
     private val destaque = 0xFF7FD6C2.toInt()
     private val fonteMedia = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    private val pt = Locale("pt", "BR")
+    private val pt = Locale.getDefault()   // o idioma da TV (era fixo em pt-BR)
     private val ui = Handler(Looper.getMainLooper())
     private val mes = Calendar.getInstance()   // o mês mostrado na grade
     private lateinit var tituloMes: TextView
@@ -84,7 +84,7 @@ class CalendarioActivity : Activity() {
         tituloMes = texto(30f, Color.WHITE, fonteMedia)
         colunaMes.addView(tituloMes)
         colunaMes.addView(texto(15f, textoSuave).apply {
-            text = (conta ?: "sem conta Google") + "\n◀ ▶ trocam o mês"
+            text = (conta ?: getString(R.string.cal_sem_conta)) + "\n" + getString(R.string.cal_dica)
             setPadding(0, dp(4), 0, dp(18))
         })
         grade = GridLayout(this).apply { columnCount = 7 }
@@ -93,7 +93,7 @@ class CalendarioActivity : Activity() {
 
         // Coluna dos eventos: colunas 7-12.
         val colunaEventos = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        colunaEventos.addView(texto(22f, Color.WHITE, fonteMedia).apply { text = "Próximos 30 dias" })
+        colunaEventos.addView(texto(22f, Color.WHITE, fonteMedia).apply { text = getString(R.string.cal_30) })
         aviso = texto(15f, textoSuave).apply { setPadding(0, dp(8), 0, 0) }
         colunaEventos.addView(aviso)
         listaEventos = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -157,12 +157,12 @@ class CalendarioActivity : Activity() {
         aviso.text = when {
             checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED ->
                 "Sem permissão de agenda (pm grant br.paulo.tvlauncher android.permission.READ_CALENDAR)"
-            conta == null -> "Nenhuma conta Google na TV"
-            proximos.isEmpty() -> "Nada marcado (ou a agenda ainda está sincronizando)"
+            conta == null -> getString(R.string.cal_nenhuma_conta)
+            proximos.isEmpty() -> getString(R.string.cal_nada)
             else -> ""
         }
         var diaAnterior = ""
-        val fmtDia = SimpleDateFormat("EEEE, d 'de' MMMM", pt)
+        val fmtDia = SimpleDateFormat(getString(R.string.fmt_data_longa), pt)
         val fmtHora = SimpleDateFormat("HH:mm", pt)
         proximos.forEach { e ->
             val dia = fmtDia.format(e.inicio).replaceFirstChar { it.uppercase() }
@@ -178,7 +178,7 @@ class CalendarioActivity : Activity() {
                     background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(e.cor) }
                 }, LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(12) })
                 addView(texto(16f, textoSuave).apply {
-                    text = if (e.diaInteiro) "Dia todo" else fmtHora.format(e.inicio) + "–" + fmtHora.format(e.fim)
+                    text = if (e.diaInteiro) getString(R.string.cal_dia_todo) else fmtHora.format(e.inicio) + "–" + fmtHora.format(e.fim)
                 }, LinearLayout.LayoutParams(dp(132), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(12) })
                 addView(texto(17f, textoClaro).apply { text = e.titulo; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END },
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -188,7 +188,7 @@ class CalendarioActivity : Activity() {
 
     /** A grade do mês: cabeçalho D S T Q Q S S, dias com ponto quando há evento, hoje num círculo. */
     private fun desenharMes(eventosMes: List<Evento>) {
-        tituloMes.text = SimpleDateFormat("MMMM 'de' yyyy", pt).format(mes.time).replaceFirstChar { it.uppercase() }
+        tituloMes.text = SimpleDateFormat(getString(R.string.fmt_mes_ano), pt).format(mes.time).replaceFirstChar { it.uppercase() }
         grade.removeAllViews()
         val lado = dp(Grade.largura(5)) / 7
         Despertador.NOMES_DIAS.forEach { grade.addView(celula(it, textoSuave, false, false, lado)) }
@@ -249,7 +249,7 @@ class CalendarioActivity : Activity() {
                         val off = java.util.TimeZone.getDefault().getOffset(inicio)
                         inicio -= off; fim -= off
                     }
-                    saida.add(Evento(c.getString(0) ?: "(sem título)", inicio, fim, diaInteiro, c.getInt(4) or 0xFF000000.toInt()))
+                    saida.add(Evento(c.getString(0) ?: getString(R.string.cal_sem_titulo), inicio, fim, diaInteiro, c.getInt(4) or 0xFF000000.toInt()))
                 }
             }
         } catch (e: Exception) {
