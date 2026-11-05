@@ -327,6 +327,14 @@ object PainelWeb {
                 val f = BackupAutomatico.arquivo(app, nome) ?: return erro(404, "essa cópia não existe")
                 return restaurarTexto(f.readText(), token, ip, "restaurar cópia automática $nome")
             }
+            // Aba Saúde (PainelSaude.kt). ?rapido=1 pula o shell (só os números que o app lê sozinho, na hora).
+            "/api/saude" -> if (req.metodo == "GET") return json(200, PainelSaude.estado(app, req.consulta["rapido"] != "1"))
+            "/api/saude/liberar" -> if (req.metodo == "POST") {
+                val ganho = PainelSaude.liberar(app)
+                PainelArmazem.registrar(app, ip, "liberar memória", if (ganho == null) "sem shell" else "ok, ${ganho / 1048576} MB")
+                return if (ganho == null) erro(503, "o shell do launcher não respondeu (a depuração sem fio está ligada?)")
+                else json(200, JSONObject().put("ok", true).put("ganho", ganho))
+            }
             "/api/registro" -> if (req.metodo == "GET") return json(200, JSONObject().put("itens", PainelArmazem.registro(app)))
             "/api/apps/instalar" -> if (req.metodo == "POST") return instalar(req, token, ip)
             "/api/arquivos" -> if (req.metodo == "GET") { semAcesso()?.let { return it }; return json(200, PainelArquivos.listar(req.consulta["caminho"])) }
