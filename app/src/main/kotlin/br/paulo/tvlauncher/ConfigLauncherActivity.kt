@@ -105,6 +105,15 @@ class ConfigLauncherActivity : Activity() {
             // A MainActivity só relê o tema no onCreate: ela mesma percebe a troca e se recria ao voltar (ver onResume lá).
         }
         adicionar(linhaTema)
+        // Pilhas automáticas (05/11/2026, Organizacao.agruparPorCategoria): a HOME relê ao voltar (preencherApps no onResume).
+        lateinit var linhaPilhas: TextView
+        fun detalhePilhas() = if (Organizacao.pilhasAutomaticas(this)) "ligadas: apps soltos juntam pela categoria (vídeo, música, jogo…) · OK desliga"
+            else "desligadas · OK liga (as pilhas que você montou continuam)"
+        linhaPilhas = linha("Pilhas automáticas", detalhePilhas()) {
+            Organizacao.definirPilhasAutomaticas(this, !Organizacao.pilhasAutomaticas(this))
+            linhaPilhas.detalhe(detalhePilhas())
+        }
+        adicionar(linhaPilhas)
 
         // ---- Descanso de tela: OK passa para a próxima opção da lista (mesmo jeito do tema), e grava na hora.
         secao("Descanso de tela")
