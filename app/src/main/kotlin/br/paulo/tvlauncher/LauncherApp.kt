@@ -8,8 +8,15 @@ import android.app.Application
  * acessibilidade, painel) fique gravado. Mantenha leve: tudo aqui atrasa a abertura da HOME.
  */
 class LauncherApp : Application() {
+    companion object {
+        /** O app, para as frases traduzidas de quem não tem Context (Textos.kt). Vale desde o onCreate do processo. */
+        lateinit var instancia: LauncherApp
+            private set
+    }
+
     override fun onCreate() {
         super.onCreate()
+        instancia = this
         RegistroErros.instalar(this)
     }
 }
