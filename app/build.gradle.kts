@@ -55,9 +55,9 @@ android {
         create("release") {
             if (keystoreDoAmbiente != null) {
                 storeFile = file(keystoreDoAmbiente)
-                storePassword = System.getenv("ASSINATURA_SENHA")?.takeIf { it.isNotBlank() } ?: "android"           // padrão do keystore debug
-                keyAlias = System.getenv("ASSINATURA_ALIAS")?.takeIf { it.isNotBlank() } ?: "androiddebugkey"
-                keyPassword = System.getenv("ASSINATURA_SENHA_CHAVE") ?: storePassword
+                storePassword = System.getenv("ASSINATURA_SENHA")?.trim()?.takeIf { it.isNotBlank() } ?: "android"           // padrão do keystore debug
+                keyAlias = System.getenv("ASSINATURA_ALIAS")?.trim()?.takeIf { it.isNotBlank() } ?: "androiddebugkey"
+                keyPassword = System.getenv("ASSINATURA_SENHA_CHAVE")?.trim()?.takeIf { it.isNotBlank() } ?: storePassword
             }
         }
     }
