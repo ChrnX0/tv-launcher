@@ -30,6 +30,8 @@
         tools:ignore="ProtectedPermissions" />
     <!-- Abrir um app quando a TV reinicia -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Atualizador.kt: instalar a versão nova do próprio launcher (Device Owner instala sem perguntar). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Só declarada: permite que o app abra outro app a partir do receiver de boot (ver BootReceiver) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
@@ -81,7 +83,9 @@
         <package android:name="com.google.android.apps.tv.launcherx" />
     </queries>
 
+    <!-- android:name: LauncherApp liga o registro local de erros (RegistroErros.kt) em todo processo do app. -->
     <application
+        android:name=".LauncherApp"
         android:allowBackup="false"
         android:icon="@android:drawable/sym_def_app_icon"
         android:banner="@android:drawable/sym_def_app_icon"
@@ -103,6 +107,10 @@
         <receiver
             android:name=".RotinaReceiver"
             android:exported="false" />
+        <activity
+            android:name=".LicencasActivity"
+            android:exported="false"
+            android:label="Licenças" />
         <activity
             android:name=".DiagnosticoActivity"
             android:exported="false"
@@ -272,6 +280,9 @@
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
                 <!-- Rotinas por horário: listar e rodar uma agora (05/11/2026). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.ROTINA" />
+                <!-- Registro local de erros: listar e gravar um de teste (05/11/2026). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.ERROS" />
+                <action android:name="br.paulo.tvlauncher.TESTE_ERRO" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama
@@ -300,5 +311,9 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
+        <!-- Resposta do PackageInstaller para o Atualizador. exported=false: só o sistema (pelo PendingIntent) chega aqui. -->
+        <receiver
+            android:name=".Atualizador$Resultado"
+            android:exported="false" />
     </application>
 </manifest>
