@@ -166,6 +166,7 @@ class AlarmesActivity : Activity() {
         var ativo = a?.ativo ?: true
         var som = a?.som ?: 0
         var rampa = a?.rampa ?: 0
+        var bomDia = a?.bomDia ?: true
         var previa: android.media.MediaPlayer? = null
         fun pararPrevia() { previa?.release(); previa = null }
 
@@ -259,13 +260,18 @@ class AlarmesActivity : Activity() {
             previa = SomAlarme.criar(this, som)?.also { it.start() }
             btSom.postDelayed({ pararPrevia() }, 4000)
         }
+        // "Bom dia" falado ao parar o alarme (ver Despertador.Alarme.bomDia).
+        lateinit var btBomDia: TextView
+        fun textoBomDia() = if (bomDia) "Bom dia: sim" else "Bom dia: não"
+        btBomDia = botao(textoBomDia()) { bomDia = !bomDia; btBomDia.text = textoBomDia() }
         linhaSom.addView(btSom, botaoLp()); linhaSom.addView(btRampa, botaoLp()); linhaSom.addView(btOuvir, botaoLp())
+        linhaSom.addView(btBomDia, botaoLp())
         coluna.addView(linhaSom)
 
         // Botões: Salvar · Ligado/Desligado · Apagar (só se já existe) · Cancelar
         val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(24), 0, 0) }
         val salvar = botao("Salvar") {
-            Despertador.salvar(this, Despertador.Alarme(a?.id ?: 0, hora, minuto, dias, nome.text.toString().trim(), ativo, som, rampa))
+            Despertador.salvar(this, Despertador.Alarme(a?.id ?: 0, hora, minuto, dias, nome.text.toString().trim(), ativo, som, rampa, bomDia))
             pararPrevia()
             mostrarLista()
         }

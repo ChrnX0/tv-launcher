@@ -27,9 +27,11 @@ object Despertador {
      * [dias]: um bit por dia da semana (bit 0 = domingo ... bit 6 = sábado). 0 = toca uma vez só e se desliga.
      * [som]: índice em SomAlarme.NOMES. [rampa]: segundos para o volume subir do mínimo ao máximo (0 = sem rampa).
      * [id] identifica o alarme (a soneca e a tela que toca usam).
+     * [bomDia]: ao apertar Parar, a TV abre a previsão e fala "Bom dia", a hora, o tempo e a agenda de hoje.
+     * Ligado por padrão, inclusive nos alarmes salvos antes de existir (05/11/2026).
      */
     data class Alarme(val id: Int, val hora: Int, val minuto: Int, val dias: Int, val nome: String, val ativo: Boolean,
-                      val som: Int = 0, val rampa: Int = 0)
+                      val som: Int = 0, val rampa: Int = 0, val bomDia: Boolean = true)
 
     val NOMES_DIAS = listOf("D", "S", "T", "Q", "Q", "S", "S")   // domingo a sábado
 
@@ -39,7 +41,7 @@ object Despertador {
         // Um item estragado (sem id/hora/minuto) é pulado, em vez de derrubar a HOME inteira (revisão do painel, 04/11/2026).
         return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.mapNotNull {
             try {
-                Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true), it.optInt("som", 0), it.optInt("rampa", 0))
+                Alarme(it.getInt("id"), it.getInt("hora"), it.getInt("minuto"), it.optInt("dias"), it.optString("nome"), it.optBoolean("ativo", true), it.optInt("som", 0), it.optInt("rampa", 0), it.optBoolean("bom_dia", true))
             } catch (e: org.json.JSONException) { null }
         }.sortedWith(compareBy({ it.hora }, { it.minuto }))
     }
@@ -48,7 +50,7 @@ object Despertador {
         val arr = JSONArray()
         lista.forEach {
             arr.put(JSONObject().put("id", it.id).put("hora", it.hora).put("minuto", it.minuto)
-                .put("dias", it.dias).put("nome", it.nome).put("ativo", it.ativo).put("som", it.som).put("rampa", it.rampa))
+                .put("dias", it.dias).put("nome", it.nome).put("ativo", it.ativo).put("som", it.som).put("rampa", it.rampa).put("bom_dia", it.bomDia))
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("alarmes", arr.toString()).apply()
         agendar(ctx)
