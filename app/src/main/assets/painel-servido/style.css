@@ -1,0 +1,183 @@
+/* Tema escuro do painel no navegador (veio do chromecast-painel/public/style.css, sem a parte de aparelhos/tela). */
+:root {
+  --fundo: #121317;
+  --superficie: #1b1d24;
+  --superficie2: #242730;
+  --borda: #333743;
+  --texto: #eceef2;
+  --texto-fraco: #9aa0ad;
+  --acento: #4da3ff;
+  --perigo: #ff5d5d;
+  --ok: #4dd68a;
+  --alerta: #ffcf6b;
+}
+* { box-sizing: border-box; }
+/* O atributo "hidden" tem a mesma especificidade de uma classe; sem o !important, uma classe que define
+   "display" (botões, o modal) venceria e o elemento continuaria aparecendo (bug já visto no painel do PC). */
+[hidden] { display: none !important; }
+body {
+  margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--fundo); color: var(--texto); min-height: 100vh;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--borda);
+}
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 18px; margin: 0 0 8px; }
+.aviso { color: var(--texto-fraco); margin: 8px 0; }
+.aviso-curto { color: var(--texto-fraco); margin: 4px 0 0; font-size: 14px; }
+.erro { color: var(--perigo); margin: 8px 0; }
+.aviso-ok { color: var(--ok); margin: 8px 0; }
+.link { background: none; border: none; padding: 0; color: var(--acento); text-decoration: underline; cursor: pointer; font: inherit; }
+
+.botao-primario, .botao-secundario, .botao-perigo {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+  border-radius: 10px; padding: 10px 16px; font-size: 15px; border: none; text-decoration: none;
+}
+.botao-primario { background: var(--acento); color: #06101c; font-weight: 600; }
+.botao-secundario { background: var(--superficie2); color: var(--texto); }
+.botao-perigo { background: #3a1e1e; color: var(--perigo); border: 1px solid #5a2a2a; }
+button:disabled { opacity: .5; cursor: default; }
+a { color: var(--acento); }
+
+input[type=password], input[type=search] {
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda);
+  border-radius: 10px; padding: 12px 14px; font-size: 16px; width: 100%;
+}
+
+.entrar { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.cartao-entrar {
+  width: 100%; max-width: 360px; background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 12px;
+}
+.cartao-entrar input { font-size: 22px; letter-spacing: 6px; text-align: center; }
+
+.abas { display: flex; gap: 8px; border-bottom: 1px solid var(--borda); padding: 0 20px; }
+.aba { background: none; border: none; color: var(--texto-fraco); padding: 14px 6px; font-size: 15px; cursor: pointer; border-bottom: 2px solid transparent; }
+.aba.ativa { color: var(--texto); border-bottom-color: var(--acento); }
+
+.painel-aba { padding: 20px; max-width: 900px; margin: 0 auto; }
+.barra-acoes { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.barra-acoes input[type=search] { flex: 1; }
+.marcar { color: var(--texto-fraco); white-space: nowrap; font-size: 14px; display: flex; gap: 6px; align-items: center; }
+
+.lista-apps, .lista-registro { display: flex; flex-direction: column; gap: 8px; }
+.linha-app, .linha-registro {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 10px 14px;
+}
+.linha-app img { width: 40px; height: 40px; border-radius: 8px; flex: none; background: var(--superficie2); }
+.linha-app .info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.linha-app .nome { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linha-app .pacote { font-size: 12px; color: var(--texto-fraco); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linha-app .selos { display: flex; gap: 6px; flex-wrap: wrap; }
+.selo { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--superficie2); color: var(--texto-fraco); }
+.selo.oculto { color: #ffcf6b; }
+.acoes { display: flex; align-items: center; gap: 10px; flex: none; }
+.acoes .botao-perigo, .acoes .botao-secundario { padding: 8px 12px; font-size: 14px; }
+.protegido { color: var(--texto-fraco); font-size: 13px; font-style: italic; }
+
+.linha-registro { flex-direction: column; align-items: flex-start; gap: 2px; font-size: 14px; }
+.linha-registro .quando { color: var(--texto-fraco); font-size: 12px; }
+
+.cartao { background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-conteudo { background: var(--superficie); border: 1px solid var(--borda); border-radius: 16px; padding: 20px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+.botoes-modal { display: flex; justify-content: flex-end; gap: 10px; }
+
+@media (max-width: 520px) {
+  .linha-app { flex-wrap: wrap; }
+  .acoes { width: 100%; justify-content: flex-end; }
+}
+
+/* ---------- fase 2: permissões, instalar, arquivos ---------- */
+input[type=text] {
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda);
+  border-radius: 10px; padding: 10px 12px; font-size: 15px;
+}
+select {
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda);
+  border-radius: 8px; padding: 6px 8px; font-size: 14px;
+}
+.barra-acoes { flex-wrap: wrap; }
+.modal-largo { max-width: 640px; max-height: 90vh; overflow-y: auto; }
+.cabeca-modal { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lista-perm { display: flex; flex-direction: column; gap: 6px; }
+.lista-perm h3 { font-size: 15px; margin: 12px 0 4px; }
+.linha-perm { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--superficie2); border-radius: 10px; padding: 8px 12px; }
+.linha-perm .info { display: flex; flex-direction: column; min-width: 0; }
+.linha-perm .nome { font-size: 14px; }
+.linha-perm .pacote { font-size: 11px; color: var(--texto-fraco); overflow: hidden; text-overflow: ellipsis; }
+.estado-sim { color: var(--ok); font-size: 13px; white-space: nowrap; }
+.estado-nao { color: var(--texto-fraco); font-size: 13px; white-space: nowrap; }
+details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; }
+
+.trilha { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 15px; }
+.trilha button { background: none; border: none; color: var(--acento); cursor: pointer; font: inherit; padding: 2px 4px; }
+.trilha .atual { color: var(--texto); font-weight: 600; padding: 2px 4px; }
+.form-pasta { display: flex; gap: 8px; }
+.linha-arquivo .tipo { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; background: var(--superficie2); border-radius: 8px; }
+.linha-arquivo .nome.pasta { cursor: pointer; color: var(--acento); }
+
+/* ---------- ficha do app ---------- */
+.ficha { background: var(--superficie2); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.ficha p { margin: 6px 0; }
+.ficha ul { margin: 4px 0 4px 18px; padding: 0; font-size: 14px; }
+.selo.risco-essencial { color: var(--perigo); }
+.selo.risco-cuidado { color: #ffcf6b; }
+.selo.risco-seguro { color: var(--ok); }
+
+/* ---------- controle ---------- */
+.tela-tv { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+.tela-tv img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; }
+.tela-tv .aviso-curto { padding: 6px 10px; margin: 0; }
+.controle { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.controle button { background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); border-radius: 10px;
+  padding: 10px 14px; font-size: 15px; cursor: pointer; }
+.controle .botao-perigo { background: #3a1e1e; color: var(--perigo); border-color: #5a2a2a; }
+.dpad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 56px); gap: 6px; }
+.dpad button { font-size: 20px; padding: 0; }
+.dpad .ok { border-radius: 50%; font-weight: 700; }
+.teclas { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 8px; width: 100%; max-width: 420px; }
+.acoes-app { justify-content: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+
+/* ---------- recado na TV (05/11/2026) ---------- */
+.recado { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 520px; }
+.recado textarea {
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda);
+  border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 16px; resize: vertical;
+}
+.recado-opcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.recado-opcoes button { margin-left: auto; }
+/* Aba Saúde: os números em blocos (05/11/2026). */
+.numeros-saude { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.numero { background: var(--superficie2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.numero strong { font-size: 17px; }
+.numero span { color: var(--texto-fraco); font-size: 13px; }
+.numero.ruim strong { color: var(--perigo); }
+/* Aba Fotos (05/11/2026): miniaturas das fotos do protetor. */
+.grade-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.foto { margin: 0; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; }
+.foto img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--superficie2); }
+.foto figcaption { padding: 6px 8px; font-size: 13px; color: var(--texto-fraco); overflow-wrap: anywhere; }
+/* Aba Falar (IA na nuvem) */
+#campoFrase { width: 100%; box-sizing: border-box; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px; resize: vertical;
+  background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); }
+.lista-acoes { margin: 8px 0 0; padding-left: 20px; }
+.lista-acoes .recusada { opacity: .7; }
+/* ---------- aba Rede (histórico) e desligar sozinha ---------- */
+.periodo.ativo { outline: 2px solid var(--acento); }
+.resumo-rede { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.bloco-rede { background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.bloco-rede strong { font-size: 20px; }
+.bloco-rede span { font-size: 12px; color: var(--texto-fraco); }
+.bloco-rede.ruim strong { color: var(--perigo); }
+.grafico-rede { width: 100%; height: 160px; display: block; }
+.legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.cor { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; }
+.cor.ok { background: var(--ok); } .cor.dns { background: var(--alerta); } .cor.fora { background: var(--perigo); } .cor.vazio { background: var(--superficie2); }
+#abaRede h2 { font-size: 16px; margin: 20px 0 10px; }

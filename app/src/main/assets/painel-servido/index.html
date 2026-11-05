@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Chromecast</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Painel servido pelo próprio launcher (PainelWeb.kt). Sem script inline: a CSP do servidor proíbe. -->
+
+  <!-- Entrar com o PIN -->
+  <section id="telaEntrar" class="entrar" hidden>
+    <form id="formEntrar" class="cartao-entrar" autocomplete="off">
+      <h1>Chromecast</h1>
+      <p class="aviso">Digite o PIN definido nas Configurações do launcher, na TV.</p>
+      <p id="avisoEntrar" class="aviso-ok" hidden></p>
+      <input id="campoPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+             autocomplete="off" aria-label="PIN" placeholder="PIN" required>
+      <button type="submit" class="botao-primario" id="btnEntrar">Entrar</button>
+      <p id="erroEntrar" class="erro" hidden></p>
+    </form>
+  </section>
+
+  <!-- Painel -->
+  <div id="telaPainel" hidden>
+    <header>
+      <div>
+        <h1 id="nomeAparelho">Chromecast</h1>
+        <p id="naTela" class="aviso-curto"></p>
+        <p id="outrasTvs" class="aviso-curto" hidden></p>
+      </div>
+      <button id="btnSair" class="botao-secundario">Sair</button>
+    </header>
+    <nav class="abas">
+      <button class="aba ativa" data-aba="apps">Aplicativos</button>
+      <button class="aba" data-aba="controle">Controle</button>
+      <button class="aba" data-aba="falar">Falar</button>
+      <button class="aba" data-aba="arquivos">Arquivos</button>
+      <button class="aba" data-aba="saude">Saúde</button>
+      <button class="aba" data-aba="fotos">Fotos</button>
+      <button class="aba" data-aba="shizuku">Shizuku</button>
+      <button class="aba" data-aba="rede">Rede</button>
+      <button class="aba" data-aba="backup">Backup</button>
+      <button class="aba" data-aba="registro">Acessos</button>
+    </nav>
+
+    <section id="abaApps" class="painel-aba">
+      <div class="barra-acoes">
+        <input id="busca" type="search" placeholder="Procurar app" aria-label="Procurar app">
+        <label class="marcar"><input id="mostrarSistema" type="checkbox" checked> apps do sistema</label>
+        <label class="botao-primario" for="arquivoApk">Instalar APK…</label>
+        <input type="file" id="arquivoApk" accept=".apk,application/vnd.android.package-archive" hidden>
+      </div>
+      <p id="contagemApps" class="aviso-curto"></p>
+      <p id="statusApps" class="aviso" hidden></p>
+      <div id="listaApps" class="lista-apps"></div>
+    </section>
+
+    <section id="abaControle" class="painel-aba" hidden>
+      <div class="tela-tv">
+        <img id="fotoTela" alt="Tela da TV">
+        <p id="statusTela" class="aviso-curto"></p>
+      </div>
+      <div class="controle">
+        <div class="dpad">
+          <span></span><button data-tecla="cima" aria-label="Cima">▲</button><span></span>
+          <button data-tecla="esquerda" aria-label="Esquerda">◀</button><button data-tecla="ok" class="ok">OK</button><button data-tecla="direita" aria-label="Direita">▶</button>
+          <span></span><button data-tecla="baixo" aria-label="Baixo">▼</button><span></span>
+        </div>
+        <div class="teclas">
+          <button data-tecla="voltar">Voltar</button><button data-tecla="inicio">Início</button><button data-tecla="menu">Menu</button>
+          <button data-tecla="retroceder" aria-label="Retroceder">⏪</button><button data-tecla="play" aria-label="Tocar ou pausar">⏯</button><button data-tecla="avancar" aria-label="Avançar">⏩</button>
+          <button data-tecla="volume-">Vol −</button><button data-tecla="volume+">Vol +</button><button data-tecla="mudo">Mudo</button>
+          <button data-tecla="ligar">Acordar</button><button data-tecla="apagar">Dormir</button><button id="btnReiniciarTv" class="botao-perigo">Reiniciar TV</button>
+        </div>
+        <form id="formTexto" class="form-pasta" autocomplete="off">
+          <input id="campoTexto" type="text" maxlength="100" placeholder="Digitar na TV (sem acento)" aria-label="Texto para digitar na TV">
+          <button type="submit" class="botao-secundario">Enviar</button>
+          <button type="button" data-tecla="apagar_letra" class="botao-secundario">⌫</button>
+        </form>
+        <form id="formRecado" class="recado" autocomplete="off">
+          <label for="campoRecado"><strong>Recado na TV</strong> — aparece por cima de qualquer app</label>
+          <textarea id="campoRecado" maxlength="200" rows="2" placeholder="Ex.: O jantar está pronto!"></textarea>
+          <div class="recado-opcoes">
+            <select id="duracaoRecado" aria-label="Quanto tempo fica na tela">
+              <option value="30">30 s na tela</option><option value="60" selected>1 min na tela</option><option value="300">5 min na tela</option>
+            </select>
+            <label><input id="somRecado" type="checkbox" checked> com bipe</label>
+            <button type="submit">Mandar recado</button>
+          </div>
+        </form>
+        <p class="aviso-curto">Voltar e Início respondem na hora; as outras teclas levam cerca de 1 s.</p>
+        <p id="statusControle" class="aviso" hidden></p>
+        <div class="cartao">
+          <h2>Desligar sozinha</h2>
+          <p class="aviso">Depois desse tempo sem ninguém apertar o controle, a TV mostra um aviso por 60 s e desliga.
+            Qualquer botão cancela. Assistir um filme sem tocar no controle também conta como "sem uso".</p>
+          <div class="barra-acoes">
+            <select id="autoDesligar" aria-label="Desligar sozinha depois de"></select>
+          </div>
+          <p id="statusDesligar" class="aviso-curto"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- IA na nuvem (bloco 6): a frase vai para a TV, a TV pergunta ao Gemini com a chave do dono e mostra o que vai
+         fazer; só executa com OK no controle, na TV. -->
+    <section id="abaFalar" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Pedir à TV</h2>
+        <p id="avisoIa" class="aviso"></p>
+        <form id="formFalar" autocomplete="off">
+          <textarea id="campoFrase" rows="3" maxlength="300" placeholder="Ex.: abre a Netflix e aumenta o volume" aria-label="Pedido para a TV"></textarea>
+          <p class="aviso-curto">Dica: toque no microfone do teclado do celular e fale.</p>
+          <button type="submit" class="botao-primario" id="btnFalar">Enviar</button>
+        </form>
+        <p id="statusFalar" class="aviso" hidden></p>
+        <ul id="acoesFalar" class="lista-acoes" hidden></ul>
+      </div>
+      <div class="cartao">
+        <h2>Chave e modelo</h2>
+        <p class="aviso">A chave é sua, do <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.
+          Fica cifrada na TV e nunca volta para o painel (só os 4 últimos caracteres). Ligar ou desligar a IA é só nas Configurações do launcher, na TV.</p>
+        <p id="chaveIa" class="aviso-curto"></p>
+        <form id="formChave" class="form-pasta" autocomplete="off">
+          <input id="campoChave" type="password" maxlength="100" autocomplete="off" placeholder="Colar a chave de API" aria-label="Chave de API">
+          <button type="submit" class="botao-secundario">Guardar</button>
+          <button type="button" id="btnApagarChave" class="botao-perigo">Apagar</button>
+        </form>
+        <form id="formModelo" class="form-pasta" autocomplete="off">
+          <input id="campoModelo" type="text" maxlength="64" placeholder="gemini-flash-latest" aria-label="Modelo">
+          <button type="submit" class="botao-secundario">Trocar modelo</button>
+        </form>
+        <p id="statusChave" class="aviso" hidden></p>
+      </div>
+    <section id="abaRede" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <button type="button" class="botao-secundario periodo ativo" data-horas="24">Últimas 24 h</button>
+        <button type="button" class="botao-secundario periodo" data-horas="168">7 dias</button>
+        <button type="button" class="botao-secundario" id="btnAtualizarRede">Atualizar</button>
+      </div>
+      <p id="statusRede" class="aviso" hidden></p>
+      <div id="resumoRede" class="resumo-rede"></div>
+      <div class="cartao">
+        <canvas id="graficoRede" class="grafico-rede" height="160" aria-label="Gráfico de latência e quedas"></canvas>
+        <p class="aviso-curto legenda"><span class="cor ok"></span>internet ok (altura = demora, até 300 ms)
+          <span class="cor dns"></span>DNS falhou <span class="cor fora"></span>sem internet <span class="cor vazio"></span>sem dados (TV desligada)</p>
+      </div>
+      <h2>Quedas</h2>
+      <div id="listaQuedas" class="lista-registro"></div>
+      <h2>O que o Android avisou</h2>
+      <div id="listaEventosRede" class="lista-registro"></div>
+    </section>
+
+    <section id="abaArquivos" class="painel-aba" hidden>
+      <div class="barra-acoes">
+        <nav id="trilha" class="trilha" aria-label="Pasta atual"></nav>
+      </div>
+      <div class="barra-acoes">
+        <label class="botao-primario" for="arquivosEnviar">Enviar arquivos…</label>
+        <input type="file" id="arquivosEnviar" multiple hidden>
+        <form id="formPasta" class="form-pasta" autocomplete="off">
+          <input id="nomePasta" type="text" maxlength="200" placeholder="Nova pasta" aria-label="Nome da nova pasta">
+          <button type="submit" class="botao-secundario">Criar</button>
+        </form>
+      </div>
+      <p id="espacoArquivos" class="aviso-curto"></p>
+      <p id="statusArquivos" class="aviso" hidden></p>
+      <div id="listaArquivos" class="lista-apps"></div>
+    </section>
+
+    <section id="abaSaude" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Como a TV está</h2>
+        <div id="numerosSaude" class="numeros-saude"></div>
+        <button type="button" class="botao-primario" id="btnLiberar">Liberar memória</button>
+        <p class="aviso-curto">Fecha os apps em segundo plano (o da frente continua). Nada é apagado; o app fechado abre do zero.</p>
+        <p id="statusSaude" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Quem mais ocupa memória</h2>
+        <div id="listaMemoria" class="lista-registro"></div>
+      </div>
+    </section>
+
+    <section id="abaFotos" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Fotos do protetor de tela</h2>
+        <p class="aviso">Com pelo menos uma foto, o protetor da TV passa a mostrá-las por trás do relógio, trocando a cada minuto.
+          Ficam só na TV, numa pasta do launcher. JPG, PNG ou WebP, até 15 MB cada.</p>
+        <label class="botao-primario" for="arquivoFotos">Enviar fotos…</label>
+        <input type="file" id="arquivoFotos" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <p id="statusFotos" class="aviso" hidden></p>
+      </div>
+      <div id="gradeFotos" class="grade-fotos"></div>
+    </section>
+
+    <section id="abaShizuku" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Shizuku do launcher</h2>
+        <p id="estadoShizuku" class="aviso"></p>
+        <p class="aviso-curto">Permitir dá a um app os poderes do adb (shell) nesta TV. Só permita apps em que você confia.</p>
+        <div id="listaShizuku" class="lista-registro"></div>
+        <p id="statusShizuku" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Quando cada app ligou o servidor</h2>
+        <div id="histShizuku" class="lista-registro"></div>
+      </div>
+    </section>
+
+    <section id="abaBackup" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Baixar backup</h2>
+        <p class="aviso">Ordem dos apps, tema, alarmes, DNS e as demais configurações do launcher, num arquivo JSON. O PIN não vai junto.</p>
+        <button type="button" class="botao-primario" id="btnBaixar">Baixar agora</button>
+        <p id="statusBaixar" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Cópias automáticas</h2>
+        <p class="aviso">A TV guarda sozinha uma cópia por dia (as últimas 7), só quando algo mudou. Baixe uma para
+          restaurar em outra TV, ou volte esta TV para o estado daquele dia.</p>
+        <div id="listaCopias" class="lista-registro"></div>
+        <p id="statusCopias" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Restaurar</h2>
+        <p class="aviso">Substitui as configurações da TV pelas do arquivo e reinicia o launcher. O estado de antes fica guardado:
+          <button type="button" class="link" id="btnBaixarAnterior">baixar o de antes da última restauração</button>.</p>
+        <label class="botao-secundario" for="arquivoBackup">Escolher arquivo…</label>
+        <input type="file" id="arquivoBackup" accept=".json,application/json" hidden>
+        <p id="statusBackup" class="aviso" hidden></p>
+      </div>
+    </section>
+
+    <section id="abaRegistro" class="painel-aba" hidden>
+      <div id="listaRegistro" class="lista-registro"></div>
+    </section>
+  </div>
+
+  <!-- Confirmar uma ação sem volta: texto + (se preciso) o PIN de novo -->
+  <div id="modal" class="modal" hidden>
+    <form id="formModal" class="modal-conteudo" autocomplete="off">
+      <h2 id="tituloModal"></h2>
+      <p id="textoModal" class="aviso"></p>
+      <input id="pinModal" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+             autocomplete="off" aria-label="PIN" placeholder="PIN" hidden>
+      <p id="progressoModal" class="aviso-ok" hidden></p>
+      <p id="erroModal" class="erro" hidden></p>
+      <div class="botoes-modal">
+        <button type="button" id="btnCancelarModal" class="botao-secundario">Cancelar</button>
+        <button type="submit" id="btnOkModal" class="botao-perigo">Confirmar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Permissões de um app -->
+  <div id="modalPerm" class="modal" hidden>
+    <div class="modal-conteudo modal-largo">
+      <div class="cabeca-modal">
+        <h2 id="tituloPerm"></h2>
+        <button type="button" id="btnFecharPerm" class="botao-secundario">Fechar</button>
+      </div>
+      <p id="avisoPerm" class="aviso"></p>
+      <p id="statusPerm" class="aviso" hidden></p>
+      <div id="listaPerm" class="lista-perm"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
