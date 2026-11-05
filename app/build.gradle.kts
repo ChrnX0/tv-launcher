@@ -1,3 +1,6 @@
+// "java.util.Properties" escrito por extenso não funciona aqui: no script do Gradle, "java" é a extensão do plugin Java.
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,7 +14,7 @@ plugins {
 // repositório é público. Eles vêm do arquivo pessoal.properties, na raiz do repo, que NÃO vai para o git (.gitignore).
 // Sem o arquivo (quem baixa do GitHub, ou o build do GitHub Actions), valem padrões neutros. Modelo comentado em
 // pessoal.properties.exemplo. Cada valor vira um campo da classe BuildConfig, que o Config.kt lê.
-val pessoal = java.util.Properties().apply {
+val pessoal = Properties().apply {
     val f = rootProject.file("pessoal.properties")
     if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }   // UTF-8: acentos (ã, ç) saem certos
 }
