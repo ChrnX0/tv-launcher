@@ -13,6 +13,9 @@ $adb=$env:USERPROFILE+'\android-sdk\platform-tools\adb.exe'
 $porta = (& $adb mdns services | Select-String '192\.168\.1\.153:(\d+)' | ? { $_ -match 'tls-connect' } | Select-Object -First 1).Matches.Groups[1].Value
 $s="192.168.1.153:$porta"
 cd C:\Users\rockx\tv-launcher
+# 05/11/2026: cidade, coordenadas, apps preferidos e eclipses saíram do Config.kt (repo público) para o pessoal.properties,
+# que fica fora do git. Sem ele o APK sai com padrões neutros e a TV perderia a configuração dela: o build PARA aqui.
+if (-not (Test-Path .\pessoal.properties)) { "FALTA o pessoal.properties na raiz do repo (modelo: pessoal.properties.exemplo). Build cancelado."; exit 1 }
 & $adb connect $s
 $tarefa = if ($Release) { ':app:assembleRelease' } else { 'assembleDebug' }
 .\gradlew.bat $tarefa -q 2>&1 | ? { $_ -notmatch 'SDK XML|NativeCommandError|RemoteException|SDK processing|CategoryInfo|FullyQualified|^\s*$|gradle :|\+ ' } | Select-Object -Last 40

@@ -1342,7 +1342,7 @@ class MainActivity : Activity() {
                 val atual = json.getJSONObject("current")
                 val dia = json.getJSONObject("daily")
                 // Temperatura: a MEDIDA na estacao do aeroporto (METAR) vence a do modelo da Open-Meteo. Em 31/10 as 16:15
-                // o modelo dizia 26,6 °C e o aeroporto de Ribeirao Preto mediu 32 °C. Sem METAR recente, fica o modelo.
+                // o modelo dizia 26,6 °C e o aeroporto da cidade mediu 32 °C. Sem METAR recente, fica o modelo.
                 // Se o METAR falhar (timeout acontece), vale a ultima medida boa de ate 60 min, e nao o modelo: em 01/11 as 19:13 e 19:20
                 // o METAR deu timeout e o modelo mostrou 24 C e "chovendo agora" com o aeroporto em 31 C, CAVOK.
                 val nova = medidaAeroporto(ponto) ?: medidaAeroporto(ponto)   // uma segunda tentativa
@@ -1570,8 +1570,8 @@ class MainActivity : Activity() {
 
     /**
      * Ultimo boletim METAR (todo aeroporto publica, em geral a cada hora) da estacao MAIS PERTO de [ponto] num raio
-     * de ~65 km, com boletim de no maximo 90 min. Em Ribeirao Preto e o aeroporto Leite Lopes (SBRP), a ~6 km; o INMET
-     * nao tem estacao automatica na cidade (a mais perto e Sao Simao, ~35 km). Config.ESTACAO_METAR fixa uma estacao.
+     * de ~65 km, com boletim de no maximo 90 min. Em geral e o aeroporto da cidade ou o mais proximo (METAR existe em
+     * quase todo aeroporto; estacoes meteorologicas automaticas nem sempre). Config.ESTACAO_METAR fixa uma estacao.
      * null se nao houver estacao valida ou a busca falhar: ai fica o modelo. Chamar fora da thread da tela.
      */
     private fun medidaAeroporto(ponto: Localizacao.Ponto): Medida? {

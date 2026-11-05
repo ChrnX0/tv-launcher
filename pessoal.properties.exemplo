@@ -1,0 +1,25 @@
+# Dados pessoais do launcher. Copie este arquivo para "pessoal.properties" (na mesma pasta, a raiz do repo),
+# troque os valores e recompile. O pessoal.properties está no .gitignore: nunca vai para o GitHub.
+# Sem ele o build funciona com padrões neutros (sem cidade, coordenadas 0/0, Celsius, botão Netflix abre o Netflix).
+# Salve em UTF-8. Linhas com # são comentários.
+
+# Clima. A localização real vem da TV (Wi-Fi, depois IP); latitude/longitude só valem se as duas falharem.
+cidade=Minha Cidade
+latitude=0.0
+longitude=0.0
+fahrenheit=false
+# Código ICAO do aeroporto para a temperatura medida (METAR). Vazio = o mais perto, automático.
+estacao_metar=
+
+# Apps sempre no começo da grade, e a ordem preferida dos demais (pacotes separados por vírgula).
+apps_fixos=
+apps_ordem=com.google.android.youtube.tv,com.google.android.youtube.tvmusic,com.netflix.ninja,com.android.vending
+
+# App que o botão Netflix do controle abre até você escolher outro na TV (segurar o botão 3 s).
+botao_netflix=com.netflix.ninja
+
+# Eclipses solares visíveis da sua cidade (fonte: timeanddate.com/eclipse/in/<país>/<cidade>).
+# Cada eclipse: início,máximo,fim,magnitude (horários em UTC, ISO-8601). Eclipses separados por ";".
+# Para quebrar a linha, termine com "\" (regra do formato .properties). Vazio = nunca mostra eclipse.
+# Exemplo (fictício): eclipses=2030-01-01T10:00:00Z,2030-01-01T11:00:00Z,2030-01-01T12:00:00Z,0.5
+eclipses=
