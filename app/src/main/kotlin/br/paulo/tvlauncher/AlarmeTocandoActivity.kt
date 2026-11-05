@@ -71,12 +71,12 @@ class AlarmeTocandoActivity : Activity() {
             gravity = Gravity.CENTER   // numa coluna vertical cada linha ocupa a largura toda: o texto precisa se centralizar
         })
         coluna.addView(texto(24f, 0xFFE8EEEA.toInt()).apply {
-            text = "⏰  " + (alarme?.nome?.takeIf { it.isNotBlank() } ?: "Despertador")
+            text = "⏰  " + (alarme?.nome?.takeIf { it.isNotBlank() } ?: getString(R.string.al_titulo))
             setPadding(0, dp(12), 0, dp(36))
             gravity = Gravity.CENTER
         })
-        val parar = botao("Parar") { parar() }
-        val soneca = botao("Soneca 10 min") { soneca() }
+        val parar = botao(getString(R.string.al_parar)) { parar() }
+        val soneca = botao(getString(R.string.al_soneca)) { soneca() }
         coluna.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             clipChildren = false

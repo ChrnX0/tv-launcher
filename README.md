@@ -176,3 +176,9 @@ Consequências:
 - Para desfazer: `adb shell dpm remove-active-admin br.paulo.tvlauncher/.AdminReceiver` (só funciona porque o APK é `testOnly`; por isso o APK se instala com `adb install -r -t`).
 - Verificado: reinstalar com `install -r -t` mantém o owner.
 - Verificado: criar outro usuário Android (o 11, `new_user`) depois de ativar o owner não o desfez (`dpm list-owners` seguiu igual). Não verificado: se o owner impede desinstalar o app.
+
+## Licenças e créditos
+
+Código, bibliotecas, fontes, ícones e fontes de dados de terceiros, com a licença de cada um:
+[`app/src/main/assets/licencas.txt`](app/src/main/assets/licencas.txt). O mesmo texto aparece na TV em
+Configurações do launcher > Licenças e créditos. Os módulos do Shizuku têm detalhes extras em [`shizuku/NOTICE.md`](shizuku/NOTICE.md).
