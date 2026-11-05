@@ -1476,7 +1476,7 @@ class MainActivity : Activity() {
         rede.execute {
             try {
                 // Onde estamos: Wi-Fi do Android (±dezenas de m) > IP > Config.kt. Ver Localizacao.kt.
-                val ponto = Localizacao.atual(this) { httpGet(it) }
+                val ponto = Localizacao.atual(this) { httpGet(it) } ?: return@execute
                 val unidade = if (Config.USAR_FAHRENHEIT) "&temperature_unit=fahrenheit" else ""
                 // Previsao (minima/maxima, chance de chuva, ceu) do modelo da Open-Meteo, no ponto exato.
                 val url = "https://api.open-meteo.com/v1/forecast" +
