@@ -129,3 +129,17 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .selo.risco-essencial { color: var(--perigo); }
 .selo.risco-cuidado { color: #ffcf6b; }
 .selo.risco-seguro { color: var(--ok); }
+
+/* ---------- controle ---------- */
+.tela-tv { background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+.tela-tv img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; }
+.tela-tv .aviso-curto { padding: 6px 10px; margin: 0; }
+.controle { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.controle button { background: var(--superficie2); color: var(--texto); border: 1px solid var(--borda); border-radius: 10px;
+  padding: 10px 14px; font-size: 15px; cursor: pointer; }
+.controle .botao-perigo { background: #3a1e1e; color: var(--perigo); border-color: #5a2a2a; }
+.dpad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 56px); gap: 6px; }
+.dpad button { font-size: 20px; padding: 0; }
+.dpad .ok { border-radius: 50%; font-weight: 700; }
+.teclas { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 8px; width: 100%; max-width: 420px; }
+.acoes-app { justify-content: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
