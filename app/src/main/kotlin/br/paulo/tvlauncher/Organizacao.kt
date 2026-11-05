@@ -102,6 +102,7 @@ object Organizacao {
 
     /** Escolhe qual app da pilha [id] fica na frente. */
     fun definirFrente(ctx: Context, id: String, pacote: String) {
+        if (id.startsWith(PREFIXO_AUTO)) { definirFrenteAuto(ctx, id, pacote); return }
         val todas = pilhas(ctx)
         val pilha = todas.firstOrNull { it.id == id } ?: return
         if (pacote !in pilha.apps) return
@@ -112,7 +113,8 @@ object Organizacao {
     /** Tira [pacote] da pilha onde está. Uma pilha que ficar com menos de 2 apps se desfaz. */
     fun tirarDaPilha(ctx: Context, pacote: String) {
         val todas = pilhas(ctx)
-        val pilha = todas.firstOrNull { pacote in it.apps } ?: return
+        // Fora das pilhas manuais: se estava numa pilha automática, passa a ficar solto (lista "auto_fora").
+        val pilha = todas.firstOrNull { pacote in it.apps } ?: run { tirarDaAuto(ctx, pacote); return }
         pilha.apps.remove(pacote)
         if (pilha.frente == pacote) pilha.frente = null
         val novos = if (pilha.apps.size < 2) {
@@ -124,6 +126,55 @@ object Organizacao {
         salvarPilhas(ctx, todas)
         editarOrdem(ctx) { o -> o.flatMap { if (it == pilha.token) novos else listOf(it) } }
     }
+
+    /**
+     * Cria uma pilha manual com [apps] (o [frente] na frente). Usado quando alguém solta um app em cima de uma pilha
+     * AUTOMÁTICA: ela vira manual (com o app novo), e a manual sempre vence a automática. Devolve o token.
+     */
+    fun criarPilha(ctx: Context, apps: List<String>, frente: String?): String {
+        val todas = pilhas(ctx)
+        apps.forEach { p -> todas.forEach { it.apps.remove(p) } }
+        todas.removeAll { it.apps.size < 2 }
+        val nova = Pilha(System.currentTimeMillis().toString(36), apps.distinct().toMutableList(), frente)
+        todas.add(nova)
+        salvarPilhas(ctx, todas)
+        return nova.token
+    }
+
+    // ---------------------------------------------------------------- pilhas automáticas (05/11/2026)
+    // Liga em Configurações do launcher. Os apps que não estão numa pilha manual são agrupados pela categoria que o
+    // PRÓPRIO app declara no manifesto (android:appCategory: vídeo, áudio, jogo, notícias...). App sem categoria fica
+    // solto. Nada é gravado: a pilha automática é refeita a cada desenho, com id fixo por categoria ("auto-<n>"), então
+    // o card não muda de lugar nem de token quando um app novo entra (o foco do controle não se perde). Só se grava a
+    // frente escolhida (frente_auto) e os apps que a pessoa tirou de uma pilha automática (auto_fora).
+
+    const val PREFIXO_AUTO = "auto-"
+
+    fun pilhasAutomaticas(ctx: Context) = prefs(ctx).getBoolean("pilhas_auto", false)
+    fun definirPilhasAutomaticas(ctx: Context, ligado: Boolean) = prefs(ctx).edit().putBoolean("pilhas_auto", ligado).apply()
+
+    fun foraDaAuto(ctx: Context): Set<String> = HashSet(prefs(ctx).getStringSet("auto_fora", emptySet()) ?: emptySet())
+    private fun tirarDaAuto(ctx: Context, pacote: String) =
+        prefs(ctx).edit().putStringSet("auto_fora", HashSet(foraDaAuto(ctx) + pacote)).apply()
+
+    fun frentesAuto(ctx: Context): Map<String, String> = try {
+        val o = JSONObject(prefs(ctx).getString("frente_auto", "{}") ?: "{}")
+        o.keys().asSequence().associateWith { o.getString(it) }
+    } catch (e: Exception) { emptyMap() }
+
+    private fun definirFrenteAuto(ctx: Context, id: String, pacote: String) {
+        val o = JSONObject(frentesAuto(ctx)).put(id, pacote)
+        prefs(ctx).edit().putString("frente_auto", o.toString()).apply()
+    }
+
+    /**
+     * Agrupa [categorias] (pacote -> categoria do Android, na ordem em que os apps aparecem) em pilhas automáticas:
+     * só categorias conhecidas (>= 0) com 2 ou mais apps, tirando os de [fora]. Devolve id -> pacotes, na ordem de entrada.
+     */
+    fun agruparPorCategoria(categorias: List<Pair<String, Int>>, fora: Set<String>): Map<String, List<String>> =
+        categorias.filter { it.second >= 0 && it.first !in fora }
+            .groupBy({ PREFIXO_AUTO + it.second }, { it.first })
+            .filterValues { it.size >= 2 }
 
     // ---------------------------------------------------------------- ocultos
 

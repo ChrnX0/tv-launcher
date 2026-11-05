@@ -11,8 +11,11 @@ import android.graphics.Typeface
  *  - GALERIA: uma pintura de domínio público por dia (acervo aberto do The Met), com etiqueta de museu.
  * As fontes (em assets/fonts, licença SIL Open Font) dão a personalidade de cada um.
  */
-enum class Tema(val nome: String) {
-    ESCURO("Escuro"), GALERIA("Galeria");
+enum class Tema(private val rotulo: Int) {
+    ESCURO(R.string.tema_escuro), GALERIA(R.string.tema_galeria);
+
+    /** Nome do tema no idioma da TV. */
+    val nome: String get() = txt(rotulo)
 
     companion object {
         private const val CHAVE = "tema"
