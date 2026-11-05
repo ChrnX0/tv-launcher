@@ -1,6 +1,7 @@
 package br.paulo.tvlauncher
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 
 /**
@@ -30,11 +31,15 @@ object Debloat {
      * (voz, busca, Play Store, transmitir do celular, Configurações) e só então preencher a data e o que se perde.
      */
     val LISTA = listOf(
-        Item("com.google.android.play.games", "Google Play Games", "jogos que pedem login do Play Games"),
+        // Testados na Sala em 05/11/2026: ocultos, a busca abriu, Play Store e Configurações abriram, o Cast respondeu.
+        Item("com.google.android.marvin.talkback", "TalkBack", "o leitor de tela para quem não enxerga", "05/11/2026"),
+        Item("com.google.android.videos", "Google TV (filmes)", "comprar e alugar filmes do Google", "05/11/2026"),
+        // Não testados ainda.
         Item("com.google.android.youtube.tvkids", "YouTube Kids", "o app YouTube Kids"),
-        Item("com.google.android.marvin.talkback", "TalkBack", "o leitor de tela para quem não enxerga"),
+        // NÃO liberar (05/11/2026): o Device Owner não consegue ocultar o Play Games (fica visível; há a versão de fábrica e
+        // a atualizada), e as Recomendações nem estão instaladas no usuário 0 da Sala.
+        Item("com.google.android.play.games", "Google Play Games", "jogos que pedem login do Play Games"),
         Item("com.google.android.tvrecommendations", "Recomendações do Google TV", "sugestões de outros apps (nossa HOME não mostra)"),
-        Item("com.google.android.videos", "Google TV (filmes)", "comprar e alugar filmes do Google"),
     )
 
     /** Pacotes que NUNCA entram na limpeza (sustentam voz, contas, Cast, Configurações, a loja ou o próprio launcher). */
@@ -54,9 +59,12 @@ object Debloat {
     fun disponiveis(ctx: Context): List<Item> = LISTA.filter { permitido(it) && instalado(ctx, it.pacote) }
 
     fun instalado(ctx: Context, pacote: String): Boolean = try {
-        // MATCH_UNINSTALLED_PACKAGES enxerga o app oculto (oculto = "não instalado" para o PackageManager comum).
+        // MATCH_UNINSTALLED_PACKAGES enxerga o app oculto (oculto = "não instalado" para o PackageManager comum), mas
+        // também o que só existe para OUTRO usuário (visto na Sala: tvrecommendations). FLAG_INSTALLED separa os dois:
+        // fica ligado no app oculto deste usuário e desligado no que não está instalado nele.
         @Suppress("DEPRECATION")
-        ctx.packageManager.getApplicationInfo(pacote, PackageManager.MATCH_UNINSTALLED_PACKAGES); true
+        val ai = ctx.packageManager.getApplicationInfo(pacote, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+        (ai.flags and ApplicationInfo.FLAG_INSTALLED) != 0
     } catch (e: Exception) { false }
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE)
@@ -66,7 +74,10 @@ object Debloat {
     fun definir(ctx: Context, pacote: String, ocultar: Boolean): Boolean {
         val item = LISTA.firstOrNull { it.pacote == pacote }
         if (ocultar && (item == null || !permitido(item))) return false
-        val mudou = PrivilegioDO.ocultar(ctx, pacote, ocultar) || PrivilegioDO.estaOculto(ctx, pacote) == ocultar
+        // O retorno do setApplicationHidden não é confiável no Android 14 (visto na Sala: reexibir um app que não estava
+        // oculto devolve true, e o Play Games "ocultava" sem ocultar). Vale o estado lido depois.
+        PrivilegioDO.ocultar(ctx, pacote, ocultar)
+        val mudou = PrivilegioDO.estaOculto(ctx, pacote) == ocultar
         if (mudou) {
             val novo = ocultosPorAqui(ctx).toMutableSet().apply { if (ocultar) add(pacote) else remove(pacote) }
             prefs(ctx).edit().putStringSet(CHAVE, novo).apply()
