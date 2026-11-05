@@ -394,3 +394,16 @@ verificado). Discordar uma vez com o motivo e, se ele mantiver a decisão, execu
 reabrir a discussão. Antes de tarefa grande/cara, dizer escopo e custo em números. Para
 código: ele é iniciante aprendendo ao vivo — explicar o que o código faz e por quê, inline
 e curto. Commits/push: branch própria + PR em rascunho (permissão global de 04/11/2026; ver topo).
+
+## IA na nuvem + aba Falar do painel (bloco 6, 05/11/2026)
+
+- Fluxo: aba **Falar** do painel (voz do teclado do celular) -> `POST /api/ia/pedir` -> `PedidoIa` chama o Gemini com a
+  chave DO DONO (`IaNuvem`, cabeçalho `x-goog-api-key`) -> `ComandosIa.conferir` -> `ConfirmarIaActivity` na TV (foco em
+  Cancelar, 60 s e cancela) -> executa. Nada roda sem OK no controle.
+- Catálogo FECHADO (`ComandosIa`): abrir app da HOME, abrir tela (previsão, agenda, despertador, configurações, início),
+  despertador, volume, mídia, modo visita. Sem shell/desinstalar/rede. Máx. 5 ações; 1 pedido a cada 3 s, 30/h.
+- Desligada por padrão; **liga só nas Configurações da TV** (o painel não tem rota para ligar). Chave cifrada com o Android
+  Keystore em `ia_seguro` (fora do backup); o painel só vê os 4 últimos caracteres. Cadastrar/apagar chave exige PIN de novo.
+- Modelo padrão `gemini-flash-latest` (trocável no painel). Teste sem chave e sem nuvem (só adb):
+  `am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "teste" --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}' -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver`
+  e `-a br.paulo.tvlauncher.IA_ESTADO`.

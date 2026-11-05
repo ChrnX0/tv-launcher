@@ -125,6 +125,8 @@ function mudarAba(nome) {
   $('abaApps').hidden = nome !== 'apps';
   $('abaArquivos').hidden = nome !== 'arquivos';
   $('abaControle').hidden = nome !== 'controle';
+  $('abaFalar').hidden = nome !== 'falar';
+  if (nome === 'falar') carregarIa();
   if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
   $('abaSaude').hidden = nome !== 'saude';
@@ -133,6 +135,9 @@ function mudarAba(nome) {
   if (nome === 'fotos') carregarFotos();
   $('abaShizuku').hidden = nome !== 'shizuku';
   if (nome === 'shizuku') carregarShizuku();
+  $('abaRede').hidden = nome !== 'rede';
+  if (nome === 'rede') carregarRede();
+  if (nome === 'controle') carregarAutoDesligar();
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
   if (nome === 'registro') carregarRegistro();
@@ -1135,6 +1140,230 @@ $('btnReiniciarTv').addEventListener('click', async () => {
     (emUso ? ` Atenção: a TV está em uso agora (${emUso}).` : ''), 'Reiniciar', () => chamar('POST', '/api/tv/reiniciar', {}));
   if (ok) mostrar($('statusControle'), 'Reiniciando… o painel volta em cerca de 1 min.');
 });
+
+// ---------- Falar: IA na nuvem (PedidoIa.kt) ----------
+
+async function carregarIa() {
+  try {
+    const e = await chamar('GET', '/api/ia');
+    let aviso = '';
+    if (!e.ligada) aviso = 'A IA está desligada. Ligue em Configurações do launcher › IA na nuvem, na TV.';
+    else if (!e.chave) aviso = 'Falta cadastrar a chave de API (abaixo).';
+    else aviso = 'O que você pedir aparece na TV, e só acontece se alguém apertar OK no controle.';
+    $('avisoIa').textContent = aviso;
+    $('chaveIa').textContent = e.chave ? `Chave cadastrada (${e.chave}). Modelo: ${e.modelo}.` : `Nenhuma chave. Modelo: ${e.modelo}.`;
+    $('campoModelo').value = e.modelo;
+  } catch (e) { $('avisoIa').textContent = e.message; }
+}
+
+let pedidoAtual = 0;
+$('formFalar').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const frase = $('campoFrase').value.trim();
+  if (!frase) return;
+  const meu = ++pedidoAtual;
+  $('btnFalar').disabled = true;
+  $('acoesFalar').hidden = true;
+  mostrar($('statusFalar'), 'Perguntando à IA…');
+  try {
+    let p = await chamar('POST', '/api/ia/pedir', { frase });
+    // Acompanha até sair de "pensando"/"esperando" (no máximo ~75 s: 60 s de espera na TV + a IA).
+    for (let i = 0; i < 75 && (p.situacao === 'pensando' || p.situacao === 'esperando'); i++) {
+      if (meu !== pedidoAtual) return;
+      mostrarPedido(p);
+      await new Promise((r) => setTimeout(r, 1000));
+      p = await chamar('GET', '/api/ia/pedido?id=' + encodeURIComponent(p.id));
+    }
+    if (meu === pedidoAtual) mostrarPedido(p);
+  } catch (e) {
+    if (meu === pedidoAtual) mostrar($('statusFalar'), e.message);
+  } finally {
+    if (meu === pedidoAtual) $('btnFalar').disabled = false;
+  }
+});
+
+function mostrarPedido(p) {
+  let texto = p.texto.charAt(0).toUpperCase() + p.texto.slice(1);
+  if (p.situacao === 'esperando') texto = 'Confirme na TV: aperte OK em "Executar" com o controle.';
+  if (p.mensagem) texto += ' · ' + p.mensagem;
+  mostrar($('statusFalar'), texto);
+  const ul = $('acoesFalar');
+  ul.replaceChildren();
+  for (const a of p.acoes) { const li = document.createElement('li'); li.textContent = a; ul.appendChild(li); }
+  for (const r of p.recusadas) { const li = document.createElement('li'); li.className = 'recusada'; li.textContent = 'Recusado: ' + r; ul.appendChild(li); }
+  ul.hidden = ul.childElementCount === 0;
+}
+
+$('formChave').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const chave = $('campoChave').value.trim();
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(chave)) { mostrar($('statusChave'), 'Isso não parece uma chave de API do Google AI Studio.'); return; }
+  const ok = await confirmar('Guardar a chave na TV?', 'Os pedidos da aba Falar passam a usar esta chave (e a cota dela).', 'Guardar',
+    () => chamar('POST', '/api/ia/chave', { chave }));
+  if (ok) { $('campoChave').value = ''; mostrar($('statusChave'), 'Chave guardada.'); carregarIa(); }
+});
+
+$('btnApagarChave').addEventListener('click', async () => {
+  const ok = await confirmar('Apagar a chave?', 'A IA para de funcionar até cadastrar outra.', 'Apagar',
+    () => chamar('POST', '/api/ia/chave', { apagar: true }));
+  if (ok) { mostrar($('statusChave'), 'Chave apagada.'); carregarIa(); }
+});
+
+$('formModelo').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  try {
+    await chamar('POST', '/api/ia/modelo', { modelo: $('campoModelo').value.trim() });
+    mostrar($('statusChave'), 'Modelo trocado.');
+    carregarIa();
+  } catch (e) { mostrar($('statusChave'), e.message); }
+});
+
+// ---------- desligar sozinha (aba Controle) ----------
+
+function rotuloMinutos(m) {
+  if (!m) return 'Nunca';
+  return m % 60 === 0 ? `Depois de ${m / 60} h sem usar` : `Depois de ${m} min sem usar`;
+}
+
+async function carregarAutoDesligar() {
+  const sel = $('autoDesligar');
+  try {
+    const r = await chamar('GET', '/api/tv/autodesligar');
+    sel.replaceChildren();
+    for (const m of r.opcoes) {
+      const o = document.createElement('option');
+      o.value = String(m); o.textContent = rotuloMinutos(m); o.selected = m === r.minutos;
+      sel.appendChild(o);
+    }
+    $('statusDesligar').textContent = r.ultimoDesligamento
+      ? 'Última vez que desligou sozinha: ' + new Date(r.ultimoDesligamento).toLocaleString('pt-BR') : '';
+  } catch (e) { $('statusDesligar').textContent = e.message; }
+}
+
+$('autoDesligar').addEventListener('change', async () => {
+  try {
+    const r = await chamar('POST', '/api/tv/autodesligar', { minutos: Number($('autoDesligar').value) });
+    $('statusDesligar').textContent = 'Gravado: ' + rotuloMinutos(r.minutos).toLowerCase() + '.';
+  } catch (e) { $('statusDesligar').textContent = e.message; }
+});
+
+// ---------- histórico de rede (aba Rede) ----------
+
+let horasRede = 24;
+
+function duracaoLegivel(ms) {
+  const min = Math.round(ms / 60000);
+  if (min < 1) return 'menos de 1 min';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), r = min % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
+
+function bloco(titulo, valor, classe) {
+  const d = document.createElement('div');
+  d.className = 'bloco-rede' + (classe ? ' ' + classe : '');
+  const v = document.createElement('strong'); v.textContent = valor;
+  const t = document.createElement('span'); t.textContent = titulo;
+  d.append(v, t);
+  return d;
+}
+
+function linhaSimples(quando, texto) {
+  const linha = document.createElement('div');
+  linha.className = 'linha-registro';
+  const q = document.createElement('span'); q.className = 'quando'; q.textContent = quando;
+  const o = document.createElement('span'); o.textContent = texto;
+  linha.append(q, o);
+  return linha;
+}
+
+function vazio(lista, texto) {
+  const p = document.createElement('p'); p.className = 'aviso'; p.textContent = texto; lista.appendChild(p);
+}
+
+async function carregarRede() {
+  mostrar($('statusRede'), 'Carregando…');
+  let r;
+  try { r = await chamar('GET', '/api/rede/historico?horas=' + horasRede); } catch (e) { mostrar($('statusRede'), e.message); return; }
+  mostrar($('statusRede'), r.amostras.length ? '' :
+    'Ainda sem medições: o launcher mede a cada ' + r.intervaloMin + ' min. Volte daqui a pouco.');
+  const s = r.resumo;
+  const cob = Math.max(s.coberturaMs, 1);
+  const pct = s.coberturaMs ? Math.max(0, 100 * (1 - s.foraMs / cob)) : null;
+  const res = $('resumoRede');
+  res.replaceChildren(
+    bloco('internet no ar (no tempo medido)', pct === null ? '—' : pct.toFixed(pct >= 99.95 || pct < 10 ? 0 : 1) + '%', pct !== null && pct < 99 ? 'ruim' : ''),
+    bloco('quedas de internet', String(s.quedasInternet), s.quedasInternet ? 'ruim' : ''),
+    bloco('quedas só de DNS', String(s.quedasDns), s.quedasDns ? 'ruim' : ''),
+    bloco('maior queda', s.maiorQuedaMs ? duracaoLegivel(s.maiorQuedaMs) : '—'),
+    bloco('demora média (95% abaixo de)', s.latMedia === null ? '—' : `${s.latMedia} ms (${s.latP95} ms)`),
+    bloco('sinal médio do Wi-Fi', s.dbmMedio === null ? '—' : `${s.dbmMedio} dBm`),
+    bloco('tempo medido', duracaoLegivel(s.coberturaMs)),
+  );
+  desenharGrafico(r);
+
+  const lq = $('listaQuedas'); lq.replaceChildren();
+  if (!r.quedas.length) vazio(lq, 'Nenhuma queda no período.');
+  for (const q of r.quedas.slice().reverse()) {
+    const tipo = q.tipo === 'dns' ? 'DNS não resolvia nomes (internet ok)' : 'sem internet';
+    const fim = q.aberta ? 'ainda agora' : new Date(q.fim).toLocaleTimeString('pt-BR');
+    lq.appendChild(linhaSimples(new Date(q.inicio).toLocaleString('pt-BR') + ' até ' + fim,
+      `${tipo} · ${q.aberta ? 'em andamento' : duracaoLegivel(q.fim - q.inicio)}`));
+  }
+  const le = $('listaEventosRede'); le.replaceChildren();
+  if (!r.eventos.length) vazio(le, 'Nenhum aviso no período.');
+  for (const [t, txt] of r.eventos.slice().reverse().slice(0, 100)) le.appendChild(linhaSimples(new Date(t).toLocaleString('pt-BR'), txt));
+}
+
+/** Uma barra por medição: altura = demora até a internet; cor = estado. Buracos (sem medição) ficam cinza. */
+function desenharGrafico(r) {
+  const c = $('graficoRede');
+  const dpr = window.devicePixelRatio || 1;
+  const larg = c.clientWidth || 600, alt = 160;
+  c.width = Math.round(larg * dpr); c.height = Math.round(alt * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, larg, alt);
+  const css = getComputedStyle(document.documentElement);
+  const cor = (n) => css.getPropertyValue(n).trim();
+  const topo = 4, base = alt - 22, faixa = base - topo;
+  const x = (t) => ((t - r.desde) / (r.agora - r.desde)) * larg;
+  // Fundo "sem dados" e a régua de horas.
+  g.fillStyle = cor('--superficie2'); g.fillRect(0, base + 4, larg, 6);
+  g.fillStyle = cor('--texto-fraco'); g.font = '11px system-ui, sans-serif'; g.textAlign = 'center';
+  const passo = horasRede > 24 ? 24 * 3600e3 : 3 * 3600e3;
+  const primeiro = Math.ceil(r.desde / passo) * passo;
+  for (let t = primeiro; t <= r.agora; t += passo) {
+    const d = new Date(t);
+    const rot = horasRede > 24 ? d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }) : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    g.fillText(rot, Math.min(Math.max(x(t), 20), larg - 20), alt - 2);
+  }
+  const a = r.amostras;
+  const buraco = 15 * 60e3;
+  for (let i = 0; i < a.length; i++) {
+    const [t, net, lat, dns] = a[i];
+    const prox = i + 1 < a.length ? a[i + 1][0] : r.agora;
+    const fim = Math.min(prox, t + buraco, r.agora);
+    const x0 = x(t), w = Math.max(x(fim) - x0, 1);
+    const estado = !net ? '--perigo' : dns < 0 ? '--alerta' : '--ok';
+    g.fillStyle = cor(estado);
+    g.fillRect(x0, base + 4, w, 6);   // faixa de estado
+    const h = net ? Math.max(2, Math.min(lat, 300) / 300 * faixa) : faixa;
+    g.globalAlpha = net ? 0.85 : 0.35;
+    g.fillRect(x0, base - h, w, h);
+    g.globalAlpha = 1;
+  }
+}
+
+for (const b of document.querySelectorAll('.periodo')) {
+  b.addEventListener('click', () => {
+    horasRede = Number(b.dataset.horas);
+    for (const o of document.querySelectorAll('.periodo')) o.classList.toggle('ativo', o === b);
+    carregarRede();
+  });
+}
+$('btnAtualizarRede').addEventListener('click', () => carregarRede());
+window.addEventListener('resize', () => { if (!$('abaRede').hidden) carregarRede(); });
 
 // ---------- início ----------
 

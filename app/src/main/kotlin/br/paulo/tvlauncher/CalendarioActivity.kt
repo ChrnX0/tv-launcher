@@ -35,6 +35,8 @@ import java.util.Locale
  * do Google preenche. Ao abrir, pedimos uma sincronização da conta: eventos novos podem levar alguns segundos.
  * Precisa de READ_CALENDAR (dada uma vez por adb: pm grant br.paulo.tvlauncher android.permission.READ_CALENDAR).
  */
+private typealias Evento = Agenda.Evento
+
 class CalendarioActivity : Activity() {
     private val textoClaro = 0xFFE8EEEA.toInt()
     private val textoSuave = 0xFF93A19A.toInt()
@@ -49,8 +51,6 @@ class CalendarioActivity : Activity() {
     private lateinit var aviso: TextView
     private var conta: String? = null
 
-    /** Um evento (uma ocorrência dele, para os que se repetem). */
-    private class Evento(val titulo: String, val inicio: Long, val fim: Long, val diaInteiro: Boolean, val cor: Int)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -223,40 +223,7 @@ class CalendarioActivity : Activity() {
     }
 
     /** Ocorrências entre [de] e [ate], só das agendas visíveis da conta do perfil ativo, em ordem de início. */
-    private fun eventos(de: Long, ate: Long): List<Evento> {
-        val nome = conta ?: return emptyList()
-        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) return emptyList()
-        val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
-            android.content.ContentUris.appendId(it, de)
-            android.content.ContentUris.appendId(it, ate)
-        }.build()
-        val saida = mutableListOf<Evento>()
-        try {
-            contentResolver.query(
-                uri,
-                arrayOf(CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
-                    CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.DISPLAY_COLOR),
-                // + ACCOUNT_TYPE (revisão 04/11): o mesmo e-mail pode existir em outro tipo de conta (ex.: Exchange).
-                "${CalendarContract.Calendars.ACCOUNT_NAME} = ? AND ${CalendarContract.Calendars.ACCOUNT_TYPE} = 'com.google' AND ${CalendarContract.Instances.VISIBLE} = 1",
-                arrayOf(nome), "${CalendarContract.Instances.BEGIN} ASC"
-            )?.use { c ->
-                while (c.moveToNext()) {
-                    val diaInteiro = c.getInt(3) == 1
-                    var inicio = c.getLong(1)
-                    var fim = c.getLong(2)
-                    // Evento de dia inteiro vem em UTC (meia-noite de Greenwich): ajusta para o fuso local, senão cai no dia anterior.
-                    if (diaInteiro) {
-                        val off = java.util.TimeZone.getDefault().getOffset(inicio)
-                        inicio -= off; fim -= off
-                    }
-                    saida.add(Evento(c.getString(0) ?: "(sem título)", inicio, fim, diaInteiro, c.getInt(4) or 0xFF000000.toInt()))
-                }
-            }
-        } catch (e: Exception) {
-            Log.w("TvLauncher.Agenda", "erro lendo a agenda: $e")
-        }
-        return saida
-    }
+    private fun eventos(de: Long, ate: Long): List<Evento> = Agenda.eventos(this, conta, de, ate)
 
     private fun inicioDoMes(c: Calendar) = (c.clone() as Calendar).apply {
         set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
