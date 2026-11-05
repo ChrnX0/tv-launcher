@@ -152,3 +152,9 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 }
 .recado-opcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .recado-opcoes button { margin-left: auto; }
+/* Aba Saúde: os números em blocos (05/11/2026). */
+.numeros-saude { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.numero { background: var(--superficie2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.numero strong { font-size: 17px; }
+.numero span { color: var(--texto-fraco); font-size: 13px; }
+.numero.ruim strong { color: var(--perigo); }
