@@ -34,6 +34,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
         const val RECADO = "br.paulo.tvlauncher.RECADO"   // recado na tela da TV (só adb; o painel usa /api/recado)
         const val CHUVA = "br.paulo.tvlauncher.CHUVA"     // verificar o aviso de chuva agora, ou simular (só adb, testes)
+        const val UNIFI = "br.paulo.tvlauncher.UNIFI"     // verificar aparelho novo no roteador agora (só adb, testes)
         const val DEBLOAT = "br.paulo.tvlauncher.DEBLOAT"       // candidatos da limpeza e o estado deles (só adb)
         const val ROTINA = "br.paulo.tvlauncher.ROTINA"         // rodar uma rotina agora / listar (só adb)
         const val ERROS = "br.paulo.tvlauncher.ERROS"           // listar o registro local de erros (só adb)
@@ -133,6 +134,12 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                     val pendente = goAsync()   // a verificação faz HTTP: fora da thread principal
                     Thread { try { pendente.resultData = AvisoChuva.verificar(ctx) } finally { pendente.finish() } }.start()
                 }
+            }
+            UNIFI -> if (this is ControleShizukuAdbReceiver) {
+                val pendente = goAsync()   // HTTP: fora da thread principal
+                val antiga = intent.getBooleanExtra("antiga", false)   // --ez antiga true: testa a API antiga (sinal da TV)
+                Thread { try { pendente.resultData = if (antiga) UnifiCliente.testarApiAntiga(ctx) else UnifiCliente.verificarNovos(ctx) }
+                    finally { pendente.finish() } }.start()
             }
             REINICIAR -> {
                 resultData = "reiniciando pid=${android.os.Process.myPid()}"

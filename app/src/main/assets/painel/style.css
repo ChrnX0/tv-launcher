@@ -154,3 +154,9 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 }
 .recado-opcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .recado-opcoes button { margin-left: auto; }
+
+/* Aba Roteador */
+.form-roteador { display: grid; gap: 6px; max-width: 420px; }
+.impressao { font-family: monospace; font-size: 12px; word-break: break-all; white-space: pre-line; }
+.dicas { margin: 6px 0 0 18px; padding: 0; }
+.dicas li { margin-bottom: 6px; }
