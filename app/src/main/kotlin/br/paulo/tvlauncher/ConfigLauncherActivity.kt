@@ -57,7 +57,8 @@ class ConfigLauncherActivity : Activity() {
     } catch (e: Exception) { false }
 
     private fun detalheVpn(): String =
-        (if (vpnAtiva()) "conectada" else "desconectada") + " — app AdGuard VPN, sempre ativa · OK abre o app"
+        if (Config.VPN_FIXA.isEmpty()) (if (vpnAtiva()) "conectada" else "nenhuma") + " — o launcher não fixa VPN"
+        else (if (vpnAtiva()) "conectada" else "desconectada") + " — app AdGuard VPN, sempre ativa · OK abre o app"
 
     // ---------------------------------------------------------------- tela
 
@@ -134,6 +135,23 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaDesligar)
 
+        // ---- Modo visita (ModoVisita.kt): esconde perfil, agenda e os apps marcados abaixo, até desligar.
+        // Na HOME, com o modo ligado, o OK na bolinha do perfil oferece "Sair" (o popup não abre).
+        secao("Modo visita")
+        lateinit var linhaVisita: TextView
+        fun detalheVisita() = if (ModoVisita.ativo(this))
+            "ligado — perfil, agenda e os apps marcados abaixo estão escondidos · OK desliga"
+        else "desligado — OK esconde o perfil, a agenda e os apps marcados abaixo"
+        linhaVisita = linha("Modo visita", detalheVisita()) {
+            ModoVisita.definir(this, !ModoVisita.ativo(this))
+            linhaVisita.detalhe(detalheVisita())
+            // A HOME relê o modo no onResume (bolinha e apps), então não precisa avisar nada a ela.
+        }
+        adicionar(linhaVisita)
+        val listaVisita = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        lista.addView(listaVisita, LinearLayout.LayoutParams(MATCH, WRAP))
+        carregarAppsDaVisita(listaVisita)
+
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao("Rede")
         // Se o DNS fixo caiu e o launcher voltou para o automático (Dns.voltarAoAutomaticoSeQuebrado), avisa aqui.
@@ -142,6 +160,7 @@ class ConfigLauncherActivity : Activity() {
             startActivity(Intent(this, DnsActivity::class.java))
         })
         adicionar(linha("VPN", detalheVpn()) {
+            if (Config.VPN_FIXA.isEmpty()) return@linha
             val abrir = packageManager.getLeanbackLaunchIntentForPackage(Config.VPN_FIXA)
                 ?: packageManager.getLaunchIntentForPackage(Config.VPN_FIXA)
             if (abrir != null) startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -293,6 +312,47 @@ class ConfigLauncherActivity : Activity() {
         }
 
         return raiz
+    }
+
+    // ---------------------------------------------------------------- Modo visita: apps escolhidos
+
+    /**
+     * Uma linha por app de TV instalado, para marcar quais somem no modo visita. A lista (PackageManager) é lida fora
+     * da thread da tela; só o nome importa aqui, sem ícone, para ficar leve.
+     */
+    private fun carregarAppsDaVisita(destino: LinearLayout) {
+        trabalho.execute {
+            val pm = packageManager
+            val consulta = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+            val apps = try {
+                pm.queryIntentActivities(consulta, 0)
+                    // Os mesmos apps que a HOME mostra (MainActivity.carregarApps): os instalados pelo usuário e os de
+                    // sistema que estão em SEMPRE_MOSTRAR.
+                    .filter {
+                        val pkg = it.activityInfo.packageName
+                        pkg != packageName && pkg != Config.PACOTE_CONFIG &&
+                            ((it.activityInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 ||
+                                pkg in Config.SEMPRE_MOSTRAR)
+                    }
+                    .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+                    .distinctBy { it.first }
+                    .sortedBy { it.second.lowercase() }
+            } catch (e: Exception) { emptyList() }
+            ui.post {
+                if (isDestroyed) return@post
+                destino.removeAllViews()
+                for ((pacote, rotulo) in apps) {
+                    lateinit var linhaApp: TextView
+                    fun detalheApp() = if (ModoVisita.escondeNaVisita(this, pacote))
+                        "some no modo visita — OK mantém" else "aparece no modo visita — OK esconde"
+                    linhaApp = linha(rotulo, detalheApp()) {
+                        ModoVisita.alternar(this, pacote)
+                        linhaApp.detalhe(detalheApp())
+                    }
+                    destino.addView(linhaApp, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) })
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- Shizuku: apps com acesso
