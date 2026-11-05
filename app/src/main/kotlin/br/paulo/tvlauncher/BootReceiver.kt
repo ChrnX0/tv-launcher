@@ -24,6 +24,7 @@ class BootReceiver : BroadcastReceiver() {
         Log.i(TAG, "recebido: ${intent.action}")   // prova no log de que o boot chegou (o receiver exige DUMP desde 04/11)
         Privilegio.religarDepuracaoSemFio(context)
         Privilegio.vigiarDepuracaoSemFio(context)   // e continua de olho: o Android pode desligá-la logo depois, no boot
+        Rotinas.agendar(context)   // idem para as rotinas por horário (Rotinas.kt)
         Despertador.agendar(context)   // o Android esquece os alarmes agendados quando reinicia
         // Shizuku embutido (MARCO S3): sobe o servidor sozinho (espera o Wi-Fi e a depuração sem fio) e fica vigiando.
         GuardiaoShizuku.vigiar(context)
