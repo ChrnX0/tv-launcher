@@ -57,7 +57,8 @@ class ConfigLauncherActivity : Activity() {
     } catch (e: Exception) { false }
 
     private fun detalheVpn(): String =
-        (if (vpnAtiva()) "conectada" else "desconectada") + " — app AdGuard VPN, sempre ativa · OK abre o app"
+        if (Config.VPN_FIXA.isEmpty()) (if (vpnAtiva()) "conectada" else "nenhuma") + " — o launcher não fixa VPN"
+        else (if (vpnAtiva()) "conectada" else "desconectada") + " — app AdGuard VPN, sempre ativa · OK abre o app"
 
     // ---------------------------------------------------------------- tela
 
@@ -147,6 +148,7 @@ class ConfigLauncherActivity : Activity() {
             startActivity(Intent(this, DnsActivity::class.java))
         })
         adicionar(linha("VPN", detalheVpn()) {
+            if (Config.VPN_FIXA.isEmpty()) return@linha
             val abrir = packageManager.getLeanbackLaunchIntentForPackage(Config.VPN_FIXA)
                 ?: packageManager.getLaunchIntentForPackage(Config.VPN_FIXA)
             if (abrir != null) startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
