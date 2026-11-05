@@ -79,4 +79,36 @@ class UnifiTest {
         assertTrue(t.endsWith(" e mais 3"))
         assertEquals(t, Recado.limpar(t))   // passa pela mesma limpeza do recado sem cortar nada
     }
+
+    private val detalhesAp = """{"id":"x","name":"Sala AP","model":"U7 Pro","interfaces":{"radios":[
+        {"wlanStandard":"802.11ax","frequencyGHz":"2.4","channelWidthMHz":20,"channel":6},
+        {"wlanStandard":"802.11be","frequencyGHz":"5","channelWidthMHz":80,"channel":36}]}}"""
+    private val estatAp = """{"cpuUtilizationPct":12.5,"interfaces":{"radios":[{"frequencyGHz":"2.4","txRetriesPct":25.0},{"frequencyGHz":"5","txRetriesPct":4.0}]}}"""
+
+    @Test fun pontoDeAcesso() {
+        val ap = Unifi.lerPontoDeAcesso(detalhesAp, estatAp)
+        assertEquals("Sala AP", ap.nome)
+        assertEquals(listOf("2.4", "5"), ap.radios.map { it.ghz })
+        assertEquals(6, ap.radios[0].canal)
+        assertEquals(25.0, ap.radios[0].retransmissoesPct!!, 0.01)
+        assertEquals(12.5, ap.cpuPct!!, 0.01)
+        assertNull(Unifi.lerPontoDeAcesso(detalhesAp, null).radios[0].retransmissoesPct)
+    }
+
+    @Test fun dicasDoWifi() {
+        val ap = Unifi.lerPontoDeAcesso(detalhesAp, estatAp)
+        assertTrue(Unifi.dicas(-50, 5180, 866, ap).isEmpty())                  // 5 GHz, sinal ótimo, 4% de retransmissões
+        val presa = Unifi.dicas(-55, 2437, 144, ap)                               // 2,4 GHz com sinal bom
+        assertTrue(presa.any { it.contains("Band Steering") })
+        assertTrue(presa.any { it.contains("canal 6") && it.contains("25%") })    // rádio de 2,4 congestionado
+        assertTrue(Unifi.dicas(-80, 5180, 100, ap).first().startsWith("Sinal fraco"))
+        assertTrue(Unifi.dicas(-70, 5180, 300, null).first().startsWith("Sinal razoável"))
+        assertTrue(Unifi.dicas(-50, 5180, 24, null).any { it.contains("24 Mbps") })
+        assertEquals("2.4", Unifi.banda(2412)); assertEquals("5", Unifi.banda(5745)); assertEquals("6", Unifi.banda(6115)); assertNull(Unifi.banda(0))
+    }
+
+    @Test fun pontoDeAcessoDoAparelho() {
+        val (lista, _) = Unifi.lerPaginaAparelhos("""{"totalCount":1,"data":[{"type":"WIRELESS","id":"a","name":"TV","ipAddress":"192.168.0.9","uplinkDeviceId":"ap1"}]}""")
+        assertEquals("ap1", lista[0].pontoDeAcesso)
+    }
 }
