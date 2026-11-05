@@ -954,8 +954,12 @@ function mostrarPedido(p) {
 
 $('formChave').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  const chave = $('campoChave').value.trim();
-  if (!/^[A-Za-z0-9_-]{20,100}$/.test(chave)) { mostrar($('statusChave'), 'Isso não parece uma chave de API do Google AI Studio.'); return; }
+  // Tira espaços e quebras de linha que vêm junto ao colar. Aceita o formato novo "AQ.…" e o antigo "AIza…".
+  const chave = $('campoChave').value.replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9._-]{30,200}$/.test(chave)) {
+    mostrar($('statusChave'), `Isso não parece uma chave do Google AI Studio: esperado "AQ.…" ou "AIza…", de 30 a 200 letras, números, . - _ (veio com ${chave.length} caracteres).`);
+    return;
+  }
   const ok = await confirmar('Guardar a chave na TV?', 'Os pedidos da aba Falar passam a usar esta chave (e a cota dela).', 'Guardar',
     () => chamar('POST', '/api/ia/chave', { chave }));
   if (ok) { $('campoChave').value = ''; mostrar($('statusChave'), 'Chave guardada.'); carregarIa(); }

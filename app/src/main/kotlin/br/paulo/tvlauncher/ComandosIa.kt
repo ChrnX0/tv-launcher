@@ -166,9 +166,16 @@ object ComandosIa {
         return t.ifEmpty { null }
     }
 
-    /** Formato de chave de API do Google (AI Studio): letras, números, - e _, de 20 a 100 caracteres. */
-    fun chaveValida(c: String?): Boolean = c != null && c.length in 20..100 && c.all { it.isLetterOrDigit() || it == '-' || it == '_' } &&
-        c.all { it.code < 128 }
+    /**
+     * Chave de API do Google AI Studio. Dois formatos (05/11/2026): o antigo "AIza..." (39 caracteres) e o novo
+     * "AQ.<letras, números, - e _>" (~47), que o AI Studio passou a gerar. Não barramos pelo prefixo: só tamanho e
+     * caracteres seguros para ir num cabeçalho HTTP. Se o Google recusar, o 1º pedido diz por quê.
+     */
+    fun chaveValida(c: String?): Boolean = c != null && c.length in 30..200 &&
+        c.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_' || it == '.' }
+
+    /** O que o painel recebe: tira espaços e quebras de linha que vêm junto ao copiar e colar. */
+    fun limparChave(c: String?): String = c?.filter { !it.isWhitespace() } ?: ""
 
     /** Nome de modelo seguro para ir no caminho da URL (ex.: gemini-flash-latest). */
     fun modeloValido(m: String?): Boolean = m != null && m.length in 3..64 && m.all { it in 'a'..'z' || it in '0'..'9' || it == '-' || it == '.' }

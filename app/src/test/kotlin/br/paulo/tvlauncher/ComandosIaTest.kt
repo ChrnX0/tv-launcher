@@ -78,6 +78,11 @@ class ComandosIaTest {
         assertEquals("abre a netflix", ComandosIa.limparFrase(" abre a\u0000 netflix "))
         assertEquals(ComandosIa.MAX_FRASE, ComandosIa.limparFrase("a".repeat(1000))!!.length)
         assertTrue(ComandosIa.chaveValida("AIzaSyA-1234567890abcdefghijklmnopqrs_t"))
+        // Formato novo do AI Studio (05/11/2026): "AQ." + base64url. Chave FALSA, só o formato.
+        assertTrue(ComandosIa.chaveValida("AQ.Ab8RN6Lxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-_123"))
+        assertEquals("AQ.abc", ComandosIa.limparChave(" AQ.a\nb c\t"))
+        assertFalse(ComandosIa.chaveValida("AQ.abc"))
+        assertFalse(ComandosIa.chaveValida("AQ.Ab8RN6L/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))
         assertFalse(ComandosIa.chaveValida("curta"))
         assertFalse(ComandosIa.chaveValida("AIzaSy 1234567890abcdefghijklmnop"))
         assertFalse(ComandosIa.chaveValida("AIzaSyÁ1234567890abcdefghijklmnopq"))

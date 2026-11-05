@@ -579,8 +579,10 @@ object PainelWeb {
             PainelArmazem.registrar(app, ip, "IA: apagar chave", "ok")
             return json(200, JSONObject().put("ok", true))
         }
-        val chave = o.optString("chave").trim()
-        if (!ComandosIa.chaveValida(chave)) return erro(400, "isso não parece uma chave de API do Google AI Studio")
+        val chave = ComandosIa.limparChave(o.optString("chave"))
+        // A mensagem diz o formato esperado e o tamanho recebido, nunca a chave.
+        if (!ComandosIa.chaveValida(chave)) return erro(400, "isso não parece uma chave do Google AI Studio (esperado \"AQ.…\" ou " +
+            "\"AIza…\", de 30 a 200 letras, números, . - _; recebi ${chave.length} caracteres)")
         if (!IaArmazem.definirChave(app, chave)) return erro(500, "não consegui guardar a chave na TV")
         PainelArmazem.registrar(app, ip, "IA: cadastrar chave ${IaArmazem.finalDaChave(app)}", "ok")
         return json(200, JSONObject().put("ok", true).put("chave", IaArmazem.finalDaChave(app)))
