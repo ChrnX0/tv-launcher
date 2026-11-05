@@ -93,6 +93,24 @@ async function atualizarEstado() {
   $('nomeAparelho').textContent = e.aparelho;
   document.title = e.aparelho;
   $('naTela').textContent = 'TV: ' + e.naTela;
+  atualizarOutrasTvs().catch(() => {});
+}
+
+// Outras TVs da casa com o painel ligado (achadas por mDNS na rede). Cada uma tem o próprio PIN: o link só leva até lá.
+async function atualizarOutrasTvs() {
+  const r = await chamar('GET', '/api/tvs');
+  const alvo = $('outrasTvs');
+  alvo.textContent = '';
+  if (!r.outras || !r.outras.length) { alvo.hidden = true; return; }
+  alvo.append('Outras TVs: ');
+  r.outras.forEach((t, i) => {
+    if (i) alvo.append(' · ');
+    const a = document.createElement('a');
+    a.href = t.url;
+    a.textContent = `${t.nome} (${t.id})`;   // textContent: o nome vem da rede, nunca vira HTML
+    alvo.append(a);
+  });
+  alvo.hidden = false;
 }
 
 // Atualiza "o que está na TV" a cada 30 s, só com a aba do navegador visível (custo zero com a aba escondida).

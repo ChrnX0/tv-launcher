@@ -113,6 +113,7 @@ object PainelWeb {
                 iniciando = false
             }
             Log.i(TAG, "painel ligado na porta ${Config.PAINEL_PORTA}")
+            PainelVizinhos.ligar(app)   // anuncia esta TV e procura as outras na rede (mDNS)
             aceitar(s)
             // Saiu do laço: se não foi um parar() (a porta ainda é a atual), limpa para o próximo ajustar() religar.
             synchronized(this) { if (servidor === s) servidor = null }
@@ -126,6 +127,7 @@ object PainelWeb {
         try { servidor?.close() } catch (_: IOException) {}
         servidor = null
         sessoes.encerrarTodas()
+        PainelVizinhos.desligar()
         Log.i(TAG, "painel desligado")
     }
 
@@ -379,6 +381,7 @@ object PainelWeb {
             "/api/tela/texto" -> if (req.metodo == "POST") return texto(req, ip)
             "/api/tv/reiniciar" -> if (req.metodo == "POST") return reiniciarTv(token, ip)
             "/api/recado" -> if (req.metodo == "POST") return recado(req, ip)
+            "/api/tvs" -> if (req.metodo == "GET") return json(200, PainelVizinhos.json(app))
             "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
         }
 
