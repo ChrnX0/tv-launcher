@@ -47,6 +47,17 @@
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
 
+    <!-- Painel no navegador (PainelWeb.kt, 04/11/2026). REQUEST_DELETE_PACKAGES: exigida pelo PackageInstaller.uninstall;
+         como somos Device Owner, a desinstalação sai sem pedir confirmação na TV. (O painel também usa a QUERY_ALL_PACKAGES
+         declarada mais abaixo, a do Shizuku sob demanda, para listar todos os apps.) -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Fase 2 do painel: instalar APK enviado pelo navegador (em silêncio, por sermos Device Owner) e a aba Arquivos.
+         MANAGE_EXTERNAL_STORAGE ("acesso a todos os arquivos") não se concede pelo Device Owner: o launcher se concede
+         pelo próprio shell na primeira vez (PainelArquivos.garantirAcesso). Sem isso, só enxergaria as pastas dele. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
     <!-- Shizuku EMBUTIDO (MARCO S1): o launcher é o "gerente" do Shizuku. Estas são as permissões que o app Shizuku
          original declarava (fork thedjchi, manager/src/main/AndroidManifest.xml). Os apps clientes pedem a API_V23;
          quem decide se libera é o launcher (tela de permissão, MARCO S2). Não usamos a API_V23 nós mesmos: o servidor
@@ -283,6 +294,11 @@
                 <!-- Ocultar/reexibir um app pelo Device Owner (teste e desfazer). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.OCULTAR" />
                 <action android:name="br.paulo.tvlauncher.REINICIAR" />
+                <!-- Recado na tela e aviso de chuva (teste). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.RECADO" />
+                <action android:name="br.paulo.tvlauncher.CHUVA" />
+                <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
+                <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />
                 <!-- Limpeza de apps de fábrica: relatório dos candidatos (05/11/2026). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.DEBLOAT" />
                 <!-- Rotinas por horário: listar e rodar uma agora (05/11/2026). Só neste receiver (DUMP). -->
@@ -305,6 +321,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Resultado da desinstalação pedida pelo painel no navegador (PainelApps.desinstalar). Não exportado: só o
+             PendingIntent do próprio launcher chega aqui. -->
+        <receiver
+            android:name=".ResultadoDesinstalarReceiver"
+            android:exported="false" />
 
         <!-- Device owner (ver AdminReceiver.kt). Exportado porque o sistema precisa chamá-lo; só o sistema tem BIND_DEVICE_ADMIN. -->
         <receiver

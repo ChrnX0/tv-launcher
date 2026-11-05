@@ -52,6 +52,23 @@ object GuardiaoShizuku {
         }
     }
 
+    /**
+     * Roda UM comando no nosso shell (uid 2000), na mesma fila do guardião (uma conversa com o adb por vez), e espera
+     * até 40 s. Usado pelo painel no navegador para o que o Device Owner não alcança (appops). Só para comandos
+     * MONTADOS PELO CÓDIGO com partes já validadas, nunca texto vindo de fora. Devolve a saída, ou null sem shell.
+     */
+    fun comando(ctx: Context, cmd: String): String? {
+        val app = ctx.applicationContext
+        return try {
+            fila.submit(java.util.concurrent.Callable {
+                Privilegio.religarDepuracaoSemFio(app)
+                ServidorShizuku.executar(app, AdbConnectionManager.obter(app), cmd)
+            }).get(40, java.util.concurrent.TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            anotar(app, "comando do painel falhou: ${e.javaClass.simpleName}"); null
+        }
+    }
+
     /** Usado pelo PareamentoReceiver: pareia (se veio código) e então garante, tudo na mesma fila. */
     fun parearEGarantir(ctx: Context, codigo: String?, porta: Int) {
         val app = ctx.applicationContext

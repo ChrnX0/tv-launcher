@@ -168,6 +168,7 @@ class MainActivity : Activity() {
         Privilegio.religarAcessibilidade(this)   // religa o serviço de teclas do controle se o Android o desligou
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
         PrivilegioDO.aplicar(this)   // Device Owner: fixa o nosso protetor e oculta apps substituidos (ver PrivilegioDO.kt)
+        PainelWeb.ajustar(this)   // painel no navegador: só abre a porta se estiver ligado e com PIN (ver PainelWeb.kt)
         if (Config.SHELL_PROPRIO_DIAG) ShellProprio.diagnosticar(this)   // MARCO 1 do shell proprio: loga chave + porta adb (ver ShellProprio.kt)
         // Shizuku embutido (MARCO S3): sobe o servidor se não estiver de pé e liga o vigia (binder, Wi-Fi, 10 min).
         GuardiaoShizuku.vigiar(this)
@@ -1549,15 +1550,9 @@ class MainActivity : Activity() {
         val arrays = modelos.mapNotNull { h.optJSONArray("precipitation_probability_$it") }
         if (arrays.isEmpty()) throw IllegalStateException("sem modelos")
         val datas = (0 until tempo.length()).map { tempo.getString(it) }
-        val mediana = (0 until tempo.length()).map { i ->
-            val vals = arrays.mapNotNull { a -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null }.sorted()
-            when {
-                vals.isEmpty() -> 0
-                vals.size % 2 == 1 -> vals[vals.size / 2]
-                else -> (vals[vals.size / 2 - 1] + vals[vals.size / 2]) / 2
-            }
-        }
-        datas to mediana
+        // A mesma conta do aviso de chuva (AvisoChuva.mediana), para a HOME e o aviso nunca discordarem.
+        val porModelo = arrays.map { a -> (0 until tempo.length()).map { i -> if (i < a.length() && !a.isNull(i)) a.optInt(i, -1).takeIf { it >= 0 } else null } }
+        datas to AvisoChuva.mediana(porModelo)
     } catch (e: Exception) {
         Log.w("TvLauncher.Local", "chuva multi-modelo falhou: $e")
         null
