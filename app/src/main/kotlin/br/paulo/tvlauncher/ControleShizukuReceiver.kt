@@ -32,6 +32,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val OCULTAR = "br.paulo.tvlauncher.OCULTAR"   // ocultar/reexibir um app pelo DO (só adb)
         const val REINICIAR = "br.paulo.tvlauncher.REINICIAR"   // reiniciar o processo do launcher (só adb)
         const val PAINEL_PIN = "br.paulo.tvlauncher.PAINEL_PIN"   // definir o PIN do painel e ligá-lo (só adb, para testes)
+        const val AUTO_DESLIGAR = "br.paulo.tvlauncher.AUTO_DESLIGAR"   // desligar sozinha: ver/definir/testar (só adb)
         private val fila = Executors.newSingleThreadExecutor()
 
         fun estado(): String = if (Shizuku.pingBinder()) "rodando uid=${Shizuku.getUid()} versao=${Shizuku.getVersion()}" else "parado"
@@ -111,6 +112,14 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
             // Só pelo adb: reinicia o processo do launcher (04/11/2026). O shell não consegue matá-lo (force-stop, am kill
             // e am crash não derrubam: ele segura o serviço de acessibilidade e é Device Owner), e o código recém-compilado
             // (cmd package compile) só vale num processo novo. O sistema sobe a HOME e religa a acessibilidade sozinho.
+            // Só pelo adb: desligar sozinha. Sem extras responde o valor atual. --ei minutos N grava (0, 30, 60, 90, 120,
+            // 180, 240); --ez aviso true mostra o aviso de 60 s agora (teste: deixe correr para a TV apagar, ou aperte
+            // um botão do controle para cancelar).
+            AUTO_DESLIGAR -> if (this is ControleShizukuAdbReceiver) {
+                if (intent.hasExtra("minutos")) AutoDesligar.definir(ctx, intent.getIntExtra("minutos", -1))
+                if (intent.getBooleanExtra("aviso", false)) { AutoDesligar.iniciar(ctx); AutoDesligar.testarAviso() }
+                resultData = "minutos=${AutoDesligar.minutos(ctx)}"
+            }
             REINICIAR -> {
                 resultData = "reiniciando pid=${android.os.Process.myPid()}"
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({

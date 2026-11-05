@@ -21,6 +21,8 @@ class AutorizaShizukuService : AccessibilityService() {
         // O sistema religa este serviço sempre que o processo do launcher sobe de novo (reinício, restauração de
         // backup, falta de memória), mesmo sem a HOME na frente. Então é daqui que o painel no navegador volta.
         PainelWeb.ajustar(this)
+        HistoricoRede.iniciar(this)   // histórico de rede (para o painel) e o "desligar sozinha": também voltam daqui
+        AutoDesligar.iniciar(this)
     }
     override fun onUnbind(intent: android.content.Intent?): Boolean { instancia = null; return super.onUnbind(intent) }
     override fun onDestroy() { instancia = null; super.onDestroy() }
@@ -45,6 +47,8 @@ class AutorizaShizukuService : AccessibilityService() {
         if (Log.isLoggable("TvLauncher.Tecla", Log.DEBUG))
             Log.d("TvLauncher.Tecla", "tecla=${KeyEvent.keyCodeToString(e.keyCode)} (${e.keyCode}) scan=${e.scanCode} " +
                 "acao=${if (e.action == KeyEvent.ACTION_DOWN) "desce" else "sobe"} repete=${e.repeatCount}")
+        // Desligar sozinha: toda tecla conta como "alguém está usando"; com o aviso na tela, a tecla só o cancela.
+        if (AutoDesligar.tecla(e)) return true
         return BotoesControle.tratar(this, e)
     }
 
