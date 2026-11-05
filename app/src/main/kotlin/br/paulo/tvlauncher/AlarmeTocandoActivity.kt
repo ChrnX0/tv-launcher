@@ -89,6 +89,7 @@ class AlarmeTocandoActivity : Activity() {
         val soneca = botao("Soneca 10 min") { soneca() }
         coluna.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_HORIZONTAL   // no timer só há um botão: centralizado embaixo da hora
             clipChildren = false
             addView(parar, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT).apply { if (!timer) marginEnd = dp(24) })
             if (!timer) addView(soneca, LinearLayout.LayoutParams(dp(220), LinearLayout.LayoutParams.WRAP_CONTENT))
