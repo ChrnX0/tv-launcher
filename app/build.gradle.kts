@@ -48,16 +48,15 @@ android {
 
     // Chave de assinatura do release (04/11/2026). Se a variável ASSINATURA_ARQUIVO apontar para um keystore (no GitHub
     // ela vem do segredo ASSINATURA_KEYSTORE_B64), assina com ele. Senão, usa a chave debug desta máquina, como sempre.
-    // A TV do Paulo está assinada com a chave debug do Dell: o segredo do GitHub TEM que ser esse mesmo arquivo
-    // (%USERPROFILE%\.android\debug.keystore). Chave diferente = o Android recusa a atualização, e desinstalar para
-    // trocar perde o Device Owner.
+    // A TV do Paulo continua com a chave debug do Dell e é atualizada pelo Dell (opção A, 04/11/2026). O segredo do
+    // GitHub é uma chave PÚBLICA separada, para quem instala do zero; nunca o debug.keystore do Dell.
     val keystoreDoAmbiente = System.getenv("ASSINATURA_ARQUIVO")?.takeIf { it.isNotBlank() }
     signingConfigs {
         create("release") {
             if (keystoreDoAmbiente != null) {
                 storeFile = file(keystoreDoAmbiente)
-                storePassword = System.getenv("ASSINATURA_SENHA") ?: "android"           // padrão do keystore debug
-                keyAlias = System.getenv("ASSINATURA_ALIAS") ?: "androiddebugkey"
+                storePassword = System.getenv("ASSINATURA_SENHA")?.takeIf { it.isNotBlank() } ?: "android"           // padrão do keystore debug
+                keyAlias = System.getenv("ASSINATURA_ALIAS")?.takeIf { it.isNotBlank() } ?: "androiddebugkey"
                 keyPassword = System.getenv("ASSINATURA_SENHA_CHAVE") ?: storePassword
             }
         }
