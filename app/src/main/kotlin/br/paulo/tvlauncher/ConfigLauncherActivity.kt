@@ -239,6 +239,18 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaChuva)
 
+        // ---- Clima na tela inicial (05/11/2026): a faixa de 9 dias e o lugar (o lugar se escolhe no painel).
+        lateinit var linhaFaixa: TextView
+        fun detalheFaixa(): String {
+            val lugar = LocalClima.ler(this)?.let { "lugar: ${it.nome} (escolhido no painel)" } ?: "lugar: automático (pela rede da TV)"
+            return (if (FaixaDias.ligada(this)) "ligada · OK desliga" else "desligada · OK liga") + " · " + lugar
+        }
+        linhaFaixa = linha("Previsão de 9 dias na tela inicial", detalheFaixa()) {
+            FaixaDias.definirLigada(this, !FaixaDias.ligada(this))
+            linhaFaixa.detalhe(detalheFaixa())
+        }
+        adicionar(linhaFaixa)
+
         // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
         // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
         if (Config.APPS_OCULTAR.isNotEmpty()) {

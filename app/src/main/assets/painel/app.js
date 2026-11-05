@@ -127,7 +127,7 @@ function mudarAba(nome) {
   $('abaControle').hidden = nome !== 'controle';
   $('abaFalar').hidden = nome !== 'falar';
   if (nome === 'falar') carregarIa();
-  if (nome === 'controle') atualizarFoto(); else pararFoto();
+  if (nome === 'controle') { atualizarFoto(); carregarClima(); } else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
   $('abaSaude').hidden = nome !== 'saude';
   if (nome === 'saude') carregarSaude();
@@ -1305,6 +1305,41 @@ $('formRecado').addEventListener('submit', async (ev) => {
       : 'Recado na tela da TV.');
     setTimeout(atualizarFoto, 600);   // a foto mostra o recado
   } catch (e) { mostrar($('statusControle'), e.message); }
+});
+
+// ---------- lugar do clima (LocalClima.kt na TV) ----------
+
+function mostrarClima(c) {
+  $('estadoClima').textContent = c.fixo
+    ? `fixo em "${c.fixo.nome}" (${c.fixo.lat.toFixed(4)}, ${c.fixo.lon.toFixed(4)})`
+    : 'automático (pela rede da TV)' + (c.usado ? `, agora em ${c.usado.lat.toFixed(4)}, ${c.usado.lon.toFixed(4)}` : '');
+  if (c.fixo) { $('nomeClima').value = c.fixo.nome; $('coordClima').value = `${c.fixo.lat}, ${c.fixo.lon}`; }
+  $('faixaClima').checked = !!c.faixa;
+}
+
+async function carregarClima() {
+  try { mostrarClima(await chamar('GET', '/api/clima')); } catch (e) { $('estadoClima').textContent = e.message; }
+}
+
+$('formClima').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  try {
+    mostrarClima(await chamar('POST', '/api/clima', { nome: $('nomeClima').value.trim(), coordenadas: $('coordClima').value.trim() }));
+    mostrar($('statusControle'), 'Lugar salvo: o clima da TV atualiza em alguns segundos.');
+  } catch (e) { mostrar($('statusControle'), e.message); }
+});
+
+$('btnClimaAuto').addEventListener('click', async () => {
+  try {
+    mostrarClima(await chamar('POST', '/api/clima', { automatico: true }));
+    $('nomeClima').value = ''; $('coordClima').value = '';
+    mostrar($('statusControle'), 'O clima volta a seguir a localização da TV.');
+  } catch (e) { mostrar($('statusControle'), e.message); }
+});
+
+$('faixaClima').addEventListener('change', async () => {
+  try { mostrarClima(await chamar('POST', '/api/clima', { faixa: $('faixaClima').checked })); }
+  catch (e) { mostrar($('statusControle'), e.message); }
 });
 
 $('btnReiniciarTv').addEventListener('click', async () => {
