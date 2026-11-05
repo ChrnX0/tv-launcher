@@ -106,6 +106,8 @@ function mudarAba(nome) {
   for (const b of document.querySelectorAll('.aba')) b.classList.toggle('ativa', b.dataset.aba === nome);
   $('abaApps').hidden = nome !== 'apps';
   $('abaArquivos').hidden = nome !== 'arquivos';
+  $('abaControle').hidden = nome !== 'controle';
+  if (nome === 'controle') atualizarFoto(); else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
   $('abaRegistro').hidden = nome !== 'registro';
   if (nome === 'apps') carregarApps();
@@ -203,9 +205,11 @@ async function tvEmUso() {
 
 // ---------- aplicativos ----------
 
+let usoHoje = {};
 async function carregarApps() {
   mostrar($('statusApps'), 'Carregando…');
   try {
+    chamar('GET', '/api/uso').then((u) => { usoHoje = u.minutos || {}; desenharApps(); }).catch(() => {});
     const r = await chamar('GET', '/api/apps');
     apps = r.apps.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     desenharApps();
@@ -264,7 +268,7 @@ function linhaApp(a) {
   nome.textContent = a.nome;
   const pacote = document.createElement('span');
   pacote.className = 'pacote';
-  pacote.textContent = a.pacote + (a.versao ? ' · ' + a.versao : '');
+  pacote.textContent = a.pacote + (a.versao ? ' · ' + a.versao : '') + (usoHoje[a.pacote] ? ` · hoje: ${usoHoje[a.pacote]} min` : '');
   const selos = document.createElement('div');
   selos.className = 'selos';
   if (a.oculto) selos.appendChild(selo('oculto', 'oculto'));
@@ -517,7 +521,7 @@ async function abrirPermissoes(a) {
     const [f, p] = await Promise.all([chamar('GET', base + '/ficha'), chamar('GET', base + '/permissoes')]);
     if (meu !== permAtual) return;
     desenharPermissoes(a, p);
-    $('listaPerm').prepend(desenharFicha(f));
+    $('listaPerm').prepend(desenharFicha(f), acoesDoApp(a));
   } catch (e) {
     if (meu === permAtual) $('avisoPerm').textContent = e.message;
   }
@@ -585,6 +589,11 @@ function desenharFicha(f) {
     for (const t of itens) { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); }
     c.appendChild(ul);
   };
+  if (f.espaco) {
+    const e = document.createElement('p'); e.className = 'aviso-curto';
+    e.textContent = `Espaço: app ${tamanhoLegivel(f.espaco.app)} · dados ${tamanhoLegivel(f.espaco.dados)} (cache ${tamanhoLegivel(f.espaco.cache)})`;
+    c.appendChild(e);
+  }
   lista('O que ele faz nesta TV agora', f.papeis);
   lista('Quem depende dele (pela TV)', f.usadoPor.map((u) => `${u.nome} — ${u.como}`));
   lista('Quem depende dele (pela lista)', f.dependentesConhecidos);
@@ -788,6 +797,104 @@ $('arquivosEnviar').addEventListener('change', async (ev) => {
   }
   await abrirPasta(destino);
   mostrar(status, `${feitos} arquivo(s) enviado(s).`);
+});
+
+// ---------- ações do app (no Detalhes) ----------
+
+function acoesDoApp(a) {
+  const c = document.createElement('div');
+  c.className = 'acoes acoes-app';
+  const base = '/api/apps/' + encodeURIComponent(a.pacote);
+  const botao = (texto, classe, fazer) => {
+    const b = document.createElement('button');
+    b.className = classe; b.textContent = texto;
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { const msg = await fazer(); if (msg) mostrar($('statusPerm'), msg); } catch (e) { mostrar($('statusPerm'), e.message); } finally { b.disabled = false; }
+    });
+    c.appendChild(b);
+  };
+  if (a.abrivel) botao('Abrir na TV', 'botao-secundario', async () => {
+    const emUso = await tvEmUso();
+    if (emUso && !(await confirmar('Abrir ' + a.nome + '?', `A TV está em uso agora (${emUso}). Abrir troca o que está na tela.`, 'Abrir', async () => true))) return '';
+    await chamar('POST', base + '/abrir', {}); return a.nome + ' aberto na TV.';
+  });
+  if (!a.protegido) botao('Parar', 'botao-secundario', async () => {
+    const emUso = await tvEmUso();
+    const ok = await confirmar('Parar ' + a.nome + '?', 'Fecha o app à força (como "Forçar parada"). Ele volta ao normal quando for aberto de novo.' +
+      (emUso ? ` A TV está em uso agora (${emUso}).` : ''), 'Parar', () => chamar('POST', base + '/parar', {}));
+    return ok ? a.nome + ' parado.' : '';
+  });
+  if (!a.protegido && !a.sistema) botao('Limpar dados', 'botao-perigo', async () => {
+    const ok = await confirmar('Limpar os dados de ' + a.nome + '?',
+      'Apaga login, configurações e downloads do app, como se tivesse acabado de instalar. Não tem volta.', 'Limpar dados',
+      () => chamar('POST', base + '/limpar', {}));
+    return ok ? 'Dados de ' + a.nome + ' apagados.' : '';
+  });
+  return c;
+}
+
+// ---------- controle: foto da tela e teclas ----------
+
+let fotoTimer = null;
+let fotoUrl = null;
+let fotoPedindo = false;
+
+function pararFoto() { if (fotoTimer) { clearTimeout(fotoTimer); fotoTimer = null; } }
+
+/** Pede uma foto a cada 2 s, só com a aba Controle aberta e o navegador visível (sem ninguém olhando, custo zero). */
+async function atualizarFoto() {
+  pararFoto();
+  if ($('abaControle').hidden || $('telaPainel').hidden) return;
+  if (document.visibilityState === 'visible' && !fotoPedindo) {
+    fotoPedindo = true;
+    try {
+      const r = await fetch('/api/tela/foto', { credentials: 'same-origin', cache: 'no-store' });
+      if (r.status === 401) { mostrarEntrar('Sessão expirada: entre de novo.'); return; }
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.erro || `Falha (${r.status})`); }
+      const url = URL.createObjectURL(await r.blob());
+      $('fotoTela').src = url;
+      if (fotoUrl) URL.revokeObjectURL(fotoUrl);
+      fotoUrl = url;
+      $('statusTela').textContent = 'Atualiza a cada 2 s · ' + new Date().toLocaleTimeString('pt-BR');
+    } catch (e) {
+      $('statusTela').textContent = e.message;
+    } finally {
+      fotoPedindo = false;
+    }
+  }
+  fotoTimer = setTimeout(atualizarFoto, 2000);
+}
+document.addEventListener('visibilitychange', () => { if (!$('abaControle').hidden) atualizarFoto(); });
+
+for (const b of document.querySelectorAll('[data-tecla]')) {
+  b.addEventListener('click', async () => {
+    try {
+      await chamar('POST', '/api/tela/tecla', { tecla: b.dataset.tecla });
+      mostrar($('statusControle'), '');
+      setTimeout(atualizarFoto, 400);   // mostra logo o efeito da tecla
+    } catch (e) { mostrar($('statusControle'), e.message); }
+  });
+}
+
+$('formTexto').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const t = $('campoTexto').value;
+  if (!t) return;
+  if (!/^[A-Za-z0-9 .,@_\-]{1,100}$/.test(t)) { mostrar($('statusControle'), 'Só letras sem acento, números, espaço e . , @ _ -'); return; }
+  try {
+    await chamar('POST', '/api/tela/texto', { texto: t });
+    $('campoTexto').value = '';
+    mostrar($('statusControle'), '');
+    setTimeout(atualizarFoto, 400);
+  } catch (e) { mostrar($('statusControle'), e.message); }
+});
+
+$('btnReiniciarTv').addEventListener('click', async () => {
+  const emUso = await tvEmUso();
+  const ok = await confirmar('Reiniciar a TV?', 'A TV desliga e liga de novo (cerca de 1 min). O painel volta sozinho depois.' +
+    (emUso ? ` Atenção: a TV está em uso agora (${emUso}).` : ''), 'Reiniciar', () => chamar('POST', '/api/tv/reiniciar', {}));
+  if (ok) mostrar($('statusControle'), 'Reiniciando… o painel volta em cerca de 1 min.');
 });
 
 // ---------- início ----------

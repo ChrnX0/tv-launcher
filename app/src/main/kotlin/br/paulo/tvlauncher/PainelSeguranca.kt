@@ -285,4 +285,11 @@ object ChecagensPainel {
     /** [canonico] (caminho real) está dentro de [raiz] (ou é ela)? Comparação por pedaço: "/a/bc" não está em "/a/b". */
     fun dentroDe(canonico: String, raiz: String): Boolean =
         canonico == raiz || canonico.startsWith(raiz.trimEnd('/') + "/")
+
+    /**
+     * Texto que o painel manda digitar na TV (`input text '...'` no shell). Só letras sem acento, números, espaço e
+     * . , @ _ - : sem aspas, ponto e vírgula, $, crase, barra ou quebra de linha, nada escapa das aspas simples.
+     */
+    private val TEXTO_TV = Regex("^[A-Za-z0-9 .,@_\\-]{1,100}$")
+    fun textoTvValido(t: String?): Boolean = t != null && TEXTO_TV.matches(t)
 }

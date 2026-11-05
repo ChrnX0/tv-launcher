@@ -317,6 +317,11 @@ object PainelWeb {
             "/api/arquivos/enviar" -> if (req.metodo == "POST") return enviarArquivo(req, ip)
             "/api/arquivos/pasta" -> if (req.metodo == "POST") return criarPasta(req, ip)
             "/api/arquivos/apagar" -> if (req.metodo == "POST") return apagarArquivo(req, token, ip)
+            "/api/tela/foto" -> if (req.metodo == "GET") return fotoTela()
+            "/api/tela/tecla" -> if (req.metodo == "POST") return tecla(req)
+            "/api/tela/texto" -> if (req.metodo == "POST") return texto(req, ip)
+            "/api/tv/reiniciar" -> if (req.metodo == "POST") return reiniciarTv(token, ip)
+            "/api/uso" -> if (req.metodo == "GET") return json(200, JSONObject().put("minutos", PainelControle.usoHoje(app)))
         }
 
         // /api/apps/<pacote>/<ação>
@@ -328,7 +333,15 @@ object PainelWeb {
                 "icone" -> if (req.metodo == "GET") return icone(req, pacote)
                 "ocultar" -> if (req.metodo == "POST") return ocultar(req, pacote, ip)
                 "desinstalar" -> if (req.metodo == "POST") return desinstalar(pacote, token, ip)
-                "ficha" -> if (req.metodo == "GET") return PainelFicha.ficha(app, pacote)?.let { json(200, it) } ?: erro(404, "app não encontrado")
+                "ficha" -> if (req.metodo == "GET") return PainelFicha.ficha(app, pacote)
+                    ?.apply { put("espaco", PainelControle.espaco(app, pacote) ?: JSONObject.NULL) }
+                    ?.let { json(200, it) } ?: erro(404, "app não encontrado")
+                "abrir" -> if (req.metodo == "POST") return acaoApp(ip, "abrir", pacote) { PainelControle.abrir(app, pacote) }
+                "parar" -> if (req.metodo == "POST") return acaoApp(ip, "parar", pacote) { PainelControle.parar(app, pacote) }
+                "limpar" -> if (req.metodo == "POST") {
+                    if (!sessoes.elevada(token)) return precisaPin()
+                    return acaoApp(ip, "limpar dados de", pacote) { PainelControle.limparDados(app, pacote) }
+                }
                 "permissoes" -> if (req.metodo == "GET") return PainelPermissoes.listar(app, pacote)?.let { json(200, it) } ?: erro(404, "app não encontrado")
                 "permissao" -> if (req.metodo == "POST") return mudarPermissao(req, pacote, ip)
                 "especial" -> if (req.metodo == "POST") return mudarEspecial(req, pacote, ip)
@@ -542,5 +555,40 @@ object PainelWeb {
         val n = PainelArquivos.apagar(app, caminho)
         PainelArmazem.registrar(app, ip, "apagar ${caminho.take(120)}", "ok, $n item(ns)")
         return json(200, JSONObject().put("ok", true).put("apagados", n))
+    }
+
+    // ---------------------------------------------------------------- bloco C: tela, controle, ações de app
+
+    private fun acaoApp(ip: String, acao: String, pacote: String, fazer: () -> String?): Resposta {
+        val motivo = fazer()
+        PainelArmazem.registrar(app, ip, "$acao $pacote", motivo ?: "ok")
+        return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    private fun fotoTela(): Resposta {
+        val (jpg, motivo) = PainelControle.foto()
+        return if (jpg != null) Resposta(200, "image/jpeg", jpg) else erro(503, motivo ?: "sem foto")
+    }
+
+    private fun tecla(req: Requisicao): Resposta {
+        val nome = corpoJson(req)?.optString("tecla") ?: return erro(400, "JSON inválido")
+        val motivo = PainelControle.tecla(app, nome)
+        return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    private fun texto(req: Requisicao, ip: String): Resposta {
+        val t = corpoJson(req)?.optString("texto") ?: return erro(400, "JSON inválido")
+        val motivo = PainelControle.digitar(app, t)
+        // O texto em si não vai para o registro (pode ser uma senha digitada pelo painel).
+        PainelArmazem.registrar(app, ip, "digitar ${t.length} caractere(s)", motivo ?: "ok")
+        return if (motivo == null) json(200, JSONObject().put("ok", true)) else erro(409, motivo)
+    }
+
+    private fun reiniciarTv(token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        PainelArmazem.registrar(app, ip, "reiniciar a TV", "pedido")
+        // Depois da resposta sair: senão o navegador fica sem saber se deu certo.
+        Handler(Looper.getMainLooper()).postDelayed({ PainelControle.reiniciarTv(app) }, 1500)
+        return json(200, JSONObject().put("ok", true))
     }
 }

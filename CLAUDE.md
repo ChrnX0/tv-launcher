@@ -233,7 +233,11 @@ da fase 0: `/mnt/project-files/tv-launcher/painel-no-launcher.md`.
   "/overlay/" no caminho do APK): risco essencial/cuidado/seguro, efeito de ocultar, papéis em uso (teclado, HOME, VPN,
   acessibilidade, protetor, assistente, navegador) e "usado por" calculado na TV (biblioteca compartilhada e permissão que o app
   define). Papel em uso sobe o risco para essencial. Pacote novo na TV sem ficha = "sem informação": acrescentar no JSON.
-- Fases seguintes (não feitas): foto da tela, controle remoto, HTTPS.
+- Aba Controle (`PainelControle.kt`, 05/11/2026): foto da tela pela acessibilidade (`canTakeScreenshot` no XML; JPEG 1280x720
+  a cada 2 s só com a aba visível), teclas (VOLTAR/INÍCIO pela acessibilidade, o resto `input keyevent` no shell, tabela fixa),
+  texto (`ChecagensPainel.textoTvValido`, sem aspas nem acento), acordar/dormir, reiniciar a TV (DO `reboot`, PIN). No Detalhes:
+  abrir, parar (`am force-stop`) e limpar dados (DO `clearApplicationUserData`, só app instalado, PIN); espaço e uso de hoje.
+- Fases seguintes (não feitas): alarmes pelo painel, horário de dormir, ver o Quarto, HTTPS.
 
 # chromecast-painel — painel de administração (subpasta deste mesmo repo)
 
