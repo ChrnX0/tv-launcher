@@ -188,12 +188,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <!-- Contagem por voz (ver TimerActivity): o Gemini desta TV recusa "timer de X minutos" sem mandar o SET_TIMER,
-             então cada duração é um "app" ("Ok Google, abrir Contagem de 10 minutos"). Sem a palavra "timer" no nome. -->
+        <!-- Contagem por voz (ver TimerActivity). O Gemini desta TV recusa "timer de X minutos" e, para "abrir Contagem de
+             1 minuto", buscou vídeos de contagem no YouTube (05/11/2026): palavra de timer vira pedido dele, não "abrir app".
+             Por isso o nome copia o formato que funcionou ("Desligar em 30 minutos"): verbo + "em N minutos". -->
         <activity-alias
-            android:name=".Contagem1"
+            android:name=".Avisar5"
             android:exported="true"
-            android:label="Contagem de 1 minuto"
+            android:label="Avisar em 5 minutos"
             android:targetActivity=".TimerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -202,9 +203,9 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".Contagem5"
+            android:name=".Avisar10"
             android:exported="true"
-            android:label="Contagem de 5 minutos"
+            android:label="Avisar em 10 minutos"
             android:targetActivity=".TimerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -213,9 +214,9 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".Contagem10"
+            android:name=".Avisar15"
             android:exported="true"
-            android:label="Contagem de 10 minutos"
+            android:label="Avisar em 15 minutos"
             android:targetActivity=".TimerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -224,9 +225,9 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".Contagem15"
+            android:name=".Avisar20"
             android:exported="true"
-            android:label="Contagem de 15 minutos"
+            android:label="Avisar em 20 minutos"
             android:targetActivity=".TimerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -235,9 +236,9 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".Contagem30"
+            android:name=".Avisar30"
             android:exported="true"
-            android:label="Contagem de 30 minutos"
+            android:label="Avisar em 30 minutos"
             android:targetActivity=".TimerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -246,9 +247,9 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".ContagemRegressiva"
+            android:name=".Ampulheta"
             android:exported="true"
-            android:label="Contagem regressiva"
+            android:label="Ampulheta"
             android:targetActivity=".TimerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -257,9 +258,9 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".PararContagem"
+            android:name=".NaoAvisar"
             android:exported="true"
-            android:label="Parar contagem"
+            android:label="Não avisar"
             android:targetActivity=".TimerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
