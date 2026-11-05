@@ -13,4 +13,7 @@ class DebloatTest {
         assertFalse(Debloat.permitido(Debloat.Item("com.google.android.apps.tv.launcherx", "Google TV", "tudo", "05/11/2026")))
 
     @Test fun listaNaoTemPacoteProibido() = assertTrue(Debloat.LISTA.none { it.pacote in Debloat.NUNCA })
+
+    @Test fun playGamesENaoInstaladoFicamFora() = assertTrue(Debloat.LISTA.filter { Debloat.permitido(it) }.map { it.pacote }
+        .none { it == "com.google.android.play.games" || it == "com.google.android.tvrecommendations" })
 }
