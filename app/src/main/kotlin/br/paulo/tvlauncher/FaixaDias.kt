@@ -52,6 +52,19 @@ object FaixaDias {
         return lista
     }
 
+    /**
+     * A chance de chuva do dia mostrada na faixa: o meio-termo entre o PICO (a hora mais chuvosa) e a MÉDIA das horas,
+     * cada um já pela mediana dos modelos. O pico sozinho exagerava: uma hora com 76% fazia o dia inteiro virar 76%.
+     * Comparado com a tela do Google em 05/11/2026 (9 dias, UMA amostra só): erro médio de 17,9 pontos com o pico,
+     * 14,8 com a média e 9,9 com o meio-termo. Validar com mais fotos do Google antes de confiar.
+     * Sem a média (campo faltando), vale o pico; sem o pico, null (a faixa cai no best_match).
+     */
+    fun chanceDoDia(pico: List<Int>?, media: List<Int>?): List<Int>? {
+        if (pico == null) return null
+        if (media == null) return pico
+        return pico.mapIndexed { i, p -> media.getOrNull(i)?.let { Math.round((p + it) / 2.0).toInt() } ?: p }
+    }
+
     /** "Hoje" no primeiro; nos outros, o dia da semana curto do idioma da TV ("sex.", "Fri"). */
     fun rotulo(dia: Dia, indice: Int, hoje: String, locale: Locale = Locale.getDefault()): String {
         if (indice == 0) return hoje

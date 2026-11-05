@@ -1708,7 +1708,7 @@ class MainActivity : Activity() {
         // Na mesma chamada, a chance máxima de cada dia (para a faixa de 9 dias): o mesmo exagero do ECMWF vale por dia.
         val url = "https://api.open-meteo.com/v1/forecast?latitude=${ponto.lat}&longitude=${ponto.lon}" +
             "&hourly=precipitation_probability&forecast_hours=24" +
-            "&daily=precipitation_probability_max&forecast_days=${FaixaDias.DIAS}" +
+            "&daily=precipitation_probability_max,precipitation_probability_mean&forecast_days=${FaixaDias.DIAS}" +
             "&timezone=auto&models=${modelos.joinToString(",")}"
         val json = JSONObject(httpGet(url) ?: throw IllegalStateException("sem resposta"))
         val h = json.getJSONObject("hourly")
@@ -1720,8 +1720,10 @@ class MainActivity : Activity() {
         // A mesma conta do aviso de chuva (AvisoChuva.mediana), para a HOME e o aviso nunca discordarem.
         val porModelo = arrays.map { valores(it, tempo.length()) }
         val d = json.optJSONObject("daily")
-        val diasPorModelo = d?.let { dj -> modelos.mapNotNull { dj.optJSONArray("precipitation_probability_max_$it") }.map { valores(it, it.length()) } }
-        ChuvaModelos(datas, AvisoChuva.mediana(porModelo), diasPorModelo?.takeIf { it.isNotEmpty() }?.let { AvisoChuva.mediana(it) })
+        fun porDia(campo: String) = d?.let { dj -> modelos.mapNotNull { dj.optJSONArray("${campo}_$it") }.map { valores(it, it.length()) } }
+            ?.takeIf { it.isNotEmpty() }?.let { AvisoChuva.mediana(it) }
+        ChuvaModelos(datas, AvisoChuva.mediana(porModelo),
+            FaixaDias.chanceDoDia(porDia("precipitation_probability_max"), porDia("precipitation_probability_mean")))
     } catch (e: Exception) {
         Log.w("TvLauncher.Local", "chuva multi-modelo falhou: $e")
         null
