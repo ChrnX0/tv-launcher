@@ -7,8 +7,7 @@ import java.util.Locale
 
 /**
  * Previsão por dia (05/11/2026). A faixa na tela inicial saiu em 06/11 (a previsão completa fica na tela do clima);
- * [DIAS] dias, cada um com o nome do dia, o ícone, a máxima e a mínima e a chance de chuva. Aqui fica só a lógica
- * aqui fica a lógica (ler o JSON da Open-Meteo, nomes dos dias), testável no computador.
+ * [DIAS] dias, cada um com o nome do dia, o ícone, a máxima e a mínima e a chance de chuva. Aqui fica só a lógica (ler o JSON da Open-Meteo, nomes dos dias), testável no computador.
  */
 object FaixaDias {
     const val DIAS = 9                      // o mesmo que a tela do Google mostra
