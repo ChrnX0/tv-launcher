@@ -510,6 +510,7 @@
                 <action android:name="br.paulo.tvlauncher.RECADO" />
                 <action android:name="br.paulo.tvlauncher.CHUVA" />
                 <action android:name="br.paulo.tvlauncher.UNIFI" />
+                <action android:name="br.paulo.tvlauncher.HOME_TESTE" />
                 <action android:name="br.paulo.tvlauncher.LOCAL_CLIMA" />
                 <!-- Definir o PIN do painel no navegador e ligá-lo (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.PAINEL_PIN" />

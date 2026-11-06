@@ -117,19 +117,28 @@ object PlayerArmazem {
      * O último canal assistido. Arquivo (files/player/ultimo.json), e não preferência: quem grava é o player (":player") e
      * quem também lê é a HOME, para o "Continuar" do disco da TV; preferência ficaria velha no processo da HOME.
      */
-    data class Ultimo(val id: String, val numero: Int, val nome: String)
+    /** O último canal e o que passa nele (até 4 programas, gravados pelo player), para o destaque da HOME. */
+    data class Ultimo(val id: String, val numero: Int, val nome: String, val programas: List<Programa> = emptyList())
 
+    // Arquivo, e não prefs: o player roda em outro processo (":player"), e prefs não se veem entre processos na hora.
     fun ultimo(ctx: Context): Ultimo? = runCatching {
         val o = JSONObject(File(File(ctx.filesDir, "player"), "ultimo.json").readText())
-        Ultimo(o.getString("id"), o.optInt("numero"), o.optString("nome").take(60))
+        val ps = o.optJSONArray("p")
+        val programas = if (ps == null) emptyList() else (0 until minOf(ps.length(), 4)).mapNotNull { i ->
+            ps.optJSONObject(i)?.let { Programa("", it.optLong("i"), it.optLong("f"), it.optString("t").take(80)) }
+        }
+        Ultimo(o.getString("id"), o.optInt("numero"), o.optString("nome").take(60), programas)
     }.getOrNull()
 
     fun ultimoCanal(ctx: Context): String? = ultimo(ctx)?.id ?: prefs(ctx).getString("ultimo", null)
 
-    fun definirUltimoCanal(ctx: Context, c: Canal) {
+    /** Grava o canal (e os próximos programas, se o guia já carregou). Escrita atômica: grava ao lado e troca o nome. */
+    fun definirUltimoCanal(ctx: Context, c: Canal, programas: List<Programa> = emptyList()) {
         runCatching {
+            val ps = org.json.JSONArray()
+            programas.take(4).forEach { ps.put(JSONObject().put("i", it.inicio).put("f", it.fim).put("t", it.titulo.take(80))) }
             val tmp = File(pasta(ctx), "ultimo.json.tmp")
-            tmp.writeText(JSONObject().put("id", c.id).put("numero", c.numero).put("nome", c.nome).toString())
+            tmp.writeText(JSONObject().put("id", c.id).put("numero", c.numero).put("nome", c.nome).put("p", ps).toString())
             tmp.renameTo(File(pasta(ctx), "ultimo.json"))
         }
     }
