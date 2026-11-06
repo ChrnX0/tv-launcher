@@ -175,7 +175,7 @@ class FilmesActivity : Activity() {
         if (cont > 0) l += Item(CONTINUAR, getString(R.string.filmes_continuar), cont)
         if (termo.isNotEmpty()) l += Item(BUSCA, getString(R.string.player_cat_busca, termo), resultados.size)
         l += Item(TODOS, getString(R.string.player_cat_todos), filmes.size)
-        Vod.grupos(filmes).forEach { (g, n) -> l += Item("g:$g", g.ifEmpty { getString(R.string.player_cat_outros) }, n) }
+        Vod.grupos(filmes).forEach { (g, n) -> l += Item("g:$g", PlayerLista.nomeExibido(g).ifEmpty { getString(R.string.player_cat_outros) }, n) }
         itens = l
         if (itens.none { it.chave == chave }) chave = TODOS
         adaptadorCats.notifyDataSetChanged()
@@ -312,7 +312,7 @@ class FilmesActivity : Activity() {
     }
 
     private fun mostrarFocado(f: Filme?) {
-        focado.text = f?.let { listOfNotNull(it.nome, it.ano?.toString(), it.nota?.let { n -> "★ %.1f".format(Locale.getDefault(), n) }, it.grupo.ifEmpty { null }).joinToString("   ·   ") }.orEmpty()
+        focado.text = f?.let { listOfNotNull(it.nome, it.ano?.toString(), it.nota?.let { n -> "★ %.1f".format(Locale.getDefault(), n) }, PlayerLista.nomeExibido(it.grupo).ifEmpty { null }).joinToString("   ·   ") }.orEmpty()
     }
 
     // ---------------------------------------------------------------- ficha do filme
@@ -345,7 +345,7 @@ class FilmesActivity : Activity() {
             (f.ano?.toString() ?: info?.lancamento?.take(4)?.takeIf { it.isNotEmpty() }),
             info?.duracaoMin?.let { if (it >= 60) "${it / 60} h ${it % 60} min" else "$it min" },
             f.nota?.let { "★ %.1f".format(Locale.getDefault(), it) },
-            info?.genero?.ifEmpty { null } ?: f.grupo.ifEmpty { null },
+            info?.genero?.ifEmpty { null } ?: PlayerLista.nomeExibido(f.grupo).ifEmpty { null },
         ).joinToString("   ·   ")
         texto.addView(TextView(this).apply { text = dados; textSize = 14f; setTextColor(suave); setPadding(0, dp(8), 0, 0) })
 

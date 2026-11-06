@@ -24,10 +24,17 @@ object PlayerLista {
     const val ACAO_BUSCAR = "*acao:buscar"   // linhas de ação no topo da coluna (não são categorias)
     const val ACAO_FILTROS = "*acao:filtros"
     const val ACAO_GUIA = "*acao:guia"
-    const val ACAO_FILMES = "*acao:filmes"
-    const val ACAO_SERIES = "*acao:series"
     const val MAX_RECENTES = 30
     const val MAX_FAVORITOS = 500
+
+    private val prefixoTipo = Regex("""^\s*(canais|canal|filmes|filme|s[ée]ries|s[ée]rie|movies|vod)\s*[|:\-–]\s*""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Nome do grupo para a TELA, sem o prefixo do tipo que muitas listas põem ("Canais | Jogos de Hoje" vira
+     * "Jogos de Hoje"; "Filmes | Ação", "Séries: Drama" idem). Quem abriu a tela já sabe se está em canais, filmes ou
+     * séries. Só a exibição muda: a chave do grupo (filtros, ocultas) continua com o nome original.
+     */
+    fun nomeExibido(nome: String): String = nome.replace(prefixoTipo, "").trim().ifEmpty { nome.trim() }
 
     /** Nome usado para canal sem grupo na lista (a tela mostra "Outros"). */
     const val SEM_GRUPO = ""

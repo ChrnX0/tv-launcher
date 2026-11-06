@@ -131,7 +131,7 @@ class SeriesActivity : Activity() {
         grade.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
                 focado.text = naGrade.getOrNull(pos)?.let { s ->
-                    listOfNotNull(s.nome, s.ano?.toString(), s.nota?.let { "★ %.1f".format(Locale.getDefault(), it) }, s.grupo.ifEmpty { null }).joinToString("   ·   ")
+                    listOfNotNull(s.nome, s.ano?.toString(), s.nota?.let { "★ %.1f".format(Locale.getDefault(), it) }, PlayerLista.nomeExibido(s.grupo).ifEmpty { null }).joinToString("   ·   ")
                 }.orEmpty()
             }
             override fun onNothingSelected(p: AdapterView<*>?) {}
@@ -170,7 +170,7 @@ class SeriesActivity : Activity() {
         if (cont > 0) l += Item(CONTINUAR, getString(R.string.filmes_continuar), cont)
         if (termo.isNotEmpty()) l += Item(BUSCA, getString(R.string.player_cat_busca, termo), resultados.size)
         l += Item(TODOS, getString(R.string.player_cat_todos), series.size)
-        Series.grupos(series).forEach { (g, n) -> l += Item("g:$g", g.ifEmpty { getString(R.string.player_cat_outros) }, n) }
+        Series.grupos(series).forEach { (g, n) -> l += Item("g:$g", PlayerLista.nomeExibido(g).ifEmpty { getString(R.string.player_cat_outros) }, n) }
         itens = l
         if (itens.none { it.chave == chave }) chave = TODOS
         adaptadorCats.notifyDataSetChanged()
@@ -323,7 +323,7 @@ class SeriesActivity : Activity() {
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(28), 0, 0, 0) }
         col.addView(TextView(this).apply { text = Vod.nomeLimpo(s.nome); textSize = 26f; typeface = fonteMedia; setTextColor(papel); maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
         val dados = listOfNotNull(s.ano?.toString(), f?.temporadas?.size?.let { resources.getQuantityString(R.plurals.series_temporadas, it, it) },
-            s.nota?.let { "★ %.1f".format(Locale.getDefault(), it) }, f?.genero?.ifEmpty { null } ?: s.grupo.ifEmpty { null }).joinToString("   ·   ")
+            s.nota?.let { "★ %.1f".format(Locale.getDefault(), it) }, f?.genero?.ifEmpty { null } ?: PlayerLista.nomeExibido(s.grupo).ifEmpty { null }).joinToString("   ·   ")
         col.addView(TextView(this).apply { text = dados; textSize = 13.5f; setTextColor(suave); setPadding(0, dp(6), 0, 0) })
         f?.sinopse?.takeIf { it.isNotEmpty() }?.let {
             col.addView(TextView(this).apply { text = it; textSize = 13.5f; setTextColor(papel); maxLines = 3; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(8), 0, 0) })

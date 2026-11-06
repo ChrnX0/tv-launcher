@@ -80,4 +80,13 @@ class PlayerListaTest {
         assertTrue(PlayerLista.idsDeJson("lixo", 10).isEmpty())
         assertEquals(2, PlayerLista.idsDeJson("""["a","b","c"]""", 2).size)
     }
+
+    @Test fun nomeExibidoTiraOPrefixoDoTipo() {
+        assertEquals("Jogos de Hoje", PlayerLista.nomeExibido("Canais | Jogos de Hoje"))
+        assertEquals("Ação", PlayerLista.nomeExibido("FILMES: Ação"))
+        assertEquals("Drama", PlayerLista.nomeExibido("Séries - Drama"))
+        assertEquals("Esportes", PlayerLista.nomeExibido("Esportes"))
+        assertEquals("Canal Brasil", PlayerLista.nomeExibido("Canal Brasil"))   // sem separador: é nome, não prefixo
+        assertEquals("Canais |", PlayerLista.nomeExibido("Canais |"))           // só o prefixo: mantém o original
+    }
 }
