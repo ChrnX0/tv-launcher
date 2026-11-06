@@ -191,6 +191,11 @@
             android:label="DNS privado" />
         <!-- "Configurações do launcher": aparência, DNS, teste de velocidade, permissões, diagnóstico (aberta pelo card "Launcher" do popup do perfil) -->
         <!-- Assistente de primeira abertura (só sem Device Owner, uma vez): BoasVindasActivity.kt -->
+        <!-- Conectar o Claude (e outros clientes MCP) pela internet: QR codes do Tailscale e do endereço. -->
+        <activity
+            android:name=".ConectarClaudeActivity"
+            android:exported="false"
+            android:label="Claude pela internet" />
         <activity
             android:name=".BoasVindasActivity"
             android:exported="false"

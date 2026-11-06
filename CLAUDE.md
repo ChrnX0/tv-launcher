@@ -407,5 +407,16 @@ e curto. Commits/push: branch própria + PR em rascunho (permissão global de 04
   Keystore. A do UniFi (`unifi_chave_api`) é outra e fica.
 - Teste só pelo adb: `am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "teste" --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}' -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver`
   e `-a br.paulo.tvlauncher.IA_ESTADO` (último pedido).
-- MCP pela nuvem (decidido, não começado): Cloudflare Tunnel na TV ou Tailscale Funnel no Dell (escolha do Paulo pendente) + OAuth
-  com DCR no launcher (login = PIN), porta própria só em 127.0.0.1; o painel :8080 NÃO passa pelo túnel.
+- MCP pela internet (05/11/2026, branch `claude/mcp-tv`, ainda não testado na TV): `McpServidor.kt` (só 127.0.0.1:`Config.MCP_PORTA`
+  = 8091; OAuth 2.1 com DCR + PKCE em `McpAutorizacao.kt`, login = PIN do painel; JSON-RPC em `McpProtocolo.kt`; ferramentas em
+  `McpFerramentas.kt`: leitura + `pedir_acoes`, que só roda com OK no controle). De fora só pelo túnel: `tunel/main.go` (Tailscale
+  `tsnet` em userspace, SEM usar a vaga de VPN do AdGuard; Funnel :443 -> 127.0.0.1:8091), compilado pela tarefa `compilarTunel`
+  (precisa do Go; sem Go o APK sai sem o túnel) como `libtsnet.so` e rodado por `TunelTailscale.kt` (religa com espera crescente).
+  O painel :8080 NÃO passa pelo túnel. Chave do Tailscale: painel > aba Claude (PIN de novo), cifrada no Keystore e apagada
+  depois do 1º login. APK: 3,1 -> 11,8 MB por causa do binário (21 MB descompactado).
+  Login sem chave (05/11 noite): o túnel imprime `LOGIN <url>` / `ATIVAR <url>` (HTTPS+Funnel em conta nova) e a TV
+  (`ConectarClaudeActivity`, também no assistente de boas-vindas) e o painel (aba Claude, `/api/mcp/qr`) mostram como QR code
+  (zxing core). Clientes aceitos no OAuth: claude.ai/claude.com, chatgpt.com, vscode.dev e localhost (Codex, Claude Code, Cursor).
+  Opção "Rede Tailscale" (DESLIGADA por padrão, escolha do Paulo): painel em http://tv-sala:8080 pelos aparelhos da conta,
+  ferramenta MCP `aparelhos_tailscale` (só lista) e atalhos de porta (`AtalhosTunel.kt`: "nas:8096" -> 127.0.0.1:8096 na TV,
+  para Jellyfin/Kodi alcançarem um NAS em outro lugar). Não testado na TV.
