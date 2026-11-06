@@ -92,6 +92,10 @@ object PlayerArmazem {
     fun posicoes(ctx: Context): Map<String, Posicao> = Vod.posicoesDeJson(lerArquivo(ctx, "posicoes.json"))
     fun definirPosicoes(ctx: Context, p: Map<String, Posicao>) = gravarArquivo(ctx, "posicoes.json", Vod.posicoesParaJson(p))
 
+    /** Último episódio aberto em cada série (chave = Serie.chave). */
+    fun ultimosEpisodios(ctx: Context): Map<String, UltimoEpisodio> = Series.ultimosDeJson(lerArquivo(ctx, "series_ultimos.json"))
+    fun definirUltimosEpisodios(ctx: Context, u: Map<String, UltimoEpisodio>) = gravarArquivo(ctx, "series_ultimos.json", Series.ultimosParaJson(u))
+
     /** A última categoria escolhida na lista (só o player usa: preferência basta). */
     fun categoria(ctx: Context): String? = prefs(ctx).getString("categoria", null)
     fun definirCategoria(ctx: Context, chave: String) = prefs(ctx).edit().putString("categoria", chave).apply()
