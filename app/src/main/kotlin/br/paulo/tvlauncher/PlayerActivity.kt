@@ -152,7 +152,7 @@ class PlayerActivity : Activity() {
         if (guardarAnterior && atual != null && atual?.id != c.id) anterior = atual
         atual = c
         tentativas = 0
-        PlayerArmazem.definirUltimoCanal(this, c.id)
+        PlayerArmazem.definirUltimoCanal(this, c)
         tocar(c)
         mostrarInfo()
     }

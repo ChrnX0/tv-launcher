@@ -22,7 +22,7 @@ import javax.crypto.spec.GCMParameterSpec
  *   backup do painel exporta (BackupConfig): senha de IPTV não pode ir num JSON baixado. É arquivo, e não
  *   SharedPreferences, porque quem grava é o processo do launcher e quem lê é o do player (":player"), e cada processo
  *   guarda a sua própria cópia das preferências em memória (o player veria a conta velha).
- * - O resto (último canal, favoritos) é preferência comum, em "player".
+ * - O último canal fica em files/player/ultimo.json (a HOME também lê). Antes do 06/11 era a preferência "player".
  * - Cache de canais e do guia: arquivos em files/player/, sem senha (ver PlayerDados.canaisParaJson).
  */
 object PlayerArmazem {
@@ -74,8 +74,26 @@ object PlayerArmazem {
 
     // ---------------------------------------------------------------- uso
 
-    fun ultimoCanal(ctx: Context): String? = prefs(ctx).getString("ultimo", null)
-    fun definirUltimoCanal(ctx: Context, id: String) { prefs(ctx).edit().putString("ultimo", id).apply() }
+    /**
+     * O último canal assistido. Arquivo (files/player/ultimo.json), e não preferência: quem grava é o player (":player") e
+     * quem também lê é a HOME, para o "Continuar" do disco da TV; preferência ficaria velha no processo da HOME.
+     */
+    data class Ultimo(val id: String, val numero: Int, val nome: String)
+
+    fun ultimo(ctx: Context): Ultimo? = runCatching {
+        val o = JSONObject(File(File(ctx.filesDir, "player"), "ultimo.json").readText())
+        Ultimo(o.getString("id"), o.optInt("numero"), o.optString("nome").take(60))
+    }.getOrNull()
+
+    fun ultimoCanal(ctx: Context): String? = ultimo(ctx)?.id ?: prefs(ctx).getString("ultimo", null)
+
+    fun definirUltimoCanal(ctx: Context, c: Canal) {
+        runCatching {
+            val tmp = File(pasta(ctx), "ultimo.json.tmp")
+            tmp.writeText(JSONObject().put("id", c.id).put("numero", c.numero).put("nome", c.nome).toString())
+            tmp.renameTo(File(pasta(ctx), "ultimo.json"))
+        }
+    }
 
     // ---------------------------------------------------------------- cifra (mesma receita do IaArmazem)
 
