@@ -32,6 +32,8 @@ object PlayerCarga {
 
     fun apagarCache(ctx: Context, id: String) {
         arquivoCanais(ctx, id).delete()
+        File(PlayerArmazem.pasta(ctx), "$id.filmes.json").delete()
+        File(PlayerArmazem.pasta(ctx), "$id.series.json").delete()
         arquivoGuia(ctx).delete()   // o guia é de todas as contas juntas: refaz na próxima abertura
     }
 
@@ -62,6 +64,40 @@ object PlayerCarga {
         val categorias = runCatching { Xtream.lerCategorias(baixarTexto(Xtream.urlCategoriasAoVivo(conta), 5L * 1024 * 1024)) }.getOrDefault(emptyList())
         return Xtream.lerCanais(baixarTexto(Xtream.urlCanaisAoVivo(conta), MAX_LISTA), conta, categorias)
     }
+
+    // ---------------------------------------------------------------- filmes (só contas Xtream)
+
+    private fun arquivoFilmes(ctx: Context, id: String) = File(PlayerArmazem.pasta(ctx), "$id.filmes.json")
+
+    /** Há alguma conta Xtream? (só essas têm filmes e séries pelo protocolo.) */
+    fun temVod(ctx: Context): Boolean = PlayerArmazem.fontes(ctx).any { it.xtream != null }
+
+    /** Filmes de todas as contas Xtream. Cache de 12 h por conta; sem rede, o cache velho. */
+    fun filmes(ctx: Context, forcar: Boolean = false): List<Filme> = PlayerArmazem.fontes(ctx).flatMap { fonte ->
+        val conta = fonte.xtream ?: return@flatMap emptyList()
+        val cache = arquivoFilmes(ctx, fonte.id)
+        val fresco = cache.exists() && System.currentTimeMillis() - cache.lastModified() < VALIDADE_LISTA
+        if (fresco && !forcar) Vod.filmesDeJson(cache.readText(), fonte.id).takeIf { it.isNotEmpty() }?.let { return@flatMap it }
+        val baixados = runCatching {
+            val cats = runCatching { Xtream.lerCategorias(baixarTexto(Vod.urlCategoriasFilmes(conta), 5L * 1024 * 1024)) }.getOrDefault(emptyList())
+            Vod.lerFilmes(baixarTexto(Vod.urlFilmes(conta), MAX_LISTA), fonte.id, cats)
+        }.onFailure { Log.w(TAG, "filmes de ${fonte.servidorVisivel}: ${it.javaClass.simpleName}") }.getOrNull()
+        if (!baixados.isNullOrEmpty()) {
+            runCatching { cache.writeText(Vod.filmesParaJson(baixados)) }
+            baixados
+        } else if (cache.exists()) Vod.filmesDeJson(cache.readText(), fonte.id) else emptyList()
+    }
+
+    /** A ficha (sinopse, elenco...) de um filme. Pequena: vem sempre da rede, sem cache em disco. */
+    fun fichaFilme(ctx: Context, f: Filme): FichaFilme? {
+        val conta = PlayerArmazem.fontes(ctx).firstOrNull { it.id == f.fonteId }?.xtream ?: return null
+        return runCatching { Vod.lerFicha(baixarTexto(Vod.urlFichaFilme(conta, f.id), 2L * 1024 * 1024)) }
+            .onFailure { Log.w(TAG, "ficha: ${it.javaClass.simpleName}") }.getOrNull()
+    }
+
+    /** O endereço para tocar (com a senha: não guardar, não logar). */
+    fun urlFilme(ctx: Context, f: Filme): String? =
+        PlayerArmazem.fontes(ctx).firstOrNull { it.id == f.fonteId }?.xtream?.let { Vod.urlFilme(it, f) }
 
     /** Link do guia de uma conta: o cadastrado, senão o do Xtream, senão o que a lista anuncia. */
     private fun linkGuia(fonte: FonteTv): String? {

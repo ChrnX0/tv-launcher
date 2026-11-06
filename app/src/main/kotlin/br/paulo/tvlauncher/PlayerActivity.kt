@@ -102,7 +102,8 @@ class PlayerActivity : Activity() {
         janelas = PlayerJanelas(this)
         lista = PlayerListaTela(this, aoAssistir = { c, chave -> escolherNaLista(c, chave) }, aoFavoritar = { alternarFavorito(it) },
             aoBuscar = { buscar() }, aoFiltros = { abrirFiltros() }, aoOcultarGrupo = { alternarOculto(it) },
-            aoGuia = { cs, nome -> abrirGrade(cs, nome) })
+            aoGuia = { cs, nome -> abrirGrade(cs, nome) },
+            aoFilmes = { startActivity(android.content.Intent(this, FilmesActivity::class.java)) })
         raiz.addView(lista.raiz, FrameLayout.LayoutParams(-1, -1))
         grade = PlayerGradeView(this, aoAssistir = { c -> grade.fechar(); lista.fechar(); if (c.id != atual?.id) sintonizar(c) else mostrarInfo() },
             aoFechar = { grade.fechar(); if (lista.aberta) lista.voltarFoco() })
@@ -149,10 +150,11 @@ class PlayerActivity : Activity() {
             val cat = PlayerArmazem.categoria(this) ?: PlayerLista.TODOS
             val esc = PlayerArmazem.gruposEscondidos(this)
             val lib = PlayerArmazem.gruposLiberados(this)
+            val vod = PlayerCarga.temVod(this)
             tela.post {
                 if (isDestroyed) return@post
                 canais = lidos
-                favoritos = fav; recentes = rec; categoria = cat; escondidos = esc; liberados = lib
+                favoritos = fav; recentes = rec; categoria = cat; escondidos = esc; liberados = lib; lista.temVod = vod
                 refiltrar()
                 if (visiveis.isEmpty()) { mostrarAviso(getString(R.string.player_sem_canais)); return@post }
                 // Abre no último canal só se ele ainda passa no filtro (um canal de categoria oculta não abre sem PIN).

@@ -88,6 +88,10 @@ object PlayerArmazem {
     fun gruposLiberados(ctx: Context): Set<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "liberadas.json"), 500).toSet()
     fun definirGruposLiberados(ctx: Context, g: Set<String>) = gravarArquivo(ctx, "liberadas.json", PlayerLista.idsParaJson(g))
 
+    /** Onde parou em cada filme/episódio (chave = Filme.chave). */
+    fun posicoes(ctx: Context): Map<String, Posicao> = Vod.posicoesDeJson(lerArquivo(ctx, "posicoes.json"))
+    fun definirPosicoes(ctx: Context, p: Map<String, Posicao>) = gravarArquivo(ctx, "posicoes.json", Vod.posicoesParaJson(p))
+
     /** A última categoria escolhida na lista (só o player usa: preferência basta). */
     fun categoria(ctx: Context): String? = prefs(ctx).getString("categoria", null)
     fun definirCategoria(ctx: Context, chave: String) = prefs(ctx).edit().putString("categoria", chave).apply()
