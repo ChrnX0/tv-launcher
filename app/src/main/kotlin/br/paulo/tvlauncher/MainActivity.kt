@@ -528,7 +528,8 @@ class MainActivity : Activity() {
             // A capa do foco: alto à direita, do tamanho do esboço (680 x 330 dp), atrás do topo e dos apps. Desenhada em
             // METADE da resolução e ampliada 2x (06/11: a capa cheia custava ~5 ms de GPU por quadro na Sala; é uma imagem
             // de fundo escurecida, a perda de nitidez não aparece). A ampliação parte do canto de cima à direita.
-            addView(capa, FrameLayout.LayoutParams(dp(340), dp(165), Gravity.TOP or Gravity.END))
+            // Arranjo 2: a capa começa logo abaixo da linha de apps (antes as letras do banner ficavam atrás dos apps e dos nomes).
+            addView(capa, FrameLayout.LayoutParams(dp(340), dp(165), Gravity.TOP or Gravity.END).apply { topMargin = dp(TOPO_CAPA) })
             capa.scaleX = 2f
             capa.scaleY = 2f
             capa.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> v.pivotX = v.width.toFloat(); v.pivotY = 0f }
@@ -711,6 +712,7 @@ class MainActivity : Activity() {
         // topo 24, apps (discos de 56 dp) em 116, destaque em 232, Continuar em 352 (cards até ~488, sobra ~50 embaixo).
         const val LINHA_APPS_HOME = 116
         const val TOPO_CONTINUAR = 352
+        const val TOPO_CAPA = 204          // a capa do foco começa abaixo dos nomes dos apps (que terminam por volta de 200)
         const val ALTURA_CONTINUAR = 160    // título + cards 16:9 (111 dp) + folga do card focado
     }
 
