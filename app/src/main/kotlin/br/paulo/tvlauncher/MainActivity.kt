@@ -118,7 +118,9 @@ class MainActivity : Activity() {
     private lateinit var conteudo: FrameLayout          // tudo menos o fundo e a capa: sobe quando o foco vai para o Continuar
     private lateinit var caixaContinuar: LinearLayout
     private lateinit var linhaContinuar: LinearLayout
-    private val capas = HashMap<String, Pair<Bitmap?, IntArray>>()   // banner (ou cor) por pacote: lido uma vez
+    // Banner (ou cor) por pacote, lido uma vez e FORA da thread da tela (06/11: ler na hora do foco engasgava a HOME).
+    private val capas = java.util.concurrent.ConcurrentHashMap<String, Pair<Bitmap?, IntArray>>()
+    private var capaPedida: String? = null   // o pacote cuja capa a tela espera (se o foco andar, a que chegar atrasada não aparece)
     private lateinit var rolagem: HorizontalScrollView
     private var instalados: List<Item> = emptyList()          // todos os apps de TV instalados (inclui os ocultos)
     private var lista: MutableList<Entrada> = mutableListOf()   // cards da linha principal, na ordem da tela
@@ -189,7 +191,7 @@ class MainActivity : Activity() {
         // Foco fora da linha de apps (hora, clima, bolinha) apaga a capa; foco no Continuar sobe a tela para mostrá-lo.
         window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, novo ->
             val noContinuar = novo != null && dentro(novo, linhaContinuar)
-            if (novo == null || (!dentro(novo, linhaApps) && !noContinuar)) capa.esconder()
+            if (novo == null || (!dentro(novo, linhaApps) && !noContinuar)) { capaPedida = null; capa.esconder(); esconderDestaque() }
             val alvo = if (noContinuar) -dp(SUBIDA_CONTINUAR).toFloat() else 0f
             if (conteudo.translationY != alvo) {
                 conteudo.animate().translationY(alvo).setDuration(220).start()
@@ -306,7 +308,7 @@ class MainActivity : Activity() {
         blocoHora.addView(TextClock(this).apply {
             format12Hour = "HH:mm"
             format24Hour = "HH:mm"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (tema == Tema.ESCURO) 72f else 84f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 44f)   // HOME recomendada (06/11): topo compacto; era 72/84
             setTextColor(Color.WHITE)
             typeface = fonteLeve
             if (tema != Tema.ESCURO) setShadowLayer(dp(10).toFloat(), 0f, 0f, 0x99000000.toInt())
@@ -321,14 +323,14 @@ class MainActivity : Activity() {
         blocoHora.addView(TextClock(this).apply {
             format12Hour = getString(R.string.fmt_data_longa)
             format24Hour = getString(R.string.fmt_data_longa)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            maxLines = 1   // "segunda-feira, 2 de novembro" quebrava em 2 linhas: encolhe a letra até caber (mín. 12 sp)
-            setAutoSizeTextTypeUniformWithConfiguration(12, 16, 1, TypedValue.COMPLEX_UNIT_SP)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            maxLines = 1   // "segunda-feira, 2 de novembro" quebrava em 2 linhas: encolhe a letra até caber (mín. 11 sp)
+            setAutoSizeTextTypeUniformWithConfiguration(11, 13, 1, TypedValue.COMPLEX_UNIT_SP)
             setTextColor(if (tema == Tema.ESCURO) textoSuave else 0xFAF7F3EA.toInt())
             typeface = fonteUi
             if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
             letterSpacing = 0.03f
-            setPadding(f, f + dp(4), f, f)
+            setPadding(f, f + dp(2), f, f)
             isFocusable = true
             isClickable = true
             // No modo visita a agenda (do perfil ativo) não abre.
@@ -354,12 +356,12 @@ class MainActivity : Activity() {
             addView(imgIcone, FrameLayout.LayoutParams(WRAP, MATCH, Gravity.START))
             addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
-        txtMax = texto(16f, textoClaro).apply { includeFontPadding = false }
-        txtMin = texto(16f, textoClaro).apply {
+        txtMax = texto(12f, textoClaro).apply { includeFontPadding = false }
+        txtMin = texto(12f, textoClaro).apply {
             includeFontPadding = false
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(3), 0, 0)
         }
-        txtTemp = texto(if (tema == Tema.ESCURO) 56f else 60f, Color.WHITE, fonteLeve).apply {
+        txtTemp = texto(34f, Color.WHITE, fonteLeve).apply {
             letterSpacing = -0.02f
             includeFontPadding = false
             text = "…"
@@ -368,16 +370,16 @@ class MainActivity : Activity() {
         val linhaIcone = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(caixaIcone, LinearLayout.LayoutParams(WRAP, dp(80)).apply { marginEnd = dp(10) })
+            addView(caixaIcone, LinearLayout.LayoutParams(WRAP, dp(46)).apply { marginEnd = dp(10) })
             addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(txtMax)
                 addView(txtMin)
-            }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(14) })
+            }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(12) })
         }
         // Linha 2 (mesma altura da data): a chuva, com o mesmo tamanho da data.
-        txtChuva = texto(16f, textoClaro).apply {
+        txtChuva = texto(12f, textoClaro).apply {
             letterSpacing = 0.03f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
@@ -463,11 +465,48 @@ class MainActivity : Activity() {
         }
         raiz.addView(topo, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.TOPO) })
 
+        // ---- Destaque (HOME recomendada, esboço V3Final): o que está em foco, em letra grande, entre o topo e a faixa de
+        // 9 dias. TV: "● AO VIVO · CANAL N", o programa de agora (gravado pelo player) e quanto falta. App: o nome.
+        txtDestaqueRotulo = texto(11.5f, CORAL, fonteUi).apply {
+            letterSpacing = 0.08f
+            typeface = Typeface.create(fonteUi, Typeface.BOLD)
+            includeFontPadding = false
+            maxLines = 1
+        }
+        txtDestaqueTitulo = texto(42f, Color.WHITE, fonteUi).apply {
+            typeface = Typeface.create(fonteUi, Typeface.BOLD)
+            letterSpacing = -0.03f
+            includeFontPadding = false
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, dp(6), 0, dp(6))
+        }
+        txtDestaqueSub = texto(12.5f, textoClaro, fonteUi).apply { includeFontPadding = false; maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
+        destaque = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.INVISIBLE
+            for (t in listOf(txtDestaqueRotulo, txtDestaqueTitulo, txtDestaqueSub)) {
+                if (tema != Tema.ESCURO) t.setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
+                addView(t, LinearLayout.LayoutParams(MATCH, WRAP))
+            }
+        }
+        raiz.addView(destaque, FrameLayout.LayoutParams(dp(Grade.largura(6)), WRAP).apply {
+            leftMargin = dp(Grade.MARGEM)
+            topMargin = dp(TOPO_DESTAQUE)
+        })
+
         // ---- Previsão de 9 dias (05/11/2026): no vão entre o topo e a linha de apps, de ponta a ponta da grade (12 colunas).
         // Fica ACIMA da folga do card focado (24 dp), para o card que cresce não cobrir os números.
         faixaDias = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             visibility = View.GONE   // aparece com a 1ª previsão (e só se ligada nas Configurações)
+            // "Vidro" do esboço: escuro translúcido com um fio claro (sem desfoque: custaria a GPU a cada quadro do fundo vivo)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(0x800B0F17.toInt())
+                setStroke(dp(1), 0x1FFFFFFF)
+            }
         }
         raiz.addView(faixaDias, FrameLayout.LayoutParams(dp(Grade.largura(12)), dp(ALTURA_FAIXA)).apply {
             leftMargin = dp(Grade.MARGEM)
@@ -587,6 +626,11 @@ class MainActivity : Activity() {
     }
 
     private lateinit var botaoPainelGoogle: View
+    private lateinit var destaque: LinearLayout      // o bloco grande do que está em foco (ver mostrarDestaque)
+    private lateinit var txtDestaqueRotulo: TextView
+    private lateinit var txtDestaqueTitulo: TextView
+    private lateinit var txtDestaqueSub: TextView
+    private var ultimoTv: PlayerArmazem.Ultimo? = null   // último canal + programas (lido no onResume, em preencherContinuar)
     private lateinit var txtTimer: TextView   // "⏱ 4:32" embaixo da data enquanto um timer corre (ver Timer.kt)
 
     /** Atualiza o "⏱ 4:32" a cada segundo enquanto a HOME está na frente e há timer; some quando não há. */
@@ -708,7 +752,9 @@ class MainActivity : Activity() {
         val cacheApps = HashMap<String, Pair<String, Item>>()
         // dp: nome do dia (~19) + ícone (6+34+4) + máx/mín (~21) + chuva (5+~17) = ~106, com folga. Com 96 a linha
         // da chuva era cortada (foto da TV, 05/11/2026).
-        const val ALTURA_FAIXA = 116
+        const val ALTURA_FAIXA = 46        // faixa fina de 9 dias (esboço V3Final); era 116, com ícone por dia
+        const val TOPO_DESTAQUE = 118      // onde começa o bloco do destaque (abaixo da hora/clima)
+        const val CORAL = 0xFFFF8A80.toInt()   // a cor do "ao vivo"
         const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
         const val SUBIDA_CONTINUAR = 120    // quanto a tela sobe quando o foco está no Continuar (cards inteiros + folga)
         const val ALTURA_CONTINUAR = 176    // título + cards 16:9 (111 dp) + folga do card focado
@@ -842,6 +888,8 @@ class MainActivity : Activity() {
                 android.util.Log.i("TvLauncher.Apps", "preencherApps: carregar=${t1 - t0} ms (fora da tela), " +
                     "desenhar=${android.os.SystemClock.elapsedRealtime() - t1} ms")
             }
+            // Depois de mandar desenhar: lê de antemão as capas que faltam, para o foco nunca esperar por elas.
+            for (app in todos) if (!capas.containsKey(app.pacote)) runCatching { lerCapa(app.pacote, app.icone) }
         }
     }
     private val filaApps = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "Apps") }
@@ -966,21 +1014,80 @@ class MainActivity : Activity() {
     /** A capa de quem está em foco: banner do app (ou a cor do ícone); a TV ao vivo, coral; o card "Ocultos", nada. */
     private fun mostrarCapa(entrada: Entrada) {
         val item = when (entrada) {
-            is Entrada.App -> entrada.item
-            is Entrada.Pilha -> entrada.daFrente
-            is Entrada.Tv -> { capa.mostrar(null, CapaFoco.CORES_TV); return }
-            is Entrada.Ocultos -> { capa.esconder(); return }
+            is Entrada.App -> { mostrarDestaque(null, entrada.nome, null); entrada.item }
+            is Entrada.Pilha -> {
+                mostrarDestaque(null, entrada.daFrente.nome, getString(R.string.home_destaque_pilha, entrada.itens.size))
+                entrada.daFrente
+            }
+            is Entrada.Tv -> { capaPedida = null; destaqueTv(); capa.mostrar(null, CapaFoco.CORES_TV); return }
+            is Entrada.Ocultos -> { capaPedida = null; esconderDestaque(); capa.esconder(); return }
         }
         mostrarCapaDoApp(item.pacote, item.icone)
     }
 
-    private fun mostrarCapaDoApp(pacote: String, icone: Drawable?) {
-        val (img, cores) = capas.getOrPut(pacote) {
-            val b = CapaFoco.banner(packageManager, pacote)?.let { runCatching { CapaFoco.bitmap(it) }.getOrNull() }
-            val ic = icone ?: runCatching { packageManager.getApplicationIcon(pacote) }.getOrNull()
-            b to (ic?.let { runCatching { CapaFoco.corDoIcone(it) }.getOrNull() } ?: intArrayOf(0xFF2B2F3A.toInt(), 0xFF0B0F17.toInt()))
+    /** O destaque: [rotulo] (linha pequena coral, some se null), [titulo] grande e [sub] embaixo (some se null). */
+    private fun mostrarDestaque(rotulo: String?, titulo: String, sub: String?) {
+        txtDestaqueRotulo.text = rotulo
+        txtDestaqueRotulo.visibility = if (rotulo == null) View.GONE else View.VISIBLE
+        txtDestaqueTitulo.text = titulo
+        txtDestaqueSub.text = sub
+        txtDestaqueSub.visibility = if (sub == null) View.GONE else View.VISIBLE
+        // Com o timer na tela (linha embaixo da data), o destaque desce para não ficar por baixo dele.
+        destaque.translationY = if (txtTimer.visibility == View.VISIBLE) dp(36).toFloat() else 0f
+        if (destaque.visibility != View.VISIBLE) {
+            destaque.alpha = 0f
+            destaque.visibility = View.VISIBLE
         }
-        capa.mostrar(img, if (img == null) cores else null)
+        destaque.animate().cancel()
+        destaque.animate().alpha(1f).setDuration(200).start()
+    }
+
+    private fun esconderDestaque() {
+        if (destaque.visibility != View.VISIBLE) return
+        destaque.animate().cancel()
+        destaque.animate().alpha(0f).setDuration(150).withEndAction { destaque.visibility = View.INVISIBLE }.start()
+    }
+
+    /** TV ao vivo: "● AO VIVO · CANAL N", o programa de agora (ou o nome do canal) e "começou há X min · depois: ...". */
+    private fun destaqueTv() {
+        val u = ultimoTv
+        if (u == null) {
+            mostrarDestaque(getString(R.string.home_destaque_tv), getString(R.string.home_tv), getString(R.string.home_destaque_abrir_tv))
+            return
+        }
+        val agora = System.currentTimeMillis()
+        val p = u.programas.firstOrNull { agora >= it.inicio && agora < it.fim }
+        val depois = u.programas.firstOrNull { it.inicio >= (p?.fim ?: agora) }
+        val hora = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val partes = mutableListOf<String>()
+        if (p != null) {
+            partes += u.nome
+            val min = ((agora - p.inicio) / 60_000).toInt()
+            partes += if (min < 60) getString(R.string.home_destaque_comecou, min)
+                else getString(R.string.home_destaque_termina, hora.format(java.util.Date(p.fim)))
+        }
+        if (depois != null) partes += getString(R.string.home_destaque_depois, hora.format(java.util.Date(depois.inicio)), depois.titulo)
+        if (partes.isEmpty()) partes += getString(R.string.home_destaque_abrir_tv)
+        mostrarDestaque(getString(R.string.home_destaque_ao_vivo, u.numero), p?.titulo ?: u.nome, partes.joinToString("  ·  "))
+    }
+
+    /** Lê o banner (ou a cor do ícone) de um app. Roda em qualquer thread; o resultado vai para [capas]. */
+    private fun lerCapa(pacote: String, icone: Drawable?): Pair<Bitmap?, IntArray> {
+        val b = CapaFoco.banner(packageManager, pacote)?.let { runCatching { CapaFoco.bitmap(it) }.getOrNull() }
+        val ic = icone ?: runCatching { packageManager.getApplicationIcon(pacote) }.getOrNull()
+        val cores = ic?.let { runCatching { CapaFoco.corDoIcone(it) }.getOrNull() } ?: intArrayOf(0xFF2B2F3A.toInt(), 0xFF0B0F17.toInt())
+        return (b to cores).also { capas[pacote] = it }
+    }
+
+    private fun mostrarCapaDoApp(pacote: String, icone: Drawable?) {
+        capaPedida = pacote
+        val pronta = capas[pacote]
+        if (pronta != null) { capa.mostrar(pronta.first, if (pronta.first == null) pronta.second else null); return }
+        // Ainda não lida (app novo, ou a leitura antecipada não chegou nele): lê fora e mostra se o foco ainda for dele.
+        filaApps.execute {
+            val (img, cores) = lerCapa(pacote, icone)
+            ui.post { if (!isDestroyed && capaPedida == pacote) capa.mostrar(img, if (img == null) cores else null) }
+        }
     }
 
     private class Recente(val pacote: String, val nome: String, val banner: Bitmap?, val icone: Drawable?)
@@ -1012,9 +1119,12 @@ class MainActivity : Activity() {
         fun adicionar(v: View) = linhaContinuar.addView(v, LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), dp(Grade.CARD_ALTURA)).apply {
             marginEnd = dp(Grade.VAO)
         })
+        ultimoTv = ultimo
+        if (currentFocus?.tag == TOKEN_TV) destaqueTv()   // o disco da TV já em foco: agora com o programa de agora
         if (ultimo != null) adicionar(cartaoContinuar(getString(R.string.home_canal, ultimo.numero, ultimo.nome), null, null, true,
-            { capa.mostrar(null, CapaFoco.CORES_TV) }) { abrirTv() })
-        for (r in recentes) adicionar(cartaoContinuar(r.nome, r.banner, r.icone, false, { mostrarCapaDoApp(r.pacote, r.icone) }) { abrir(r.pacote) })
+            { capaPedida = null; destaqueTv(); capa.mostrar(null, CapaFoco.CORES_TV) }) { abrirTv() })
+        for (r in recentes) adicionar(cartaoContinuar(r.nome, r.banner, r.icone, false,
+            { mostrarDestaque(null, r.nome, null); mostrarCapaDoApp(r.pacote, r.icone) }) { abrir(r.pacote) })
         caixaContinuar.visibility = if (linhaContinuar.childCount > 0) View.VISIBLE else View.GONE
         if (focoAqui) linhaContinuar.getChildAt(0)?.requestFocus() ?: linhaApps.requestFocus()
         // Ao voltar de um app, o foco é da linha de apps (visto na Sala: voltando do player, ele caía no Continuar).
@@ -1204,9 +1314,13 @@ class MainActivity : Activity() {
      * Os dois dao a volta (depois do ultimo vem o primeiro). Segurar ▼ nao gira a pilha inteira.
      * Em card solto nao faz nada: a tecla segue o caminho normal.
      */
+    private var cimaApertadoEm: View? = null   // o card em que o ▲ foi apertado (o soltar só gira a pilha se for o mesmo)
+
     private fun trocarDaFrente(event: KeyEvent): Boolean {
         val sobe = event.keyCode == KeyEvent.KEYCODE_DPAD_UP
         if (!sobe && event.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false
+        // Anota onde o ▲ foi apertado ANTES de ver se é pilha: assim um aperto em outro card nunca fica valendo para ela.
+        if (sobe && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) cimaApertadoEm = currentFocus
         val atual = currentFocus ?: return false
         val token = atual.tag as? String ?: return false
         val pilha = lista.firstOrNull { it.token == token } as? Entrada.Pilha ?: return false
@@ -1234,6 +1348,11 @@ class MainActivity : Activity() {
             KeyEvent.ACTION_UP -> {
                 cimaAgendado?.let { ui.removeCallbacks(it) }
                 cimaAgendado = null
+                // ▲ apertado em OUTRO card (ex.: no Continuar, embaixo): o foco chegou na pilha com a tecla ainda apertada, e
+                // o soltar não pode girá-la (visto na Sala, 06/11: subindo do Continuar, a pilha Play Store trocava de app).
+                val daqui = cimaApertadoEm === atual
+                cimaApertadoEm = null
+                if (!daqui) return true
                 if (!cimaSaiu) girarPilha(pilha, -1)
             }
         }
@@ -1854,30 +1973,24 @@ class MainActivity : Activity() {
         if (dias == ultimosDias) return
         ultimosDias = dias
         faixaDias.removeAllViews()
-        val azulChuva = 0xFF8EC5FF.toInt()
+        // Faixa fina (esboço V3Final, 06/11/2026): por dia, o nome em negrito e embaixo "máx° mín° · chance%".
         dias.forEachIndexed { i, d ->
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
+                gravity = Gravity.CENTER
             }
-            item.addView(texto(14f, if (i == 0) textoClaro else textoSuave).apply {
+            item.addView(texto(12f, Color.WHITE).apply {
                 text = FaixaDias.rotulo(d, i, getString(R.string.pv_hoje))
+                typeface = Typeface.create(fonteUi, Typeface.BOLD)
                 gravity = Gravity.CENTER
                 includeFontPadding = false
             })
-            item.addView(IconesClima.imagem(this, IconesClima.chave(d.codigo, true, false)),
-                LinearLayout.LayoutParams(dp(34), dp(34)).apply { topMargin = dp(6); bottomMargin = dp(4) })
-            item.addView(LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                addView(texto(16f, Color.WHITE).apply { text = "${d.max}°"; includeFontPadding = false })
-                addView(texto(16f, textoSuave).apply { text = "${d.min}°"; includeFontPadding = false; setPadding(dp(6), 0, 0, 0) })
-            })
-            item.addView(texto(13f, azulChuva).apply {
-                text = "☂ ${d.chuva}%"
+            item.addView(texto(10.5f, textoClaro).apply {
+                text = "${d.max}° ${d.min}° · ${d.chuva}%"
                 gravity = Gravity.CENTER
                 includeFontPadding = false
-                setPadding(0, dp(5), 0, 0)
+                maxLines = 1
+                setPadding(0, dp(3), 0, 0)
             })
             faixaDias.addView(item, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }

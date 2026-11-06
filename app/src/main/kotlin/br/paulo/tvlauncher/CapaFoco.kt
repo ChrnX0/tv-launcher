@@ -77,10 +77,11 @@ class CapaFoco(ctx: Context) : View(ctx) {
             }
             else -> return
         }
-        // Máscara: transparente na borda esquerda (até ~55% da largura) e embaixo (some antes da faixa de 9 dias).
+        // Máscara: transparente na borda esquerda (até ~55% da largura) e embaixo: some ANTES da faixa de 9 dias (a capa
+        // tem 330 dp e a faixa começa em 252: 252/330 = 76%; visto na Sala, 06/11, o banner ainda passava atrás dos dias).
         pintaMascara.shader = LinearGradient(0f, 0f, w * 0.55f, 0f, Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, pintaMascara)
-        pintaMascara.shader = LinearGradient(0f, h * 0.3f, 0f, h * 0.85f, Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        pintaMascara.shader = LinearGradient(0f, h * 0.25f, 0f, h * 0.72f, Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, pintaMascara)
         pintaMascara.shader = null
     }
@@ -109,7 +110,9 @@ class CapaFoco(ctx: Context) : View(ctx) {
 
         /** Cor média do ícone (reduzido a 1 pixel), escurecida, para o degradê de quem não tem banner. */
         fun corDoIcone(icone: Drawable): IntArray {
-            val p = Bitmap.createScaledBitmap(bitmap(icone, 48, 48), 1, 1, true).getPixel(0, 0)
+            // Uma CÓPIA do ícone: desenhar muda os limites (setBounds) do Drawable, e o original está na tela, noutra thread.
+            val copia = icone.constantState?.newDrawable()?.mutate() ?: icone
+            val p = Bitmap.createScaledBitmap(bitmap(copia, 48, 48), 1, 1, true).getPixel(0, 0)
             val base = Color.rgb(Color.red(p), Color.green(p), Color.blue(p))
             val escura = Color.rgb(Color.red(p) / 3, Color.green(p) / 3, Color.blue(p) / 3)
             return intArrayOf(base, escura)
