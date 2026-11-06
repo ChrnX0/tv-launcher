@@ -1198,7 +1198,7 @@ class MainActivity : Activity() {
 
     /**
      * Num card de pilha:
-     *  - ▼ (toque) troca o app da frente para o proximo, na hora;
+     *  - ▼ (toque) troca o app da frente para o proximo, na hora (só sem a linha Continuar; com ela, ▼ desce);
      *  - ▲ (toque) troca para o anterior, ao SOLTAR a tecla;
      *  - ▲ segurado por 2 s sai da pilha e vai para o topo da tela (clima, bolinha do perfil).
      * Os dois dao a volta (depois do ultimo vem o primeiro). Segurar ▼ nao gira a pilha inteira.
@@ -1211,6 +1211,9 @@ class MainActivity : Activity() {
         val token = atual.tag as? String ?: return false
         val pilha = lista.firstOrNull { it.token == token } as? Entrada.Pilha ?: return false
         if (!sobe) {
+            // 06/11/2026: com a linha Continuar na tela, ▼ desce para ela, como em qualquer card (senão, a partir de uma
+            // pilha, o Continuar ficava inalcançável). Só ▲ troca o app da frente. Sem Continuar, ▼ gira como antes.
+            if (caixaContinuar.visibility == View.VISIBLE) return false
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) girarPilha(pilha, +1)
             return true
         }
