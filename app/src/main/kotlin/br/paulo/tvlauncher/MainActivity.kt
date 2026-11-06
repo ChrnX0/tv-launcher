@@ -853,7 +853,13 @@ class MainActivity : Activity() {
             // Pilha: o OK abre o app da frente (▲▼ trocam qual é).
             is Entrada.Pilha -> montarCartao(entrada.token, entrada.nome, miniaturaPilha(entrada.itens, entrada.frente), { abrir(entrada.daFrente.pacote) }, aoFocar)
             is Entrada.Ocultos -> montarCartao(entrada.token, entrada.nome, miniaturaOcultos(), { abrirPasta(entrada) }, aoFocar)
-            is Entrada.Tv -> montarCartao(entrada.token, entrada.nome, miniaturaTv(), { abrirTv() }, aoFocar)
+            // "Continuar": com o foco, o nome embaixo do disco vira o último canal (ex.: "Continuar: 12 · Globo"); sem foco, "TV ao vivo".
+            // Lido no foco (arquivo de ~80 bytes) porque o card é reaproveitado e o canal muda dentro do player.
+            is Entrada.Tv -> montarCartao(entrada.token, entrada.nome, miniaturaTv(), { abrirTv() }, { v ->
+                aoFocar(v)
+                val u = PlayerArmazem.ultimo(this)
+                nomeDoCartao(v)?.text = if (u == null) entrada.nome else getString(R.string.home_tv_continuar, u.numero, u.nome)
+            }, aoDesfocar = { v -> nomeDoCartao(v)?.text = entrada.nome })
         }
     }
 
@@ -863,7 +869,8 @@ class MainActivity : Activity() {
      * para dentro das pastas. [token] identifica o card (modo de mover e menu), [aoAbrir] roda ao apertar OK.
      * O card ocupa DISCO + VAO_DISCO de largura: o disco fica no meio e o nome tem espaço para respirar.
      */
-    private fun montarCartao(token: String, nome: String, miniatura: View, aoAbrir: () -> Unit, aoFocar: (View) -> Unit): View {
+    private fun montarCartao(token: String, nome: String, miniatura: View, aoAbrir: () -> Unit, aoFocar: (View) -> Unit,
+                             aoDesfocar: ((View) -> Unit)? = null): View {
         val cartao = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -874,7 +881,7 @@ class MainActivity : Activity() {
             setOnClickListener { aoAbrir() }
             setOnFocusChangeListener { v, temFoco ->
                 estilizar(v, token, temFoco)
-                if (temFoco) aoFocar(v)
+                if (temFoco) aoFocar(v) else aoDesfocar?.invoke(v)
             }
         }
         // filho 0: o disco (o anel de foco é desenhado POR CIMA, no foreground). filho 1: o nome.
@@ -897,6 +904,9 @@ class MainActivity : Activity() {
         cartao.layoutParams = LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP)
         return cartao
     }
+
+    /** O nome embaixo do disco (filho 1 do card, ver [montarCartao]). */
+    private fun nomeDoCartao(card: View): TextView? = (card as? ViewGroup)?.getChildAt(1) as? TextView
 
     /** O disco da TV ao vivo: coral (a cor do "ao vivo" nos esboços) com "TV" no meio. */
     private fun miniaturaTv(): View = TextView(this).apply {
