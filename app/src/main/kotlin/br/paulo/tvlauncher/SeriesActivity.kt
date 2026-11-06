@@ -130,9 +130,7 @@ class SeriesActivity : Activity() {
         }
         grade.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
-                focado.text = naGrade.getOrNull(pos)?.let { s ->
-                    listOfNotNull(s.nome, s.ano?.toString(), s.nota?.let { "★ %.1f".format(Locale.getDefault(), it) }, PlayerLista.nomeExibido(s.grupo).ifEmpty { null }).joinToString("   ·   ")
-                }.orEmpty()
+                mostrarFocado(naGrade.getOrNull(pos))
             }
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
@@ -192,8 +190,17 @@ class SeriesActivity : Activity() {
         }
         adaptadorGrade.notifyDataSetChanged()
         grade.setSelection(0)
+        // Mesmo jeito do FilmesActivity: a linha do rodapé passa a mostrar o 1º item da categoria nova
+        // (o setSelection(0) não dispara onItemSelected quando a posição já era 0, e o texto ficava velho).
+        mostrarFocado(naGrade.firstOrNull())
         val nome = itens.firstOrNull { it.chave == chave }?.nome.orEmpty()
         cabecalho.text = getString(R.string.series_cabecalho, nome.uppercase(Locale.getDefault()), naGrade.size)
+    }
+
+    private fun mostrarFocado(s: Serie?) {
+        focado.text = s?.let {
+            listOfNotNull(it.nome, it.ano?.toString(), it.nota?.let { n -> "★ %.1f".format(Locale.getDefault(), n) }, PlayerLista.nomeExibido(it.grupo).ifEmpty { null }).joinToString("   ·   ")
+        }.orEmpty()
     }
 
     private fun nomeOrdem(o: Vod.Ordem) = getString(when (o) {
