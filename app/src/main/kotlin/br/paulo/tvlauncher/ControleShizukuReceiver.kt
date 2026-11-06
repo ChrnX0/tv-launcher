@@ -220,8 +220,10 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 TesteHome.destaque = intent.getBooleanExtra("destaque", TesteHome.destaque)
                 TesteHome.faixa = intent.getBooleanExtra("faixa", TesteHome.faixa)
                 TesteHome.fundo = intent.getBooleanExtra("fundo", TesteHome.fundo)
+                TesteHome.capaAnima = intent.getBooleanExtra("capaAnima", TesteHome.capaAnima)
+                TesteHome.capaCamada = intent.getBooleanExtra("capaCamada", TesteHome.capaCamada)
                 TesteHome.aplicar?.invoke()
-                resultData = TesteHome.run { "capa=$capa destaque=$destaque faixa=$faixa fundo=$fundo" }
+                resultData = TesteHome.run { "capa=$capa destaque=$destaque faixa=$faixa fundo=$fundo capaAnima=$capaAnima capaCamada=$capaCamada" }
             }
             UNIFI -> if (this is ControleShizukuAdbReceiver) {
                 val pendente = goAsync()   // HTTP: fora da thread principal

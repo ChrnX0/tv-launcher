@@ -49,6 +49,8 @@ object TesteHome {
     @Volatile var destaque = true
     @Volatile var faixa = true
     @Volatile var fundo = true
+    @Volatile var capaAnima = true    // false: a capa troca sem o esmaecer de 260 ms
+    @Volatile var capaCamada = true   // false: a capa sem camada de hardware
     @Volatile var aplicar: (() -> Unit)? = null
 }
 private const val ID_PREVIA = "previa"       // id da pilha provisoria mostrada enquanto se arrasta um app para cima de outro
@@ -1033,6 +1035,7 @@ class MainActivity : Activity() {
         capa.visibility = if (TesteHome.capa) View.VISIBLE else View.GONE
         destaque.visibility = if (TesteHome.destaque) destaque.visibility.takeIf { it != View.GONE } ?: View.INVISIBLE else View.GONE
         fundo?.visibility = if (TesteHome.fundo) View.VISIBLE else View.INVISIBLE
+        capa.setLayerType(if (TesteHome.capaCamada) View.LAYER_TYPE_HARDWARE else View.LAYER_TYPE_NONE, null)
     }
 
     /** O destaque: [rotulo] (linha pequena coral, some se null), [titulo] grande e [sub] embaixo (some se null). */

@@ -48,6 +48,7 @@ class CapaFoco(ctx: Context) : View(ctx) {
         invalidate()
         animate().cancel()
         if (imagem == null && cores == null) { animate().alpha(0f).setDuration(200).start(); return }
+        if (!TesteHome.capaAnima) { alpha = OPACIDADE; return }   // só para medir (gancho HOME_TESTE)
         alpha = 0.3f
         animate().alpha(OPACIDADE).setDuration(260).start()
     }
