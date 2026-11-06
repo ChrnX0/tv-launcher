@@ -156,6 +156,7 @@ object TunelTailscale {
                         }
                     }
                     "ERRO" -> anotarErro(app, resto.take(200))
+                    "LOG" -> Log.i(TAG, "tsnet: " + resto.take(400))
                 }
             }
         }

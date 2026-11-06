@@ -65,6 +65,7 @@ object PonteTunel {
             val cabecalho = PonteRegras.lerCabecalho(entrada) ?: return responder(c.getOutputStream(), 400)
             val alvo = when (val r = PonteRegras.conferir(cabecalho, senha)) {
                 is PonteRegras.Resultado.Recusa -> return responder(c.getOutputStream(), r.codigo)
+                is PonteRegras.Resultado.Dns -> return atenderDns(c, entrada)
                 is PonteRegras.Resultado.Ok -> r
             }
             destino = Socket().apply { connect(InetSocketAddress(alvo.host, alvo.porta), 10_000) }
@@ -78,6 +79,23 @@ object PonteTunel {
         } catch (e: Exception) {
             try { if (destino == null) responder(c.getOutputStream(), 502) } catch (_: Exception) {}
         } finally { fechar(destino); fechar(c) }
+    }
+
+    /** DNS sobre TCP (2 bytes de tamanho + mensagem), respondido pelo resolvedor do Android (InetAddress). */
+    private fun atenderDns(c: Socket, entrada: InputStream) {
+        val saida = c.getOutputStream()
+        saida.write("HTTP/1.1 200 Connection established\r\n\r\n".toByteArray()); saida.flush()
+        c.soTimeout = 30_000
+        val dados = java.io.DataInputStream(entrada)
+        try {
+            while (true) {
+                val n = dados.readUnsignedShort()
+                if (n !in 12..512) return
+                val pergunta = ByteArray(n).also { dados.readFully(it) }
+                val resposta = DnsPonte.responder(pergunta) { nome -> InetAddress.getAllByName(nome).toList() } ?: return
+                saida.write(byteArrayOf((resposta.size shr 8).toByte(), resposta.size.toByte())); saida.write(resposta); saida.flush()
+            }
+        } catch (_: IOException) {}
     }
 
     private fun responder(o: OutputStream, codigo: Int) {
@@ -97,6 +115,8 @@ object PonteRegras {
     sealed class Resultado {
         class Ok(val host: String, val porta: Int) : Resultado()
         class Recusa(val codigo: Int) : Resultado()
+        /** "CONNECT dns.ponte:53": a conexão vira DNS sobre TCP respondido pelo Android. */
+        object Dns : Resultado()
     }
 
     /** Lê até a linha vazia (no máximo 8 KB). Null se passar disso ou a conexão fechar antes. */
@@ -123,6 +143,7 @@ object PonteRegras {
         val alvo = partes[1]
         val host = alvo.substringBeforeLast(':').removePrefix("[").removeSuffix("]")
         val porta = alvo.substringAfterLast(':').toIntOrNull() ?: return Resultado.Recusa(400)
+        if (alvo == "dns.ponte:53") return Resultado.Dns
         if (porta != 443) return Resultado.Recusa(403)
         if (host.isEmpty() || host.length > 253 || !host.all { it.isLetterOrDigit() || it in ".-:" }) return Resultado.Recusa(400)
         // Nada de usar a ponte para alcançar a própria TV ou a rede de casa.
@@ -134,5 +155,43 @@ object PonteRegras {
     private fun igual(a: String, b: String): Boolean {
         if (a.length != b.length) return false
         var d = 0; for (i in a.indices) d = d or (a[i].code xor b[i].code); return d == 0
+    }
+}
+
+/** Respostas de DNS feitas à mão (pura, teste JVM): só A e AAAA, uma pergunta, nomes comuns. O resto: resposta vazia. */
+object DnsPonte {
+    fun responder(q: ByteArray, resolver: (String) -> List<InetAddress>): ByteArray? {
+        if (q.size < 12) return null
+        val qd = ((q[4].toInt() and 0xff) shl 8) or (q[5].toInt() and 0xff)
+        if (qd != 1 || (q[2].toInt() and 0x80) != 0) return null   // uma pergunta, e tem que ser pergunta (não resposta)
+        // Lê o nome (rótulos sem compressão), o tipo e a classe.
+        var i = 12; val nome = StringBuilder()
+        while (true) {
+            if (i >= q.size) return null
+            val len = q[i].toInt() and 0xff; i++
+            if (len == 0) break
+            if (len > 63 || i + len > q.size) return null
+            if (nome.isNotEmpty()) nome.append('.')
+            for (k in 0 until len) nome.append((q[i + k].toInt() and 0xff).toChar())
+            i += len
+        }
+        if (i + 4 > q.size) return null
+        val tipo = ((q[i].toInt() and 0xff) shl 8) or (q[i + 1].toInt() and 0xff)
+        val fimPergunta = i + 4
+        val n = nome.toString().lowercase()
+        val nomeOk = n.isNotEmpty() && n.length <= 253 && n.all { it in 'a'..'z' || it in '0'..'9' || it in ".-_" }
+        var rcode = 0
+        val enderecos: List<ByteArray> = if (!nomeOk) { rcode = 3; emptyList() } else if (tipo != 1 && tipo != 28) emptyList() else try {
+            resolver(n).map { it.address }.filter { it.size == (if (tipo == 1) 4 else 16) }.take(8)
+        } catch (e: java.net.UnknownHostException) { rcode = 3; emptyList() } catch (e: Exception) { rcode = 2; emptyList() }
+        val out = java.io.ByteArrayOutputStream()
+        out.write(q, 0, 2)                                         // mesmo id
+        out.write(0x81 or (q[2].toInt() and 0x01)); out.write(0x80 or rcode)   // resposta, RD copiado, RA, rcode
+        out.write(byteArrayOf(0, 1, 0, enderecos.size.toByte(), 0, 0, 0, 0))
+        out.write(q, 12, fimPergunta - 12)                         // a pergunta de volta
+        for (a in enderecos) {
+            out.write(byteArrayOf(0xC0.toByte(), 12, 0, tipo.toByte(), 0, 1, 0, 0, 0, 60, 0, a.size.toByte())); out.write(a)
+        }
+        return out.toByteArray()
     }
 }

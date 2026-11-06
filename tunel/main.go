@@ -33,7 +33,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,6 +47,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"tailscale.com/client/local"
@@ -74,16 +77,30 @@ func main() {
 	_ = os.WriteFile(filepath.Join(dir, "tunel.pid"), []byte(strconv.Itoa(os.Getpid())), 0o600)
 
 	// O Android não tem /etc/resolv.conf: sem isto o Go perguntaria a 127.0.0.1:53 e nada resolveria.
+	// Com a ponte (HTTPS_PROXY), o DNS também vai por ela: o UDP direto deste processo não sai da TV, como o TCP
+	// (medido na Sala, 06/11/2026: o túnel parava antes de usar o proxy). Quem resolve é o Java do launcher.
 	dns := os.Getenv("TUNEL_DNS")
 	if dns == "" {
 		dns = "1.1.1.1"
 	}
+	ponte, _ := url.Parse(os.Getenv("HTTPS_PROXY"))
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			if ponte != nil && ponte.Host != "" {
+				return dnsPelaPonte(ctx, ponte)
+			}
 			d := net.Dialer{Timeout: 5 * time.Second}
 			return d.DialContext(ctx, network, net.JoinHostPort(dns, "53"))
 		},
+	}
+
+	// As primeiras 300 linhas do log do tsnet vão para o logcat (nível debug): sem isso não dá para ver onde parou.
+	var linhasLog atomic.Int32
+	logf := func(f string, a ...any) {
+		if linhasLog.Add(1) <= 300 {
+			fmt.Println("LOG " + strings.ReplaceAll(fmt.Sprintf(f, a...), "\n", " "))
+		}
 	}
 
 	s := &tsnet.Server{
@@ -91,7 +108,7 @@ func main() {
 		Hostname:  nome,
 		AuthKey:   os.Getenv("TS_AUTHKEY"),
 		Ephemeral: false,
-		Logf:      func(string, ...any) {}, // o log do tsnet é enorme; erros importantes saem abaixo
+		Logf:      logf,
 	}
 	defer s.Close()
 
@@ -326,4 +343,28 @@ func abrirAtalho(s *tsnet.Server, a string) error {
 		}
 	}()
 	return nil
+}
+
+// dnsPelaPonte abre uma conexão "CONNECT dns.ponte:53" na ponte do launcher. Depois do 200, a conexão fala DNS
+// sobre TCP (2 bytes de tamanho + mensagem), que é o que o resolvedor do Go usa quando a conexão não é de pacotes.
+func dnsPelaPonte(ctx context.Context, ponte *url.URL) (net.Conn, error) {
+	d := net.Dialer{Timeout: 5 * time.Second}
+	c, err := d.DialContext(ctx, "tcp", ponte.Host)
+	if err != nil {
+		return nil, err
+	}
+	_ = c.SetDeadline(time.Now().Add(10 * time.Second))
+	senha, _ := ponte.User.Password()
+	auth := base64.StdEncoding.EncodeToString([]byte(ponte.User.Username() + ":" + senha))
+	fmt.Fprintf(c, "CONNECT dns.ponte:53 HTTP/1.1\r\nHost: dns.ponte:53\r\nProxy-Authorization: Basic %s\r\n\r\n", auth)
+	resp, err := http.ReadResponse(bufio.NewReader(c), &http.Request{Method: "CONNECT"})
+	if err != nil || resp.StatusCode != 200 {
+		c.Close()
+		if err == nil {
+			err = fmt.Errorf("ponte recusou o DNS: %s", resp.Status)
+		}
+		return nil, err
+	}
+	_ = c.SetDeadline(time.Time{})
+	return c, nil
 }
