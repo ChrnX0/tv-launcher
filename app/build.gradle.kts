@@ -144,6 +144,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // O org.json do android.jar é só casca nos testes do computador ("Stub!"): a IA (ComandosIa) precisa do de verdade.
     testImplementation("org.json:json:20240303")
+    // Leitor de XML em fluxo para os testes do guia XMLTV (PlayerGuia.kt): na TV o Android já traz um (é o mesmo kxml).
+    testImplementation("net.sf.kxml:kxml2:2.3.0")
 }
 
 // Túnel para a internet (opção E, 05/11/2026): o programa Go em tunel/ (Tailscale embutido, tsnet) compilado para ARM
