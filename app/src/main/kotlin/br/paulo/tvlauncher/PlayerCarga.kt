@@ -143,11 +143,17 @@ object PlayerCarga {
         val todos = ArrayList<Programa>()
         for (fonte in PlayerArmazem.fontes(ctx)) {
             val link = linkGuia(fonte) ?: continue
-            runCatching {
-                abrir(link, MAX_GUIA).use { entrada ->
-                    todos += Xmltv.ler(Xml.newPullParser(), Xmltv.abrir(entrada), ids, agora - 2 * 3_600_000L, agora + 26 * 3_600_000L)
-                }
-            }.onFailure { Log.w(TAG, "guia de ${fonte.servidorVisivel}: ${it.javaClass.simpleName}") }
+            // O xmltv.php do Xtream monta o guia inteiro antes de mandar o 1º byte: com milhares de canais isso passa de
+            // 30 s (visto na Sala: SocketTimeoutException). Por isso 120 s de espera e até 3 tentativas (5 s e 15 s entre elas).
+            for (tentativa in 0 until 3) {
+                if (tentativa > 0) Thread.sleep(if (tentativa == 1) 5_000L else 15_000L)
+                val lidos = runCatching {
+                    abrir(link, MAX_GUIA, leitura = 120_000).use { entrada ->
+                        Xmltv.ler(Xml.newPullParser(), Xmltv.abrir(entrada), ids, agora - 2 * 3_600_000L, agora + 26 * 3_600_000L)
+                    }
+                }.onFailure { Log.w(TAG, "guia de ${fonte.servidorVisivel} (tentativa ${tentativa + 1}): ${it.javaClass.simpleName}") }.getOrNull()
+                if (lidos != null) { todos += lidos; break }
+            }
         }
         if (todos.isNotEmpty()) runCatching { cache.writeText(PlayerDados.programasParaJson(todos)) }
         else if (cache.exists()) return Guia(PlayerDados.programasDeJson(cache.readText()))
@@ -162,13 +168,13 @@ object PlayerCarga {
      * Abre o endereço seguindo até 4 redirecionamentos (o HttpURLConnection não segue de http para https sozinho).
      * A verificação de TLS é a padrão do Android: nunca desligada.
      */
-    private fun abrir(endereco: String, max: Long): InputStream {
+    private fun abrir(endereco: String, max: Long, leitura: Int = 30_000): InputStream {
         var url = endereco
         repeat(5) {
             if (!M3u.urlAceita(url)) throw IOException("endereço recusado")
             val c = URL(url).openConnection() as HttpURLConnection
             c.connectTimeout = 10_000
-            c.readTimeout = 30_000
+            c.readTimeout = leitura
             c.instanceFollowRedirects = false
             c.setRequestProperty("User-Agent", AGENTE)
             c.setRequestProperty("Accept-Encoding", "gzip")

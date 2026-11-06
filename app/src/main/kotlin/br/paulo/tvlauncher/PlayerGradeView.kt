@@ -63,7 +63,7 @@ class PlayerGradeView(
     init {
         isFocusable = true
         isFocusableInTouchMode = true
-        setBackgroundColor(0xF20B0F17.toInt())
+        setBackgroundColor(0xFF0B0F17.toInt())
         visibility = GONE
     }
 
