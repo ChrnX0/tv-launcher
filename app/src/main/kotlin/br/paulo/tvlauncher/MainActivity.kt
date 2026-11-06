@@ -479,7 +479,7 @@ class MainActivity : Activity() {
             text = getString(R.string.home_linha_apps)
             letterSpacing = 0.1f
             if (tema != Tema.ESCURO) setShadowLayer(dp(6).toFloat(), 0f, 0f, 0x99000000.toInt())
-        }, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.MARGEM); topMargin = dp(LINHA_APPS_HOME - 22) })
+        }, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.MARGEM); topMargin = dp(LINHA_APPS_HOME - 26) })
 
         // ---- Continuar (HOME recomendada): último canal e apps usados há pouco, em cards 16:9 com o banner do app. Fica
         // meio escondida na borda de baixo; com o foco nela (▼ num card solto), a tela inteira sobe para mostrá-la.
@@ -721,7 +721,7 @@ class MainActivity : Activity() {
         // Esboço do Paulo (06/11 noite, "a home já é parte do player"): topo 24, destaque 100, Continuar 214 (começa com os
         // cards TV, Séries e Filmes), apps em retângulos 16:9 embaixo, em 404 (até ~467; sobram ~70 dp).
         const val TOPO_CONTINUAR = 214
-        const val LINHA_APPS_HOME = 404
+        const val LINHA_APPS_HOME = 414     // 404 deixava o retângulo focado encostado no título "APPS"
         const val RET_L = 112               // retângulo de um app na linha de baixo (16:9, a arte de banner do app)
         const val RET_A = 63
         val CORES_SERIES = intArrayOf(0xFF9B7BFF.toInt(), 0xFF4A2C9A.toInt())   // roxo
@@ -883,6 +883,7 @@ class MainActivity : Activity() {
         if (assinatura == null || assinatura != ultimaAssinatura || linhaApps.childCount != cards.size) {
             linhaApps.removeAllViews()
             cards.forEach { linhaApps.addView(criarCartao(it)) }
+            prenderEsquerda(linhaApps.getChildAt(0))
             ultimaAssinatura = assinatura
         }
         if (cards.isEmpty()) return
@@ -1160,6 +1161,13 @@ class MainActivity : Activity() {
         for (r in recentes) adicionar(cartaoContinuar(r.nome, r.banner, r.icone, false,
             { mostrarDestaque(null, r.nome, null); mostrarCapaDoApp(r.pacote, r.icone) }) { abrir(r.pacote) })
         caixaContinuar.visibility = if (linhaContinuar.childCount > 0) View.VISIBLE else View.GONE
+        prenderEsquerda(linhaContinuar.getChildAt(0))
+        // A HOME abre com o foco no card TV (Paulo, 06/11 noite: "a home já é parte do player"). Só na abertura: voltando de
+        // um app, o foco fica onde estava.
+        if (focoInicialNaTv) {
+            focoInicialNaTv = false
+            if (temTv && atalhoAberto < 0) linhaContinuar.getChildAt(0)?.requestFocus()
+        }
         if (atalhoAberto >= 0) {
             (linhaContinuar.getChildAt(atalhoAberto) ?: linhaApps.getChildAt(indiceFoco.coerceAtLeast(0)))?.requestFocus()
             atalhoAberto = -1
@@ -1240,6 +1248,16 @@ class MainActivity : Activity() {
                 if (temFoco) aoFocar()
             }
         }
+
+    /** true até o 1º desenho do Continuar nesta abertura da HOME (ver desenharContinuar). */
+    private var focoInicialNaTv = true
+
+    /** ◀ no 1º card de uma linha não sai dela (antes o foco fugia para o relógio, lá em cima). */
+    private fun prenderEsquerda(v: View?) {
+        if (v == null) return
+        if (v.id == View.NO_ID) v.id = View.generateViewId()
+        v.nextFocusLeftId = v.id
+    }
 
     /** Qual card fixo do Continuar (0 TV, 1 Séries, 2 Filmes) foi aberto: ao voltar, o foco volta nele. -1 = nenhum. */
     private var atalhoAberto = -1
@@ -1713,7 +1731,9 @@ class MainActivity : Activity() {
         // (nao so no foco): e o que impede um icone escuro (ex.: Netflix) de sumir no fundo.
         (grupo?.getChildAt(0))?.foreground = when {
             movendo -> contorno(corMover, 0x2E7FD6C2, 3)
-            focado -> android.graphics.drawable.InsetDrawable(contorno(Color.WHITE, Color.TRANSPARENT, 3), dp(ANEL - 2))
+            // O anel fica FORA do retângulo, com 2 dp de folga escura: num banner branco (Netflix, YouTube) um anel colado
+            // na borda sumia (visto na Sala, 06/11 noite).
+            focado -> android.graphics.drawable.InsetDrawable(contorno(Color.WHITE, Color.TRANSPARENT, 3), dp(1))
             else -> fioFino()
         }
         (grupo?.getChildAt(1) as? TextView)?.setTextColor(if (focado || movendo) Color.WHITE else textoSuave)
