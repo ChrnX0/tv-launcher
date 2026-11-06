@@ -81,7 +81,11 @@ class CapaFoco(ctx: Context) : View(ctx) {
         // tem 330 dp e a faixa começa em 252: 252/330 = 76%; visto na Sala, 06/11, o banner ainda passava atrás dos dias).
         pintaMascara.shader = LinearGradient(0f, 0f, w * 0.55f, 0f, Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, pintaMascara)
-        pintaMascara.shader = LinearGradient(0f, h * 0.25f, 0f, h * 0.72f, Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        // Arranjo 2 (06/11): a capa fica no meio da tela, então some nas DUAS bordas, em cima (linha de apps) e embaixo
+        // (Continuar). Antes só sumia embaixo, e a borda de cima aparecia como um corte reto atravessando a tela.
+        pintaMascara.shader = LinearGradient(0f, 0f, 0f, h,
+            intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK, Color.TRANSPARENT),
+            floatArrayOf(0f, 0.22f, 0.62f, 1f), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, pintaMascara)
         pintaMascara.shader = null
     }
