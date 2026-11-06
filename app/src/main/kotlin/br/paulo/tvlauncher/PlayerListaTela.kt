@@ -38,7 +38,8 @@ import java.util.Locale
  *
  * Teclas: ▲▼ andam; ◀ ▶ trocam de coluna; OK num canal assiste; OK segurado (ou MENU) põe/tira dos favoritos;
  * OK segurado numa categoria esconde/mostra a categoria; VOLTAR fecha.
- * No topo da coluna de categorias ficam duas ações: Buscar e Filtros (as janelas são da PlayerActivity).
+ * No topo da coluna de categorias ficam três ações: Buscar, Filtros e Guia de programação (as janelas são da PlayerActivity).
+ * Filmes e Séries não aparecem aqui: abrem pelos cards da HOME (06/11/2026, pedido do Paulo).
  */
 class PlayerListaTela(
     private val act: Activity,
@@ -48,8 +49,6 @@ class PlayerListaTela(
     private val aoFiltros: () -> Unit,
     private val aoOcultarGrupo: (String) -> Unit,   // nome do grupo (vazio = "Outros")
     private val aoGuia: (List<Canal>, String) -> Unit,   // guia em grade dos canais da categoria + nome dela
-    private val aoFilmes: () -> Unit,
-    private val aoSeries: () -> Unit,
 ) {
     private val tela = Handler(Looper.getMainLooper())
     private val papel = 0xFFF5F3EE.toInt()
@@ -71,7 +70,6 @@ class PlayerListaTela(
     private var busca: Pair<String, List<Canal>>? = null   // termo + resultados (a categoria "Busca")
     private var resumoFiltro = ""                           // "4K · BR" na linha de Filtros
     private var ocultas: Set<String> = emptySet()           // grupos ocultos que estão aparecendo (PIN): ganham 🔒
-    var temVod = false                                      // há conta Xtream: mostra a ação Filmes
 
     val raiz: FrameLayout = FrameLayout(act).apply {
         visibility = View.GONE
@@ -145,7 +143,6 @@ class PlayerListaTela(
     private fun montarGrupos() {
         grupos = listOf(GrupoCanais(PlayerLista.ACAO_BUSCAR, "", -1), GrupoCanais(PlayerLista.ACAO_FILTROS, resumoFiltro, -1),
             GrupoCanais(PlayerLista.ACAO_GUIA, "", -1)) +
-            (if (temVod) listOf(GrupoCanais(PlayerLista.ACAO_FILMES, "", -1), GrupoCanais(PlayerLista.ACAO_SERIES, "", -1)) else emptyList()) +
             PlayerLista.grupos(canais, favoritos, recentes, busca?.let { it.first to it.second.size })
     }
 
@@ -241,9 +238,7 @@ class PlayerListaTela(
         PlayerLista.ACAO_BUSCAR -> act.getString(R.string.player_acao_buscar)
         PlayerLista.ACAO_FILTROS -> act.getString(R.string.player_acao_filtros)
         PlayerLista.ACAO_GUIA -> act.getString(R.string.player_acao_guia)
-        PlayerLista.ACAO_FILMES -> act.getString(R.string.player_acao_filmes)
-        PlayerLista.ACAO_SERIES -> act.getString(R.string.player_acao_series)
-        else -> g.nome.ifEmpty { act.getString(R.string.player_cat_outros) }
+        else -> PlayerLista.nomeExibido(g.nome).ifEmpty { act.getString(R.string.player_cat_outros) }
     }
 
     private val adaptadorGrupos = object : BaseAdapter() {
@@ -268,8 +263,6 @@ class PlayerListaTela(
                     PlayerLista.ACAO_BUSCAR -> "⌕  " + nomeDoGrupo(g)
                     PlayerLista.ACAO_FILTROS -> "☰  " + nomeDoGrupo(g)
                     PlayerLista.ACAO_GUIA -> "▦  " + nomeDoGrupo(g)
-                    PlayerLista.ACAO_FILMES -> "🎬  " + nomeDoGrupo(g)
-                    PlayerLista.ACAO_SERIES -> "📺  " + nomeDoGrupo(g)
                     else -> (if (g.nome in ocultas) "🔒 " else "") + nomeDoGrupo(g)
                 }
                 setTextColor(if (escolhida) ambar else if (g.chave == PlayerLista.ACAO_FILTROS && g.nome.isNotEmpty()) ambar else papel)
@@ -303,7 +296,7 @@ class PlayerListaTela(
             l.sub.text = when {
                 c.id == atualId -> act.getString(R.string.player_assistindo) + (prog?.let { " · ${it.titulo}" } ?: "")
                 prog != null -> prog.titulo
-                else -> c.grupo
+                else -> PlayerLista.nomeExibido(c.grupo)
             }
             l.barra.visibility = if (prog != null) View.VISIBLE else View.INVISIBLE
             prog?.let { l.barra.progress = (guia.progresso(it, agora) * 1000).toInt() }
@@ -375,7 +368,7 @@ class PlayerListaTela(
             return
         }
         PlayerLogos.carregar(act, c.logo, detLogo)
-        detCanal.text = listOf(c.numero.toString(), c.nome, c.grupo).filter { it.isNotEmpty() }.joinToString("  ·  ")
+        detCanal.text = listOf(c.numero.toString(), c.nome, PlayerLista.nomeExibido(c.grupo)).filter { it.isNotEmpty() }.joinToString("  ·  ")
         val agora = System.currentTimeMillis()
         val prox = c.guiaId.takeIf { it.isNotEmpty() }?.let { guia.proximos(it, agora, 4) }.orEmpty()
         val atual = prox.firstOrNull()?.takeIf { agora >= it.inicio }
@@ -455,8 +448,6 @@ class PlayerListaTela(
             when (grupos.getOrNull(pos)?.chave) {
                 PlayerLista.ACAO_BUSCAR -> aoBuscar()
                 PlayerLista.ACAO_FILTROS -> aoFiltros()
-                PlayerLista.ACAO_FILMES -> aoFilmes()
-                PlayerLista.ACAO_SERIES -> aoSeries()
                 PlayerLista.ACAO_GUIA -> grupos.firstOrNull { it.chave == chave }?.let { aoGuia(doMeio, nomeDoGrupo(it)) }
                 else -> { escolherGrupo(pos); if (doMeio.isNotEmpty()) listaCanais.requestFocus() }
             }

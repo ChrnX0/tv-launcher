@@ -489,11 +489,12 @@
     <string name="player_canal_nao_existe">There is no channel %1$d.</string>
     <string name="player_ao_vivo">LIVE</string>
     <string name="player_a_seguir">next: %1$s</string>
-    <string name="player_teclas">▲ ▼ channel    OK channels    ◀ previous channel    BACK exit</string>
+    <string name="player_teclas">▲ ▼ channel    OK channel list    hold OK: favorite    ◀ previous channel    BACK exit</string>
     <string name="player_cat_busca">Search: %1$s</string>
     <string name="player_acao_buscar">Search</string>
     <string name="player_acao_filtros">Filters</string>
     <string name="player_acao_filmes">Movies</string>
+    <string name="player_acao_series">Series</string>
     <string name="filmes_titulo">MOVIES</string>
     <string name="filmes_carregando">Loading movies…</string>
     <string name="filmes_vazio">No movies in the saved accounts (movies only come from Xtream accounts).</string>
@@ -520,7 +521,6 @@
     <string name="vod_legenda">Subtitles</string>
     <string name="vod_faixas">Audio and subtitles</string>
     <string name="vod_teclas">OK pause    ◀ 10 s    ▶ 30 s (hold to go faster)    ▼ audio and subtitles    BACK exit</string>
-    <string name="player_acao_series">Series</string>
     <string name="series_titulo">SERIES</string>
     <string name="series_carregando">Loading series…</string>
     <string name="series_vazio">No series in the saved accounts (series only come from Xtream accounts).</string>

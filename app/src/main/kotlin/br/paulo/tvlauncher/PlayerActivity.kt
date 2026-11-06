@@ -102,9 +102,7 @@ class PlayerActivity : Activity() {
         janelas = PlayerJanelas(this)
         lista = PlayerListaTela(this, aoAssistir = { c, chave -> escolherNaLista(c, chave) }, aoFavoritar = { alternarFavorito(it) },
             aoBuscar = { buscar() }, aoFiltros = { abrirFiltros() }, aoOcultarGrupo = { alternarOculto(it) },
-            aoGuia = { cs, nome -> abrirGrade(cs, nome) },
-            aoFilmes = { startActivity(android.content.Intent(this, FilmesActivity::class.java)) },
-            aoSeries = { startActivity(android.content.Intent(this, SeriesActivity::class.java)) })
+            aoGuia = { cs, nome -> abrirGrade(cs, nome) })
         raiz.addView(lista.raiz, FrameLayout.LayoutParams(-1, -1))
         grade = PlayerGradeView(this, aoAssistir = { c -> grade.fechar(); lista.fechar(); if (c.id != atual?.id) sintonizar(c) else mostrarInfo() },
             aoFechar = { grade.fechar(); if (lista.aberta) lista.voltarFoco() })
@@ -151,11 +149,10 @@ class PlayerActivity : Activity() {
             val cat = PlayerArmazem.categoria(this) ?: PlayerLista.TODOS
             val esc = PlayerArmazem.gruposEscondidos(this)
             val lib = PlayerArmazem.gruposLiberados(this)
-            val vod = PlayerCarga.temVod(this)
             tela.post {
                 if (isDestroyed) return@post
                 canais = lidos
-                favoritos = fav; recentes = rec; categoria = cat; escondidos = esc; liberados = lib; lista.temVod = vod
+                favoritos = fav; recentes = rec; categoria = cat; escondidos = esc; liberados = lib
                 refiltrar()
                 if (visiveis.isEmpty()) { mostrarAviso(getString(R.string.player_sem_canais)); return@post }
                 // Abre no último canal só se ele ainda passa no filtro (um canal de categoria oculta não abre sem PIN).
@@ -249,8 +246,10 @@ class PlayerActivity : Activity() {
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP -> { zapear(+1); return true }
             KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN -> { zapear(-1); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                // repeatCount > 0 = OK segurado: não reabre a lista que acabou de fechar ao escolher um canal.
-                if (digitado.isNotEmpty()) confirmarNumero() else if (event.repeatCount == 0) abrirLista()
+                // OK curto abre a lista (no SOLTAR, ver onKeyUp); OK segurado favorita o canal (onKeyLongPress).
+                // startTracking pede ao Android para avisar o "segurou". Só na 1ª descida: a repetição da tecla segurada
+                // (ou o OK que acabou de escolher um canal na lista) não começa outro.
+                if (digitado.isNotEmpty()) confirmarNumero() else if (event.repeatCount == 0) event.startTracking()
                 return true
             }
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_LAST_CHANNEL -> {
@@ -269,6 +268,23 @@ class PlayerActivity : Activity() {
         }
         if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) { digitar((keyCode - KeyEvent.KEYCODE_0).toString()); return true }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun ehOk(k: Int) = k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER
+
+    /** OK segurado no vídeo (~0,5 s): põe/tira o canal dos favoritos, sem abrir a lista. */
+    override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
+        if (ehOk(keyCode) && !lista.aberta && !grade.aberta) { atual?.let { alternarFavorito(it) }; return true }
+        return super.onKeyLongPress(keyCode, event)
+    }
+
+    /** OK solto sem ter segurado: abre a lista. isTracking garante que a descida foi no vídeo (não na lista ou na grade). */
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (ehOk(keyCode) && event.isTracking && !event.isCanceled) {
+            if (!lista.aberta && !grade.aberta) abrirLista()
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     /** ▲ sobe o número do canal (como num controle de TV comum), dentro da categoria escolhida na lista. */
