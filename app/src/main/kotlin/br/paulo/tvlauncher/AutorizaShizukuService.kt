@@ -21,6 +21,7 @@ class AutorizaShizukuService : AccessibilityService() {
         // O sistema religa este serviço sempre que o processo do launcher sobe de novo (reinício, restauração de
         // backup, falta de memória), mesmo sem a HOME na frente. Então é daqui que o painel no navegador volta.
         PainelWeb.ajustar(this)
+        McpServidor.ajustar(this); TunelTailscale.ajustar(this)   // MCP pela internet (se ligado)
         AvisoChuva.vigiar(this)   // aviso de chuva por cima de qualquer tela (a cada 30 min, só com a tela acesa)
         HistoricoRede.iniciar(this)   // histórico de rede (para o painel) e o "desligar sozinha": também voltam daqui
         AutoDesligar.iniciar(this)

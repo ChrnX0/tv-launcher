@@ -136,6 +136,8 @@ dependencies {
     // O src/main/baseline-prof.txt vai dentro do APK, e este pacote grava o perfil na pasta do app quando ele abre
     // (ou pelo broadcast INSTALL_PROFILE, usado pelo build3.ps1). Depois o compile -m speed-profile passa a valer.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    // QR code (login do Tailscale e endereço do MCP na tela da TV e no painel). Só o núcleo, sem câmera.
+    implementation("com.google.zxing:core:3.5.3")
 
     // Testes que rodam no computador (gradlew testReleaseUnitTest), sem TV: a parte do painel no navegador que não
     // usa o Android (PainelHttp, PainelSeguranca). Não entra no APK.
@@ -143,3 +145,32 @@ dependencies {
     // O org.json do android.jar é só casca nos testes do computador ("Stub!"): a IA (ComandosIa) precisa do de verdade.
     testImplementation("org.json:json:20240303")
 }
+
+// Túnel para a internet (opção E, 05/11/2026): o programa Go em tunel/ (Tailscale embutido, tsnet) compilado para ARM
+// 32 bits e posto no APK como "libtsnet.so". O nome .so é o truque: o Android extrai as libs para a pasta nativa do app
+// (useLegacyPackaging acima), que é a única de onde um app pode EXECUTAR um binário. TunelTailscale.kt o roda de lá.
+// Sem o Go instalado na máquina (ex.: o Dell hoje), o build segue sem o túnel e avisa; o resto do launcher não muda.
+val pastaTunel = layout.buildDirectory.dir("tunel/jniLibs")
+val compilarTunel = tasks.register("compilarTunel") {
+    val fonte = rootProject.file("tunel")
+    val saida = pastaTunel.get().file("armeabi-v7a/libtsnet.so").asFile
+    inputs.dir(fonte)
+    outputs.file(saida)
+    doLast {
+        saida.parentFile.mkdirs()
+        val pb = ProcessBuilder("go", "build", "-trimpath", "-ldflags=-s -w", "-o", saida.absolutePath, ".")
+            .directory(fonte).redirectErrorStream(true)
+        pb.environment().putAll(mapOf("CGO_ENABLED" to "0", "GOOS" to "linux", "GOARCH" to "arm", "GOARM" to "7"))
+        val codigo = try {
+            val p = pb.start()
+            val texto = p.inputStream.bufferedReader().readText()
+            p.waitFor().also { if (it != 0) logger.warn("túnel: go build falhou:\n$texto") }
+        } catch (e: java.io.IOException) {
+            logger.warn("túnel: Go não está instalado; o APK sai SEM o túnel para a internet (MCP)")
+            -1
+        }
+        if (codigo != 0) saida.delete()
+    }
+}
+android.sourceSets["main"].jniLibs.srcDir(pastaTunel)
+tasks.named("preBuild") { dependsOn(compilarTunel) }

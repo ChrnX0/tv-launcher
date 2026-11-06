@@ -42,6 +42,7 @@
       <button class="aba" data-aba="shizuku">Shizuku</button>
       <button class="aba" data-aba="rede">Rede</button>
       <button class="aba" data-aba="roteador">Roteador</button>
+      <button class="aba" data-aba="claude">Claude</button>
       <button class="aba" data-aba="backup">Backup</button>
       <button class="aba" data-aba="registro">Acessos</button>
     </nav>
@@ -247,6 +248,54 @@
         </div>
         <p id="estadoRoteador" class="aviso"></p>
         <div id="listaAparelhos" class="lista-registro"></div>
+      </div>
+    </section>
+
+    <section id="abaClaude" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Claude pela internet (MCP)</h2>
+        <p class="aviso">O Claude (claude.ai ou o app) consulta a TV e PEDE ações: abrir app, despertador, volume, mídia.
+          Nada acontece sem OK no controle. O login do Claude é este mesmo PIN. O painel não fica na internet: só o MCP.</p>
+        <p id="estadoMcp" class="aviso"></p>
+        <label><input id="chkMcpLigado" type="checkbox"> Ligar o acesso pelo Claude</label>
+      </div>
+      <div class="cartao">
+        <h2 id="passoTitulo">Conectar</h2>
+        <p id="passoTexto" class="aviso" style="white-space: pre-line"></p>
+        <img id="passoQr" alt="QR code" width="240" height="240" hidden>
+        <p><a id="passoLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir neste aparelho</a></p>
+      </div>
+      <div class="cartao">
+        <h2>Rede Tailscale</h2>
+        <label><input id="chkMcpRede" type="checkbox"> Abrir o painel pelos aparelhos da minha conta Tailscale e deixar o Claude ver a
+          lista deles (só a lista; não mexe neles)</label>
+        <p class="aviso-curto">Desligado: a TV só publica o MCP. Ligado: http://tv-sala:8080 abre este painel de qualquer aparelho da
+          conta Tailscale, com o mesmo PIN, nunca pela internet aberta.</p>
+        <form id="formAtalhos" autocomplete="off">
+          <label for="campoAtalhos">Atalhos de porta (servidor de mídia em outro lugar)</label>
+          <input id="campoAtalhos" type="text" maxlength="400" placeholder="ex.: nas:8096">
+          <button type="submit" class="botao-secundario">Salvar atalhos</button>
+        </form>
+        <p class="aviso-curto">Cada "aparelho:porta" vira http://127.0.0.1:porta na TV: no Jellyfin, Emby ou Kodi, use esse endereço
+          como servidor. Só com a rede Tailscale ligada. Na mesma rede de casa não precisa.</p>
+      </div>
+      <div class="cartao">
+        <details>
+          <summary>Prefere usar uma chave do Tailscale?</summary>
+          <p class="aviso">Console do Tailscale: Settings → Keys → Generate auth key. A chave fica cifrada na TV e é apagada
+            depois do primeiro login.</p>
+          <form id="formMcp" autocomplete="off">
+            <input id="campoChaveMcp" type="password" maxlength="200" autocomplete="off" placeholder="tskey-auth-...">
+            <button type="submit" class="botao-primario">Salvar</button>
+          </form>
+        </details>
+        <p id="statusMcp" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Acessos</h2>
+        <p id="loginsMcp" class="aviso-curto"></p>
+        <button type="button" class="botao-secundario" id="btnRevogarMcp">Revogar os logins do Claude</button>
+        <button type="button" class="link" id="btnEsquecerMcp">Esquecer o Tailscale (para entrar com outra conta)</button>
       </div>
     </section>
 
