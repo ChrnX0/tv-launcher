@@ -42,6 +42,15 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val TOKEN_OCULTOS = "ocultos"   // identifica o card "Ocultos" (nenhum pacote tem esse nome)
 private const val TOKEN_TV = "player:tv"      // o card "TV ao vivo" do player universal (06/11/2026; ":" não existe em pacote)
+
+/** Partes da HOME que o adb pode esconder para medir a GPU (ver HOME_TESTE no ControleShizukuReceiver). Volta tudo ao reiniciar. */
+object TesteHome {
+    @Volatile var capa = true
+    @Volatile var destaque = true
+    @Volatile var faixa = true
+    @Volatile var fundo = true
+    @Volatile var aplicar: (() -> Unit)? = null
+}
 private const val ID_PREVIA = "previa"       // id da pilha provisoria mostrada enquanto se arrasta um app para cima de outro
 private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: sol coberto pela lua (IconeEclipse). So aparece durante um eclipse solar REAL (ver Eclipse.kt e o Config.kt)
 
@@ -188,6 +197,8 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         tema = Tema.atual(this)
         setContentView(montarTela())
+        TesteHome.aplicar = { ui.post { if (!isDestroyed) aplicarTeste() } }
+        aplicarTeste()
         // Foco fora da linha de apps (hora, clima, bolinha) apaga a capa; foco no Continuar sobe a tela para mostrá-lo.
         window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, novo ->
             val noContinuar = novo != null && dentro(novo, linhaContinuar)
@@ -750,8 +761,6 @@ class MainActivity : Activity() {
     /** pacote -> (APK|activity, Item). Vive enquanto o processo da HOME viver (sobrevive à troca de tema). */
     private companion object {
         val cacheApps = HashMap<String, Pair<String, Item>>()
-        // dp: nome do dia (~19) + ícone (6+34+4) + máx/mín (~21) + chuva (5+~17) = ~106, com folga. Com 96 a linha
-        // da chuva era cortada (foto da TV, 05/11/2026).
         const val ALTURA_FAIXA = 46        // faixa fina de 9 dias (esboço V3Final); era 116, com ícone por dia
         const val TOPO_DESTAQUE = 118      // onde começa o bloco do destaque (abaixo da hora/clima)
         const val CORAL = 0xFFFF8A80.toInt()   // a cor do "ao vivo"
@@ -1025,8 +1034,16 @@ class MainActivity : Activity() {
         mostrarCapaDoApp(item.pacote, item.icone)
     }
 
+    private fun aplicarTeste() {
+        capa.visibility = if (TesteHome.capa) View.VISIBLE else View.GONE
+        destaque.visibility = if (TesteHome.destaque) destaque.visibility.takeIf { it != View.GONE } ?: View.INVISIBLE else View.GONE
+        if (!TesteHome.faixa) faixaDias.visibility = View.GONE else mostrarDias(ultimosDias.also { ultimosDias = emptyList() })
+        fundo?.visibility = if (TesteHome.fundo) View.VISIBLE else View.INVISIBLE
+    }
+
     /** O destaque: [rotulo] (linha pequena coral, some se null), [titulo] grande e [sub] embaixo (some se null). */
     private fun mostrarDestaque(rotulo: String?, titulo: String, sub: String?) {
+        if (!TesteHome.destaque) return
         txtDestaqueRotulo.text = rotulo
         txtDestaqueRotulo.visibility = if (rotulo == null) View.GONE else View.VISIBLE
         txtDestaqueTitulo.text = titulo
@@ -1969,7 +1986,7 @@ class MainActivity : Activity() {
      * Não redesenha se nada mudou (a busca roda a cada 5 min).
      */
     private fun mostrarDias(dias: List<FaixaDias.Dia>) {
-        faixaDias.visibility = if (FaixaDias.ligada(this) && dias.isNotEmpty()) View.VISIBLE else View.GONE
+        faixaDias.visibility = if (TesteHome.faixa && FaixaDias.ligada(this) && dias.isNotEmpty()) View.VISIBLE else View.GONE
         if (dias == ultimosDias) return
         ultimosDias = dias
         faixaDias.removeAllViews()
