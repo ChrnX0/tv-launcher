@@ -119,6 +119,7 @@ object TunelTailscale {
 
     private fun rodarUmaVez(app: Context) {
         val pasta = pastaEstado(app).apply { mkdirs() }
+        encerrarSobra(pasta)
         val pb = ProcessBuilder(binario(app).absolutePath).directory(pasta).redirectErrorStream(true)
         val env = pb.environment()
         env["TUNEL_DIR"] = pasta.absolutePath
@@ -127,6 +128,8 @@ object TunelTailscale {
         env["SSL_CERT_DIR"] = "/system/etc/security/cacerts"
         env["HOME"] = pasta.absolutePath
         dnsDoSistema(app)?.let { env["TUNEL_DNS"] = it }
+        // Saída pela ponte Java (PonteTunel): o tráfego direto do processo filho não sai da TV (medido 06/11/2026).
+        PonteTunel.garantir()?.let { env["HTTPS_PROXY"] = it; env["https_proxy"] = it; env["NO_PROXY"] = "127.0.0.1,localhost" }
         chave(app)?.let { env["TS_AUTHKEY"] = it }   // só existe até o 1º login dar certo
         if (redeLigada(app)) {
             ipDaRede()?.let { env["TUNEL_PAINEL"] = "$it:${Config.PAINEL_PORTA}" }
@@ -159,6 +162,18 @@ object TunelTailscale {
         p.waitFor()
         processo = null
         urlLogin = null; urlAtivar = null
+    }
+
+    /** Um túnel de uma vida anterior do launcher (ex.: reiniciou duas vezes seguidas) ainda rodando com a mesma pasta:
+     *  encerra antes de subir outro. Confere em /proc que o número é mesmo do nosso binário (o número pode ter sido
+     *  reaproveitado por outro processo). Mesmo UID: o Android deixa matar. */
+    private fun encerrarSobra(pasta: File) {
+        val arq = File(pasta, "tunel.pid")
+        val pid = try { arq.readText().trim().toInt() } catch (_: Exception) { return }
+        if (pid <= 1 || pid == android.os.Process.myPid()) return
+        val linha = try { File("/proc/$pid/cmdline").readText() } catch (_: Exception) { "" }
+        if (linha.contains("libtsnet.so")) { Log.w(TAG, "túnel antigo $pid ainda de pé; encerrando"); android.os.Process.killProcess(pid); Thread.sleep(500) }
+        arq.delete()
     }
 
     /** Só mostramos como QR uma URL do próprio Tailscale (a saída do programa não decide para onde o celular vai). */

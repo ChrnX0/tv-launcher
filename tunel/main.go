@@ -42,6 +42,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,6 +51,8 @@ import (
 	// Android: sem netlink nem /proc/net para app comum; este pacote dá a lista de interfaces por outro caminho
 	// (e DNS e certificados do Android). Sem ele: "netlinkrib: permission denied" (medido na Sala, 06/11/2026).
 	_ "tailscale.com/feature/androidbin"
+	// Saída pelo proxy do ambiente (HTTPS_PROXY = a ponte Java do launcher, PonteTunel.kt): sem isto o tsnet ignora o proxy.
+	_ "tailscale.com/feature/useproxy"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tsnet"
 )
@@ -66,6 +70,8 @@ func main() {
 		fmt.Println("ERRO TUNEL_ALVO precisa ser 127.0.0.1:<porta>")
 		os.Exit(2)
 	}
+	// O launcher lê este número para encerrar um túnel antigo que tenha sobrado (dois túneis com o mesmo estado brigam).
+	_ = os.WriteFile(filepath.Join(dir, "tunel.pid"), []byte(strconv.Itoa(os.Getpid())), 0o600)
 
 	// O Android não tem /etc/resolv.conf: sem isto o Go perguntaria a 127.0.0.1:53 e nada resolveria.
 	dns := os.Getenv("TUNEL_DNS")
