@@ -479,7 +479,7 @@ class MainActivity : Activity() {
             text = getString(R.string.home_linha_apps)
             letterSpacing = 0.1f
             if (tema != Tema.ESCURO) setShadowLayer(dp(6).toFloat(), 0f, 0f, 0x99000000.toInt())
-        }, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.MARGEM); topMargin = dp(LINHA_APPS_HOME - 26) })
+        }, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.MARGEM); topMargin = dp(LINHA_APPS_HOME - 32) })
 
         // ---- Continuar (HOME recomendada): último canal e apps usados há pouco, em cards 16:9 com o banner do app. Fica
         // meio escondida na borda de baixo; com o foco nela (▼ num card solto), a tela inteira sobe para mostrá-la.
@@ -889,6 +889,8 @@ class MainActivity : Activity() {
         if (cards.isEmpty()) return
         if (atalhoAberto >= 0) return   // voltando de TV/Séries/Filmes: o foco volta para aquele card (desenharContinuar)
         linhaApps.post {
+            // Foco no Continuar (o TV na abertura): não roubar. A volta de um app já o trouxe para os apps no onResume.
+            if (linhaContinuar.hasFocus()) return@post
             val achado = cards.indexOfFirst { it.token == ultimoToken }
             // Se o card sumiu (ex.: app ocultado), o foco fica na mesma posição, que agora é o vizinho.
             val alvo = if (achado >= 0) achado else indiceFoco.coerceIn(0, cards.lastIndex)
@@ -1166,7 +1168,8 @@ class MainActivity : Activity() {
         // um app, o foco fica onde estava.
         if (focoInicialNaTv) {
             focoInicialNaTv = false
-            if (temTv && atalhoAberto < 0) linhaContinuar.getChildAt(0)?.requestFocus()
+            // return: o else-if lá embaixo ("foco no Continuar -> volta aos apps") tirava o foco do TV na hora (visto na Sala).
+            if (temTv && atalhoAberto < 0) { linhaContinuar.getChildAt(0)?.requestFocus(); return }
         }
         if (atalhoAberto >= 0) {
             (linhaContinuar.getChildAt(atalhoAberto) ?: linhaApps.getChildAt(indiceFoco.coerceAtLeast(0)))?.requestFocus()
