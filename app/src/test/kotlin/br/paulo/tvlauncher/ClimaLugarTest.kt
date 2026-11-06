@@ -7,28 +7,63 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.Locale
 
-/** Testes do lugar do clima (LocalClima) e da faixa de 9 dias (FaixaDias): só a lógica, sem Android. */
+/** Testes do endereço do clima (Endereco/LocalClima) e da faixa de 9 dias (FaixaDias): só a lógica, sem Android. */
 class ClimaLugarTest {
-    // ---- coordenadas coladas do Google Maps
+    // ---- endereço (CEP + número)
 
-    @Test fun leOFormatoDoGoogleMaps() {
-        assertEquals(-21.1795 to -47.8105, LocalClima.lerCoordenadas("-21.1795, -47.8105"))
+    @Test fun cepENumero() {
+        assertEquals("14015060", Endereco.limparCep("14015-060"))
+        assertNull(Endereco.limparCep("1401506"))
+        assertNull(Endereco.limparCep(null))
+        assertEquals("100", Endereco.limparNumero(" 100 "))
+        assertEquals("", Endereco.limparNumero(""))
+        assertNull(Endereco.limparNumero("100A"))
     }
 
-    @Test fun aceitaParentesesEspacoEPontoEVirgula() {
-        assertEquals(-21.1795 to -47.8105, LocalClima.lerCoordenadas(" (-21.1795,-47.8105) "))
-        assertEquals(-21.1795 to -47.8105, LocalClima.lerCoordenadas("-21.1795 -47.8105"))
-        assertEquals(-21.1795 to -47.8105, LocalClima.lerCoordenadas("-21,1795; -47,8105"))
+    private val viaCep = """{"cep":"14015-060","logradouro":"Rua Florêncio de Abreu","bairro":"Centro","localidade":"Ribeirão Preto","uf":"SP"}"""
+
+    @Test fun leViaCep() {
+        assertEquals(Endereco.Cep("14015-060", "Rua Florêncio de Abreu", "Centro", "Ribeirão Preto", "SP"), Endereco.lerViaCep(viaCep))
+        assertNull(Endereco.lerViaCep("""{"erro": true}"""))
+        assertNull(Endereco.lerViaCep("""{"erro": "true"}"""))
+        assertNull(Endereco.lerViaCep("lixo"))
     }
 
-    @Test fun recusaOQueNaoECoordenada() {
-        assertNull(LocalClima.lerCoordenadas(""))
-        assertNull(LocalClima.lerCoordenadas("Higienópolis"))
-        assertNull(LocalClima.lerCoordenadas("-21,1795, -47,8105"))   // vírgula decimal E separadora: ambíguo
-        assertNull(LocalClima.lerCoordenadas("95, 10"))               // latitude fora de -90..90
-        assertNull(LocalClima.lerCoordenadas("10, 190"))              // longitude fora de -180..180
-        assertNull(LocalClima.lerCoordenadas("0, 0"))                 // o padrão "sem lugar" do build
-        assertNull(LocalClima.lerCoordenadas("NaN, 1"))
+    @Test fun leNominatim() {
+        assertEquals(-21.18 to -47.80, Endereco.lerNominatim("""[{"lat":"-21.18","lon":"-47.80"}]"""))
+        assertNull(Endereco.lerNominatim("[]"))
+        assertNull(Endereco.lerNominatim("""[{"lat":"0","lon":"0"}]"""))
+    }
+
+    @Test fun buscaDoMaisPrecisoParaOMenos() {
+        val c = Endereco.lerViaCep(viaCep)!!
+        assertEquals(listOf("número", "rua", "bairro", "cidade"), Endereco.consultas(c, "100").map { it.second })
+        assertEquals(listOf("rua", "bairro", "cidade"), Endereco.consultas(c, "").map { it.second })
+        // O número não achou nada no mapa: cai na rua.
+        val pedidos = ArrayList<String>()
+        val r = Endereco.buscar("14015-060", "100") { url ->
+            pedidos += url
+            when {
+                "viacep" in url -> viaCep
+                "street=100" in url -> "[]"
+                "street=" in url -> """[{"lat":"-21.179","lon":"-47.811"}]"""
+                else -> "[]"
+            }
+        }.getOrThrow()
+        assertEquals(Endereco.Achado("Centro", -21.179, -47.811, "rua"), r)
+        assertEquals(3, pedidos.size)   // ViaCEP + 2 buscas no mapa, e para
+    }
+
+    @Test fun erros() {
+        assertEquals("CEP inválido: são 8 números", Endereco.buscar("123", "") { null }.exceptionOrNull()?.message)
+        assertEquals("CEP não encontrado (ou sem internet)", Endereco.buscar("14015060", "") { null }.exceptionOrNull()?.message)
+        assertEquals("não achei esse endereço no mapa",
+            Endereco.buscar("14015060", "") { if ("viacep" in it) viaCep else "[]" }.exceptionOrNull()?.message)
+    }
+
+    @Test fun descricao() {
+        assertEquals("Centro · CEP 14015-060, nº 100", LocalClima.descrever(LocalClima.Lugar("Centro", 1.0, 1.0, "14015060", "100")))
+        assertEquals("Centro · CEP 14015-060", LocalClima.descrever(LocalClima.Lugar("Centro", 1.0, 1.0, "14015060", "")))
     }
 
     @Test fun nomeLimpo() {
@@ -67,6 +102,14 @@ class ClimaLugarTest {
         assertEquals(mediana, FaixaDias.ler(daily(), null, diasChuva = mediana).map { it.chuva })
         // Mediana mais curta que os dias: o resto cai no best_match.
         assertEquals(listOf(55, 80, 80), FaixaDias.ler(daily(3), null, diasChuva = listOf(55)).map { it.chuva })
+    }
+
+    @Test fun chanceDoDiaEOMeioTermoEntrePicoEMedia() {
+        // Números de 05/11/2026 (mediana ECMWF/ICON/GFS): pico 76/43/71, média 21/13/27 -> 49/28/49 (Google: 55/15/55).
+        assertEquals(listOf(49, 28, 49), FaixaDias.chanceDoDia(listOf(76, 43, 71), listOf(21, 13, 27)))
+        assertEquals(listOf(76, 43), FaixaDias.chanceDoDia(listOf(76, 43), null))          // sem média: o pico
+        assertEquals(listOf(49, 43), FaixaDias.chanceDoDia(listOf(76, 43), listOf(21)))    // média mais curta
+        assertNull(FaixaDias.chanceDoDia(null, listOf(21)))
     }
 
     @Test fun pulaDiaSemDadoENaoPassaDoPedido() {

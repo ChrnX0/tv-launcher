@@ -698,17 +698,17 @@ object PainelWeb {
         .put("opcoes", org.json.JSONArray(AutoDesligar.OPCOES))
         .put("ultimoDesligamento", AutoDesligar.ultimoDesligamento))
 
-    /** O lugar do clima: o escolhido (ou null = automático), o ponto que a última busca usou e a faixa de 9 dias. */
+    /** O endereço do clima (ou null), o ponto que a última busca usou e a faixa de 9 dias. */
     private fun estadoClima(): JSONObject {
         val fixo = LocalClima.ler(app)
         val c = app.getSharedPreferences("clima", Context.MODE_PRIVATE)
         return JSONObject()
-            .put("fixo", fixo?.let { JSONObject().put("nome", it.nome).put("lat", it.lat).put("lon", it.lon) } ?: JSONObject.NULL)
+            .put("fixo", fixo?.let { JSONObject().put("nome", it.nome).put("cep", it.cep).put("numero", it.numero).put("descricao", LocalClima.descrever(it)) } ?: JSONObject.NULL)
             .put("usado", if (c.contains("lat")) JSONObject().put("lat", c.getFloat("lat", 0f).toDouble()).put("lon", c.getFloat("lon", 0f).toDouble()) else JSONObject.NULL)
             .put("faixa", FaixaDias.ligada(app))
     }
 
-    /** {"nome","coordenadas"} fixa o lugar; {"automatico":true} volta ao automático; {"faixa":bool} liga/desliga a faixa. */
+    /** {"cep","numero"} cadastra o endereço; {"automatico":true} apaga; {"faixa":bool} liga/desliga a faixa. */
     private fun mudarClima(req: Requisicao, ip: String): Resposta {
         val o = corpoJson(req) ?: return erro(400, "JSON inválido")
         when {
@@ -721,12 +721,11 @@ object PainelWeb {
                 PainelArmazem.registrar(app, ip, "clima: localização automática", "ok")
             }
             else -> {
-                val (lat, lon) = LocalClima.lerCoordenadas(o.optString("coordenadas"))
-                    ?: return erro(400, "coordenadas inválidas: cole do Google Maps, ex.: -21.1795, -47.8105")
-                val nome = LocalClima.limparNome(o.optString("nome"))
-                LocalClima.gravar(app, LocalClima.Lugar(nome, lat, lon))
-                // As coordenadas não vão para o registro (são o endereço da casa), só o nome.
-                PainelArmazem.registrar(app, ip, "clima: lugar \"$nome\"", "ok")
+                // CEP + número -> ViaCEP + Nominatim (alguns segundos; esta thread é do pedido, não da tela).
+                val lugar = LocalClima.definirPorCep(app, o.optString("cep"), o.optString("numero"))
+                    .getOrElse { return erro(400, it.message ?: "não achei esse endereço") }
+                // O endereço não vai para o registro (é a casa), só o bairro.
+                PainelArmazem.registrar(app, ip, "clima: endereço em \"${lugar.nome}\"", "ok")
             }
         }
         return json(200, estadoClima().put("ok", true))
