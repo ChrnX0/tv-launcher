@@ -85,6 +85,7 @@ class PlayerListaTest {
         assertEquals("Jogos de Hoje", PlayerLista.nomeExibido("Canais | Jogos de Hoje"))
         assertEquals("Ação", PlayerLista.nomeExibido("FILMES: Ação"))
         assertEquals("Drama", PlayerLista.nomeExibido("Séries - Drama"))
+        assertEquals("HBO Max", PlayerLista.nomeExibido("Séries / HBO Max"))
         assertEquals("Esportes", PlayerLista.nomeExibido("Esportes"))
         assertEquals("Canal Brasil", PlayerLista.nomeExibido("Canal Brasil"))   // sem separador: é nome, não prefixo
         assertEquals("Canais |", PlayerLista.nomeExibido("Canais |"))           // só o prefixo: mantém o original
