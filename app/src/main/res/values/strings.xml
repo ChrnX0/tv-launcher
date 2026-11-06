@@ -36,6 +36,9 @@
     <string name="cfg_atualizar">Procurar versão nova</string>
     <string name="cfg_atualizar_det">versão %1$s · %2$s · OK procura agora</string>
     <string name="cfg_procurando">procurando no GitHub…</string>
+    <string name="cfg_instalar">Instalar a versão %1$d agora</string>
+    <string name="cfg_instalar_det">o launcher fecha e volta sozinho em uns segundos · OK instala</string>
+    <string name="cfg_instalando">baixando e conferindo…</string>
     <string name="cfg_sec_rede">Rede</string>
     <string name="cfg_dns">DNS privado</string>
     <string name="cfg_dns_caiu">" · %1$s não respondeu, voltei para o automático"</string>
@@ -462,8 +465,9 @@
     <string name="atu_ilegivel">Release %1$d: APK ilegível</string>
     <string name="atu_pacote">Release %1$d: pacote diferente (%2$s)</string>
     <string name="atu_versao">Release %1$d: versão do APK (%2$d) não bate com a tag</string>
-    <string name="atu_chave">Release %1$d assinado com outra chave: não instalo (normal numa TV atualizada pelo PC)</string>
-    <string name="atu_disponivel">versão %1$d disponível (instalada %2$d)</string>
+    <string name="atu_chave">o GitHub tem a versão %1$d, mas ela é assinada com outra chave e esta TV não aceita: esta TV se atualiza pelo PC</string>
+    <string name="atu_disponivel">versão %1$d pronta para instalar (instalada %2$d)</string>
+    <string name="atu_trocou">a versão mudou desde a última procura · OK procura de novo</string>
     <string name="atu_instalando">instalando %1$d (instalada %2$d)</string>
     <string name="atu_ok">atualizado</string>
     <string name="atu_falhou">instalação falhou (%1$d): %2$s</string>

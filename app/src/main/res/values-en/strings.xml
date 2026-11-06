@@ -30,6 +30,9 @@
     <string name="cfg_atualizar">Check for a new version</string>
     <string name="cfg_atualizar_det">version %1$s · %2$s · OK checks now</string>
     <string name="cfg_procurando">checking GitHub…</string>
+    <string name="cfg_instalar">Install version %1$d now</string>
+    <string name="cfg_instalar_det">the launcher closes and comes back by itself in a few seconds · OK installs</string>
+    <string name="cfg_instalando">downloading and checking…</string>
     <string name="cfg_sec_rede">Network</string>
     <string name="cfg_dns">Private DNS</string>
     <string name="cfg_dns_caiu">" · %1$s did not answer, switched back to automatic"</string>
@@ -456,8 +459,9 @@
     <string name="atu_ilegivel">Release %1$d: unreadable APK</string>
     <string name="atu_pacote">Release %1$d: different package (%2$s)</string>
     <string name="atu_versao">Release %1$d: APK version (%2$d) does not match the tag</string>
-    <string name="atu_chave">Release %1$d signed with another key: not installing (normal on a TV updated from a PC)</string>
-    <string name="atu_disponivel">version %1$d available (installed %2$d)</string>
+    <string name="atu_chave">GitHub has version %1$d, but it is signed with another key this TV does not accept: this TV is updated from a PC</string>
+    <string name="atu_disponivel">version %1$d ready to install (installed %2$d)</string>
+    <string name="atu_trocou">the version changed since the last check · OK checks again</string>
     <string name="atu_instalando">installing %1$d (installed %2$d)</string>
     <string name="atu_ok">updated</string>
     <string name="atu_falhou">install failed (%1$d): %2$s</string>

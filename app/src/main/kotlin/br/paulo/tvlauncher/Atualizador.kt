@@ -36,6 +36,9 @@ object Atualizador {
     private const val PREFS = "atualizador"
     private const val ULTIMA = "ultima_verificacao"
     private const val ESTADO = "estado"
+    private const val ESTADO_VERSAO = "estado_versao"   // versão instalada quando o ESTADO foi escrito
+    private const val PENDENTE = "pendente"             // Release conferido (sha, pacote, chave) e ainda não instalado
+    private const val RECUSADA = "recusada"             // Release recusado por chave diferente: não baixa de novo
     private const val INTERVALO_MS = 6 * 60 * 60_000L
     private const val NOME_APK = "tv-launcher.apk"
     private const val ACAO_RESULTADO = "br.paulo.tvlauncher.ATUALIZACAO_RESULTADO"
@@ -45,12 +48,29 @@ object Atualizador {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /** Texto curto para a tela de Configurações: o que aconteceu na última verificação. */
-    fun estado(ctx: Context): String = prefs(ctx).getString(ESTADO, null) ?: txt(R.string.atu_nunca)
+    fun estado(ctx: Context): String {
+        val p = prefs(ctx)
+        val t = p.getString(ESTADO, null) ?: return txt(R.string.atu_nunca)
+        // 06/11/2026: o texto velho ("Release X assinado com outra chave") ficava na tela depois de o PC instalar uma
+        // versão mais nova, e parecia que havia atualização. Se a versão instalada mudou, o texto não vale mais.
+        val v = versaoAtual(ctx)
+        return if (v != 0L && p.getLong(ESTADO_VERSAO, v) != v) txt(R.string.atu_trocou) else t
+    }
+
+    /** versionCode do Release já conferido e pronto para instalar, ou null. Só vale se for maior que o instalado. */
+    fun pendente(ctx: Context): Long? {
+        val c = prefs(ctx).getLong(PENDENTE, 0L)
+        return if (c > versaoAtual(ctx)) c else null
+    }
+
+    private fun versaoAtual(ctx: Context): Long = try {
+        if (android.os.Build.VERSION.SDK_INT >= 28) instalado(ctx.applicationContext).longVersionCode else 0L
+    } catch (e: Exception) { 0L }
 
     private fun anotar(ctx: Context, t: String) {
         Log.i(TAG, t)
         val hora = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-        prefs(ctx).edit().putString(ESTADO, "$hora · $t").apply()
+        prefs(ctx).edit().putString(ESTADO, "$hora · $t").putLong(ESTADO_VERSAO, versaoAtual(ctx)).apply()
     }
 
     /** Chamado pelo relógio de 10 min do GuardiaoShizuku. Só faz algo a cada 6 h e com a tela apagada. */
@@ -85,7 +105,9 @@ object Atualizador {
         // A tag é "v<versionCode>" (o workflow cria assim).
         val codigo = json.optString("tag_name").removePrefix("v").toLongOrNull() ?: return "Release sem versão na tag"
         val meu = instalado(app).longVersionCode
-        if (codigo <= meu) return txt(R.string.atu_em_dia, meu, codigo)
+        if (codigo <= meu) { prefs(app).edit().remove(PENDENTE).apply(); return txt(R.string.atu_em_dia, meu, codigo) }
+        // Este mesmo Release já foi recusado pela chave: o APK não muda, então não baixa 12 MB de novo a cada 6 h.
+        if (prefs(app).getLong(RECUSADA, 0L) == codigo) return txt(R.string.atu_chave, codigo)
 
         var urlApk: String? = null
         var urlSha: String? = null
@@ -110,9 +132,12 @@ object Atualizador {
                 ?: return txt(R.string.atu_ilegivel, codigo)
             if (novo.packageName != app.packageName) return txt(R.string.atu_pacote, codigo, novo.packageName)
             if (novo.longVersionCode != codigo) return txt(R.string.atu_versao, codigo, novo.longVersionCode)
-            if (!mesmaChave(instalado(app), novo)) return txt(R.string.atu_chave, codigo)
+            if (!mesmaChave(instalado(app), novo)) {
+                prefs(app).edit().putLong(RECUSADA, codigo).remove(PENDENTE).apply()
+                return txt(R.string.atu_chave, codigo)
+            }
 
-            if (!instalar) return txt(R.string.atu_disponivel, codigo, meu)
+            if (!instalar) { prefs(app).edit().putLong(PENDENTE, codigo).apply(); return txt(R.string.atu_disponivel, codigo, meu) }
             instalarApk(app, arquivo)
             entregue = true
             return txt(R.string.atu_instalando, codigo, meu)
