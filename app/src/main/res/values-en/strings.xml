@@ -489,7 +489,7 @@
     <string name="player_canal_nao_existe">There is no channel %1$d.</string>
     <string name="player_ao_vivo">LIVE</string>
     <string name="player_a_seguir">next: %1$s</string>
-    <string name="player_teclas">▲ ▼ channel    OK channel list    hold OK: favorite    ◀ previous channel    BACK exit</string>
+    <string name="player_teclas">▲ ▼ channel    OK channel list    hold OK 2 s: favorite    ◀ previous channel    BACK exit</string>
     <string name="player_cat_busca">Search: %1$s</string>
     <string name="player_acao_buscar">Search</string>
     <string name="player_acao_filtros">Filters</string>
@@ -562,12 +562,12 @@
     <string name="player_cat_favoritos">Favorites</string>
     <string name="player_cat_recentes">Recent</string>
     <string name="player_cat_outros">Other</string>
-    <string name="player_sem_favoritos">No favorites yet. Hold OK on a channel to add it here.</string>
+    <string name="player_sem_favoritos">No favorites yet. Hold OK for 2 s on a channel to add it here.</string>
     <string name="player_categoria_vazia">No channels in this category.</string>
     <string name="player_sem_guia">No program guide for this channel.</string>
     <string name="player_horario">%1$s – %2$s · %3$d min left</string>
     <string name="player_depois">LATER</string>
-    <string name="player_lista_teclas">OK watch    hold OK: favorite (or hide the category)    ◀ categories</string>
+    <string name="player_lista_teclas">OK watch    hold OK 2 s: favorite or remove    hold OK on a category: hide    ◀ categories</string>
     <string name="player_favorito_pos">★ %1$s added to favorites</string>
     <string name="player_favorito_tirou">%1$s removed from favorites</string>
     <string name="player_favoritos_cheio">There are already 500 favorites: remove one first.</string>

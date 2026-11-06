@@ -495,7 +495,7 @@
     <string name="player_canal_nao_existe">Não há canal %1$d.</string>
     <string name="player_ao_vivo">AO VIVO</string>
     <string name="player_a_seguir">a seguir: %1$s</string>
-    <string name="player_teclas">▲ ▼ canal    OK lista de canais    segure OK: favoritar    ◀ canal anterior    VOLTAR sair</string>
+    <string name="player_teclas">▲ ▼ canal    OK lista de canais    segure OK 2 s: favoritar    ◀ canal anterior    VOLTAR sair</string>
     <string name="player_cat_busca">Busca: %1$s</string>
     <string name="player_acao_buscar">Buscar</string>
     <string name="player_acao_filtros">Filtros</string>
@@ -568,12 +568,12 @@
     <string name="player_cat_favoritos">Favoritos</string>
     <string name="player_cat_recentes">Recentes</string>
     <string name="player_cat_outros">Outros</string>
-    <string name="player_sem_favoritos">Nenhum favorito ainda. Segure OK num canal para guardar aqui.</string>
+    <string name="player_sem_favoritos">Nenhum favorito ainda. Segure OK por 2 s num canal para guardar aqui.</string>
     <string name="player_categoria_vazia">Nenhum canal nesta categoria.</string>
     <string name="player_sem_guia">Sem guia de programação para este canal.</string>
     <string name="player_horario">%1$s – %2$s · faltam %3$d min</string>
     <string name="player_depois">DEPOIS</string>
-    <string name="player_lista_teclas">OK assistir    segure OK: favoritar (ou ocultar a categoria)    ◀ categorias</string>
+    <string name="player_lista_teclas">OK assistir    segure OK 2 s: favoritar ou tirar    segure OK na categoria: ocultar    ◀ categorias</string>
     <string name="player_favorito_pos">★ %1$s nos favoritos</string>
     <string name="player_favorito_tirou">%1$s saiu dos favoritos</string>
     <string name="player_favoritos_cheio">Já há 500 favoritos: tire um antes.</string>

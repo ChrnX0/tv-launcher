@@ -36,7 +36,7 @@ import java.util.Locale
  * As duas listas são ListView (do próprio Android): só cria as linhas que cabem na tela, então 20 mil canais custam o
  * mesmo que 20. O ◀ ▶ entre as colunas é a navegação de foco padrão do Android (a Activity devolve false para essas teclas).
  *
- * Teclas: ▲▼ andam; ◀ ▶ trocam de coluna; OK num canal assiste; OK segurado (ou MENU) põe/tira dos favoritos;
+ * Teclas: ▲▼ andam; ◀ ▶ trocam de coluna; OK num canal assiste; OK segurado 2 s (ou MENU) põe/tira dos favoritos;
  * OK segurado numa categoria esconde/mostra a categoria; VOLTAR fecha.
  * No topo da coluna de categorias ficam três ações: Buscar, Filtros e Guia de programação (as janelas são da PlayerActivity).
  * Filmes e Séries não aparecem aqui: abrem pelos cards da HOME (06/11/2026, pedido do Paulo).
@@ -131,6 +131,11 @@ class PlayerListaTela(
         preencherMeio(manterNoAtual = false)
         if (doMeio.isEmpty()) focarGrupoAtual() else listaCanais.requestFocus()
     }
+
+    /** O foco está num canal (coluna do meio)? Aí o OK é da PlayerActivity: curto assiste, segurado 2 s favorita. */
+    fun canaisComFoco(): Boolean = aberta && listaCanais.hasFocus()
+    fun canalEmFoco(): Canal? = doMeio.getOrNull(listaCanais.selectedItemPosition)
+    fun assistirEmFoco() { canalEmFoco()?.let { aoAssistir(it, chave) } }
 
     /** O guia em grade fechou e a lista ficou por baixo: o foco volta para ela. */
     fun voltarFoco() { listaGrupos.requestFocus() }
@@ -461,8 +466,8 @@ class PlayerListaTela(
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) { mostrarDetalhe(doMeio.getOrNull(pos)) }
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
+        // OK pelo controle não chega aqui (PlayerActivity.dispatchKeyEvent trata curto e segurado 2 s); fica o clique
+        // para quem usa outro meio (mouse, toque).
         listaCanais.setOnItemClickListener { _, _, pos, _ -> doMeio.getOrNull(pos)?.let { aoAssistir(it, chave) } }
-        listaCanais.isLongClickable = true
-        listaCanais.setOnItemLongClickListener { _, _, pos, _ -> doMeio.getOrNull(pos)?.let { aoFavoritar(it) }; true }
     }
 }
