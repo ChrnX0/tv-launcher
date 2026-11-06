@@ -101,8 +101,10 @@ class McpFerramentas(ctx: Context) : McpProtocolo.Ferramentas {
             .put(ferramenta("apps", "Apps que a tela inicial mostra (pacote -> nome). Só estes podem ser abertos."))
             .put(ferramenta("agenda_hoje", "Resumo dos compromissos de hoje do perfil atual da TV."))
             .put(ferramenta("pedir_acoes",
-                "Pede ações à TV: abrir app, abrir tela, criar despertador, volume, mídia, modo visita. NÃO executa sozinha: " +
-                    "a TV mostra o pedido e só faz com OK no controle (60 s). Máximo ${ComandosIa.MAX_ACOES} ações.",
+                "Pede ações à TV: abrir app, abrir tela, criar despertador, volume, mídia, modo visita. " +
+                    (if (Config.IA_CONFIRMAR_NO_CONTROLE) "NÃO executa sozinha: a TV mostra o pedido e só faz com OK no controle (60 s). "
+                    else "Executa na hora (sem confirmação na TV); use ver_pedido para saber o resultado. ") +
+                    "Máximo ${ComandosIa.MAX_ACOES} ações.",
                 JSONObject()
                     .put("acoes", ComandosIa.esquema(openApi = false).getJSONObject("properties").getJSONObject("acoes"))
                     .put("motivo", JSONObject().put("type", "string").put("description", "frase curta mostrada na TV")),

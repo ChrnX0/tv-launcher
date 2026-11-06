@@ -74,7 +74,7 @@ object PedidoIa {
         guardar(p)
         fun falhar(m: String) = p.apply { situacao = Situacao.ERRO; mensagem = m }
         if (frase == null) return falhar("frase vazia")
-        reservarVez()?.let { return falhar("muitos pedidos seguidos; espere $it s") }
+        // Sem limite de pedidos (Paulo, 06/11/2026: "Tira o limite"). O catálogo fechado continua valendo.
         Log.i(TAG, "pedido ${p.id} de $origem (${frase.length} caracteres)")
         trabalho.execute {
             try {
@@ -83,27 +83,21 @@ object PedidoIa {
                 p.mensagem = plano.resposta
                 if (plano.acoes.isEmpty()) { p.situacao = Situacao.NADA; return@execute }
                 p.situacao = Situacao.ESPERANDO
-                ui.post { mostrar(app, p) }
+                // Sem OK no controle (decisão do Paulo, 06/11/2026): o catálogo é fechado e conferido acima, e o limite de
+                // pedidos continua. A TV só avisa o que fez. Config.IA_CONFIRMAR_NO_CONTROLE = true volta a pedir o OK.
+                ui.post {
+                    if (Config.IA_CONFIRMAR_NO_CONTROLE) mostrar(app, p)
+                    else {
+                        responder(app, p.id, true)
+                        try { android.widget.Toast.makeText(app, "Claude: " + plano.acoes.joinToString(", ") { it.descricao }, android.widget.Toast.LENGTH_LONG).show() } catch (_: Exception) {}
+                    }
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "pedido ${p.id} falhou: ${e.javaClass.simpleName}")
                 falhar("erro na TV: ${e.javaClass.simpleName}")
             }
         }
         return p
-    }
-
-    private val horarios = ArrayDeque<Long>()
-
-    /**
-     * No máximo 1 pedido a cada 3 s e 30 por hora: cada pedido abre uma tela na TV, e quem está no sofá não pode ser
-     * bombardeado por um script. Devolve null se pode, ou quantos segundos esperar.
-     */
-    @Synchronized fun reservarVez(agora: Long = System.currentTimeMillis()): Long? {
-        while (horarios.isNotEmpty() && agora - horarios.first() > 3_600_000) horarios.removeFirst()
-        horarios.lastOrNull()?.let { if (agora - it < 3_000) return (3_000 - (agora - it) + 999) / 1000 }
-        if (horarios.size >= 30) return (3_600_000 - (agora - horarios.first()) + 999) / 1000
-        horarios.addLast(agora)
-        return null
     }
 
     /**
