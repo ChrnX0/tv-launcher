@@ -47,6 +47,7 @@ class PlayerListaTela(
     private val aoBuscar: () -> Unit,
     private val aoFiltros: () -> Unit,
     private val aoOcultarGrupo: (String) -> Unit,   // nome do grupo (vazio = "Outros")
+    private val aoGuia: (List<Canal>, String) -> Unit,   // guia em grade dos canais da categoria + nome dela
 ) {
     private val tela = Handler(Looper.getMainLooper())
     private val papel = 0xFFF5F3EE.toInt()
@@ -130,13 +131,17 @@ class PlayerListaTela(
         if (doMeio.isEmpty()) focarGrupoAtual() else listaCanais.requestFocus()
     }
 
+    /** O guia em grade fechou e a lista ficou por baixo: o foco volta para ela. */
+    fun voltarFoco() { listaGrupos.requestFocus() }
+
     private fun focarGrupoAtual() {
         listaGrupos.requestFocus()
         listaGrupos.setSelection(grupos.indexOfFirst { it.chave == chave }.coerceAtLeast(0))
     }
 
     private fun montarGrupos() {
-        grupos = listOf(GrupoCanais(PlayerLista.ACAO_BUSCAR, "", -1), GrupoCanais(PlayerLista.ACAO_FILTROS, resumoFiltro, -1)) +
+        grupos = listOf(GrupoCanais(PlayerLista.ACAO_BUSCAR, "", -1), GrupoCanais(PlayerLista.ACAO_FILTROS, resumoFiltro, -1),
+            GrupoCanais(PlayerLista.ACAO_GUIA, "", -1)) +
             PlayerLista.grupos(canais, favoritos, recentes, busca?.let { it.first to it.second.size })
     }
 
@@ -231,6 +236,7 @@ class PlayerListaTela(
         PlayerLista.BUSCA -> act.getString(R.string.player_cat_busca, g.nome)
         PlayerLista.ACAO_BUSCAR -> act.getString(R.string.player_acao_buscar)
         PlayerLista.ACAO_FILTROS -> act.getString(R.string.player_acao_filtros)
+        PlayerLista.ACAO_GUIA -> act.getString(R.string.player_acao_guia)
         else -> g.nome.ifEmpty { act.getString(R.string.player_cat_outros) }
     }
 
@@ -255,6 +261,7 @@ class PlayerListaTela(
                     PlayerLista.BUSCA -> "⌕  " + nomeDoGrupo(g)
                     PlayerLista.ACAO_BUSCAR -> "⌕  " + nomeDoGrupo(g)
                     PlayerLista.ACAO_FILTROS -> "☰  " + nomeDoGrupo(g)
+                    PlayerLista.ACAO_GUIA -> "▦  " + nomeDoGrupo(g)
                     else -> (if (g.nome in ocultas) "🔒 " else "") + nomeDoGrupo(g)
                 }
                 setTextColor(if (escolhida) ambar else if (g.chave == PlayerLista.ACAO_FILTROS && g.nome.isNotEmpty()) ambar else papel)
@@ -440,6 +447,7 @@ class PlayerListaTela(
             when (grupos.getOrNull(pos)?.chave) {
                 PlayerLista.ACAO_BUSCAR -> aoBuscar()
                 PlayerLista.ACAO_FILTROS -> aoFiltros()
+                PlayerLista.ACAO_GUIA -> grupos.firstOrNull { it.chave == chave }?.let { aoGuia(doMeio, nomeDoGrupo(it)) }
                 else -> { escolherGrupo(pos); if (doMeio.isNotEmpty()) listaCanais.requestFocus() }
             }
         }

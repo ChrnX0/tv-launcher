@@ -23,6 +23,7 @@ object PlayerLista {
     const val BUSCA = "*busca"          // resultado da última busca (só existe enquanto há um termo)
     const val ACAO_BUSCAR = "*acao:buscar"   // linhas de ação no topo da coluna (não são categorias)
     const val ACAO_FILTROS = "*acao:filtros"
+    const val ACAO_GUIA = "*acao:guia"
     const val MAX_RECENTES = 30
     const val MAX_FAVORITOS = 500
 

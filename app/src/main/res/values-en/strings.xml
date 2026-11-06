@@ -476,6 +476,9 @@
     <string name="player_cat_busca">Search: %1$s</string>
     <string name="player_acao_buscar">Search</string>
     <string name="player_acao_filtros">Filters</string>
+    <string name="player_acao_guia">Program guide</string>
+    <string name="player_sem_guia_curto">No program guide</string>
+    <string name="player_grade_teclas">OK watch   ◀ ▶ program   ▲ ▼ channel</string>
     <string name="player_busca_dica">Channel or program name</string>
     <string name="player_busca_nada">Nothing found for “%1$s”.</string>
     <string name="player_filtro_qualquer">Any</string>

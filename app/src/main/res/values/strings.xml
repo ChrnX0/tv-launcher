@@ -482,6 +482,9 @@
     <string name="player_cat_busca">Busca: %1$s</string>
     <string name="player_acao_buscar">Buscar</string>
     <string name="player_acao_filtros">Filtros</string>
+    <string name="player_acao_guia">Guia de programação</string>
+    <string name="player_sem_guia_curto">Sem guia de programação</string>
+    <string name="player_grade_teclas">OK assistir   ◀ ▶ programa   ▲ ▼ canal</string>
     <string name="player_busca_dica">Nome do canal ou do programa</string>
     <string name="player_busca_nada">Nada encontrado para “%1$s”.</string>
     <string name="player_filtro_qualquer">Qualquer</string>
