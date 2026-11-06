@@ -462,6 +462,7 @@
     <string name="atu_ok">updated</string>
     <string name="atu_falhou">install failed (%1$d): %2$s</string>
     <!-- Universal player (06/11/2026) -->
+    <string name="home_tv">Live TV</string>
     <string name="player_carregando">Loading channels…</string>
     <string name="player_carregando_canal">Loading channel…</string>
     <string name="player_sem_canais">No channel list added yet.</string>
