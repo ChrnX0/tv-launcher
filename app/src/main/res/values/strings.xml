@@ -495,7 +495,7 @@
     <string name="player_canal_nao_existe">Não há canal %1$d.</string>
     <string name="player_ao_vivo">AO VIVO</string>
     <string name="player_a_seguir">a seguir: %1$s</string>
-    <string name="player_teclas">▲ ▼ canal    OK lista de canais    segure OK 2 s: favoritar    ◀ canal anterior    VOLTAR sair</string>
+    <string name="player_teclas">▲ ▼ canal · OK lista de canais · segure OK 2 s: favoritar · ◀ canal anterior · VOLTAR sair</string>
     <string name="player_cat_busca">Busca: %1$s</string>
     <string name="player_acao_buscar">Buscar</string>
     <string name="player_acao_filtros">Filtros</string>
@@ -526,7 +526,7 @@
     <string name="vod_audio">Áudio</string>
     <string name="vod_legenda">Legenda</string>
     <string name="vod_faixas">Áudio e legenda</string>
-    <string name="vod_teclas">OK pausa    ◀ 10 s    ▶ 30 s (segure para ir mais rápido)    ▼ áudio e legenda    VOLTAR sair</string>
+    <string name="vod_teclas">OK pausa · ◀ 10 s · ▶ 30 s (segure para ir mais rápido) · ▼ áudio e legenda · VOLTAR sair</string>
     <string name="series_titulo">SÉRIES</string>
     <string name="series_carregando">Carregando as séries…</string>
     <string name="series_vazio">Nenhuma série nas contas cadastradas (séries só vêm de conta Xtream).</string>
@@ -543,7 +543,7 @@
     </plurals>
     <string name="player_acao_guia">Guia de programação</string>
     <string name="player_sem_guia_curto">Sem guia de programação</string>
-    <string name="player_grade_teclas">OK assistir   ◀ ▶ programa   ▲ ▼ canal</string>
+    <string name="player_grade_teclas">OK assistir · ◀ ▶ programa · ▲ ▼ canal</string>
     <string name="player_busca_dica">Nome do canal ou do programa</string>
     <string name="player_busca_nada">Nada encontrado para “%1$s”.</string>
     <string name="player_filtro_qualquer">Qualquer</string>
@@ -573,7 +573,7 @@
     <string name="player_sem_guia">Sem guia de programação para este canal.</string>
     <string name="player_horario">%1$s – %2$s · faltam %3$d min</string>
     <string name="player_depois">DEPOIS</string>
-    <string name="player_lista_teclas">OK assistir    segure OK 2 s: favoritar ou tirar    segure OK na categoria: ocultar    ◀ categorias</string>
+    <string name="player_lista_teclas">OK assistir · segure OK 2 s: favoritar ou tirar · segure OK na categoria: ocultar · ◀ categorias</string>
     <string name="player_favorito_pos">★ %1$s nos favoritos</string>
     <string name="player_favorito_tirou">%1$s saiu dos favoritos</string>
     <string name="player_favoritos_cheio">Já há 500 favoritos: tire um antes.</string>

@@ -360,7 +360,8 @@ class PlayerListaTela(
         col.addView(detDescricao, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         detSeguir = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
         col.addView(detSeguir, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(12) })
-        col.addView(TextView(act).apply { text = act.getString(R.string.player_lista_teclas); textSize = 11f; setTextColor(apagado) })
+        col.addView(TextView(act).apply { text = act.getString(R.string.player_lista_teclas); textSize = 11f; setTextColor(apagado); setLineSpacing(0f, 1.2f) },
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         return col
     }
 
