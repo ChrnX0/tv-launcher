@@ -468,6 +468,7 @@
     <string name="atu_ok">atualizado</string>
     <string name="atu_falhou">instalação falhou (%1$d): %2$s</string>
     <!-- Player universal (06/11/2026) -->
+    <string name="home_tv">TV ao vivo</string>
     <string name="player_carregando">Carregando os canais…</string>
     <string name="player_carregando_canal">Carregando o canal…</string>
     <string name="player_sem_canais">Nenhuma lista de canais cadastrada ainda.</string>

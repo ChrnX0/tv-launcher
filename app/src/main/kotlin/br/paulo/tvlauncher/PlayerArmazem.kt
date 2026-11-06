@@ -36,6 +36,9 @@ object PlayerArmazem {
 
     // ---------------------------------------------------------------- contas
 
+    /** Há conta cadastrada? (só olha se o arquivo existe: barato o bastante para a HOME chamar a cada desenho) */
+    fun temContas(ctx: Context): Boolean = File(File(ctx.filesDir, "player"), "contas.json").exists()
+
     fun fontes(ctx: Context): List<FonteTv> {
         val f = arquivoContas(ctx)
         if (!f.exists()) return emptyList()
