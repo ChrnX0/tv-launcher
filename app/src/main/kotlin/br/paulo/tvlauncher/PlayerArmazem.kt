@@ -72,6 +72,37 @@ object PlayerArmazem {
         return gravar(ctx, atuais.filter { it.id != id })
     }
 
+    // ---------------------------------------------------------------- favoritos, recentes e categoria escolhida
+    // Arquivos (e não prefs) pelo mesmo motivo do ultimo.json: quem grava é o player, mas a HOME pode querer ler
+    // (ex.: uma linha "Favoritos" na HOME). Sem senha nem endereço: só os ids dos canais.
+
+    fun favoritos(ctx: Context): Set<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "favoritos.json"), PlayerLista.MAX_FAVORITOS).toSet()
+    fun definirFavoritos(ctx: Context, ids: Set<String>) = gravarArquivo(ctx, "favoritos.json", PlayerLista.idsParaJson(ids))
+
+    fun recentes(ctx: Context): List<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "recentes.json"), PlayerLista.MAX_RECENTES)
+    fun definirRecentes(ctx: Context, ids: List<String>) = gravarArquivo(ctx, "recentes.json", PlayerLista.idsParaJson(ids))
+
+    /** Grupos escondidos pelo usuário e grupos adultos que ele liberou com o PIN (ver PlayerFiltro.ocultasEfetivas). */
+    fun gruposEscondidos(ctx: Context): Set<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "ocultas.json"), 500).toSet()
+    fun definirGruposEscondidos(ctx: Context, g: Set<String>) = gravarArquivo(ctx, "ocultas.json", PlayerLista.idsParaJson(g))
+    fun gruposLiberados(ctx: Context): Set<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "liberadas.json"), 500).toSet()
+    fun definirGruposLiberados(ctx: Context, g: Set<String>) = gravarArquivo(ctx, "liberadas.json", PlayerLista.idsParaJson(g))
+
+    /** A última categoria escolhida na lista (só o player usa: preferência basta). */
+    fun categoria(ctx: Context): String? = prefs(ctx).getString("categoria", null)
+    fun definirCategoria(ctx: Context, chave: String) = prefs(ctx).edit().putString("categoria", chave).apply()
+
+    private fun lerArquivo(ctx: Context, nome: String): String? = runCatching { File(pasta(ctx), nome).readText() }.getOrNull()
+
+    /** Escrita atômica: grava ao lado e troca o nome (TV desligada no meio deixa o arquivo antigo inteiro). */
+    private fun gravarArquivo(ctx: Context, nome: String, texto: String) {
+        runCatching {
+            val tmp = File(pasta(ctx), "$nome.tmp")
+            tmp.writeText(texto)
+            tmp.renameTo(File(pasta(ctx), nome))
+        }.onFailure { Log.w(TAG, "não gravou $nome: ${it.javaClass.simpleName}") }
+    }
+
     // ---------------------------------------------------------------- uso
 
     /**
