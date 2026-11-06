@@ -217,6 +217,7 @@ class MainActivity : Activity() {
         if (Tema.atual(this) != tema || FaixaDias.ligada(this) != faixaNaCriacao) { recreate(); return }
         preencherApps()
         preencherContinuar()
+        if (::linhaContinuar.isInitialized && linhaContinuar.hasFocus()) linhaApps.getChildAt(indiceFoco.coerceAtLeast(0))?.requestFocus()
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
@@ -510,7 +511,9 @@ class MainActivity : Activity() {
                 addView(linhaContinuar)
             }, LinearLayout.LayoutParams(MATCH, WRAP))
         }
-        raiz.addView(caixaContinuar, FrameLayout.LayoutParams(MATCH, WRAP).apply {
+        // Altura fixa (passa da borda de baixo de propósito): com WRAP o FrameLayout cortava a linha no fim da tela, e ao
+        // subir aparecia só o topo dos cards e uma faixa vazia embaixo (visto na Sala, 06/11).
+        raiz.addView(caixaContinuar, FrameLayout.LayoutParams(MATCH, dp(ALTURA_CONTINUAR)).apply {
             leftMargin = dp(Grade.MARGEM)
             topMargin = dp(Grade.LINHA_APPS + ALTURA_LINHA_APPS)
         })
@@ -537,6 +540,7 @@ class MainActivity : Activity() {
         capa = CapaFoco(this)
         conteudo = raiz
         return FrameLayout(this).apply {
+            clipChildren = false   // a tela que sobe (Continuar) desenha o que estava abaixo da borda
             addView(vivo, FrameLayout.LayoutParams(MATCH, MATCH))
             // A capa do foco: alto à direita, do tamanho do esboço (680 x 330 dp), atrás do topo e dos apps.
             addView(capa, FrameLayout.LayoutParams(dp(680), dp(330), Gravity.TOP or Gravity.END))
@@ -706,7 +710,8 @@ class MainActivity : Activity() {
         // da chuva era cortada (foto da TV, 05/11/2026).
         const val ALTURA_FAIXA = 116
         const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
-        const val SUBIDA_CONTINUAR = 96     // quanto a tela sobe quando o foco está no Continuar
+        const val SUBIDA_CONTINUAR = 120    // quanto a tela sobe quando o foco está no Continuar (cards inteiros + folga)
+        const val ALTURA_CONTINUAR = 176    // título + cards 16:9 (111 dp) + folga do card focado
     }
 
     /** Todos os apps de TV instalados, sem ordem e sem tirar os ocultos (quem organiza é montarEntradas). */
@@ -903,13 +908,8 @@ class MainActivity : Activity() {
             // Pilha: o OK abre o app da frente (▲▼ trocam qual é).
             is Entrada.Pilha -> montarCartao(entrada.token, entrada.nome, miniaturaPilha(entrada.itens, entrada.frente), { abrir(entrada.daFrente.pacote) }, aoFocar)
             is Entrada.Ocultos -> montarCartao(entrada.token, entrada.nome, miniaturaOcultos(), { abrirPasta(entrada) }, aoFocar)
-            // "Continuar": com o foco, o nome embaixo do disco vira o último canal (ex.: "Continuar: 12 · Globo"); sem foco, "TV ao vivo".
-            // Lido no foco (arquivo de ~80 bytes) porque o card é reaproveitado e o canal muda dentro do player.
-            is Entrada.Tv -> montarCartao(entrada.token, entrada.nome, miniaturaTv(), { abrirTv() }, { v ->
-                aoFocar(v)
-                val u = PlayerArmazem.ultimo(this)
-                nomeDoCartao(v)?.text = if (u == null) entrada.nome else getString(R.string.home_tv_continuar, u.numero, u.nome)
-            }, aoDesfocar = { v -> nomeDoCartao(v)?.text = entrada.nome })
+            // O último canal fica no card "AO VIVO" da linha Continuar (no disco o nome não cabia: "Continuar: 4 ·…").
+            is Entrada.Tv -> montarCartao(entrada.token, entrada.nome, miniaturaTv(), { abrirTv() }, aoFocar)
         }
     }
 
@@ -971,9 +971,14 @@ class MainActivity : Activity() {
             is Entrada.Tv -> { capa.mostrar(null, CapaFoco.CORES_TV); return }
             is Entrada.Ocultos -> { capa.esconder(); return }
         }
-        val (img, cores) = capas.getOrPut(item.pacote) {
-            val b = CapaFoco.banner(packageManager, item.pacote)?.let { runCatching { CapaFoco.bitmap(it) }.getOrNull() }
-            b to runCatching { CapaFoco.corDoIcone(item.icone) }.getOrDefault(intArrayOf(0xFF2B2F3A.toInt(), 0xFF0B0F17.toInt()))
+        mostrarCapaDoApp(item.pacote, item.icone)
+    }
+
+    private fun mostrarCapaDoApp(pacote: String, icone: Drawable?) {
+        val (img, cores) = capas.getOrPut(pacote) {
+            val b = CapaFoco.banner(packageManager, pacote)?.let { runCatching { CapaFoco.bitmap(it) }.getOrNull() }
+            val ic = icone ?: runCatching { packageManager.getApplicationIcon(pacote) }.getOrNull()
+            b to (ic?.let { runCatching { CapaFoco.corDoIcone(it) }.getOrNull() } ?: intArrayOf(0xFF2B2F3A.toInt(), 0xFF0B0F17.toInt()))
         }
         capa.mostrar(img, if (img == null) cores else null)
     }
@@ -1007,14 +1012,17 @@ class MainActivity : Activity() {
         fun adicionar(v: View) = linhaContinuar.addView(v, LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), dp(Grade.CARD_ALTURA)).apply {
             marginEnd = dp(Grade.VAO)
         })
-        if (ultimo != null) adicionar(cartaoContinuar(getString(R.string.home_canal, ultimo.numero, ultimo.nome), null, null, true) { abrirTv() })
-        for (r in recentes) adicionar(cartaoContinuar(r.nome, r.banner, r.icone, false) { abrir(r.pacote) })
+        if (ultimo != null) adicionar(cartaoContinuar(getString(R.string.home_canal, ultimo.numero, ultimo.nome), null, null, true,
+            { capa.mostrar(null, CapaFoco.CORES_TV) }) { abrirTv() })
+        for (r in recentes) adicionar(cartaoContinuar(r.nome, r.banner, r.icone, false, { mostrarCapaDoApp(r.pacote, r.icone) }) { abrir(r.pacote) })
         caixaContinuar.visibility = if (linhaContinuar.childCount > 0) View.VISIBLE else View.GONE
         if (focoAqui) linhaContinuar.getChildAt(0)?.requestFocus() ?: linhaApps.requestFocus()
+        // Ao voltar de um app, o foco é da linha de apps (visto na Sala: voltando do player, ele caía no Continuar).
+        else if (linhaContinuar.hasFocus()) linhaApps.getChildAt(indiceFoco.coerceAtLeast(0))?.requestFocus()
     }
 
     /** Card 16:9 do Continuar: o banner (ou o ícone no meio, ou o coral da TV), com o nome num selo embaixo. */
-    private fun cartaoContinuar(nome: String, banner: Bitmap?, icone: Drawable?, aoVivo: Boolean, aoAbrir: () -> Unit): View =
+    private fun cartaoContinuar(nome: String, banner: Bitmap?, icone: Drawable?, aoVivo: Boolean, aoFocar: () -> Unit, aoAbrir: () -> Unit): View =
         FrameLayout(this).apply {
             isFocusable = true
             isClickable = true
@@ -1050,6 +1058,7 @@ class MainActivity : Activity() {
                 } else null
                 val e = if (temFoco) 1.06f else 1f
                 v.animate().scaleX(e).scaleY(e).setDuration(120).start()
+                if (temFoco) aoFocar()
             }
         }
 

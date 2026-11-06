@@ -31,7 +31,7 @@ class CapaFoco(ctx: Context) : View(ctx) {
     private var cores: IntArray? = null
     private val pintaImagem = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val pintaMascara = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
-    private val pintaEscuro = Paint().apply { color = 0x59000000 }   // escurece um pouco: o texto do clima passa por cima
+    private val pintaEscuro = Paint().apply { color = 0x99000000.toInt() }   // véu: o clima e a faixa de 9 dias passam por cima (06/11: 0x59 deixava os dias ilegíveis)
     private val origem = Rect()
     private val destino = RectF()
 
@@ -48,8 +48,8 @@ class CapaFoco(ctx: Context) : View(ctx) {
         invalidate()
         animate().cancel()
         if (imagem == null && cores == null) { animate().alpha(0f).setDuration(200).start(); return }
-        alpha = 0.35f
-        animate().alpha(1f).setDuration(260).start()
+        alpha = 0.3f
+        animate().alpha(OPACIDADE).setDuration(260).start()
     }
 
     fun esconder() = mostrar(null, null)
@@ -77,15 +77,16 @@ class CapaFoco(ctx: Context) : View(ctx) {
             }
             else -> return
         }
-        // Máscara: transparente na borda esquerda (até ~45% da largura) e embaixo (últimos ~40%).
-        pintaMascara.shader = LinearGradient(0f, 0f, w * 0.45f, 0f, Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP)
+        // Máscara: transparente na borda esquerda (até ~55% da largura) e embaixo (some antes da faixa de 9 dias).
+        pintaMascara.shader = LinearGradient(0f, 0f, w * 0.55f, 0f, Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, pintaMascara)
-        pintaMascara.shader = LinearGradient(0f, h * 0.6f, 0f, h, Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        pintaMascara.shader = LinearGradient(0f, h * 0.3f, 0f, h * 0.85f, Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w, h, pintaMascara)
         pintaMascara.shader = null
     }
 
     companion object {
+        const val OPACIDADE = 0.8f
         val CORES_TV = intArrayOf(0xFFFF7A6E.toInt(), 0xFFC0392B.toInt())
 
         /** O banner de TV do app (o da atividade leanback, senão o do app). null se o app não tiver. */
