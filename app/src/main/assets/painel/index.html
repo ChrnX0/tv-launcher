@@ -93,13 +93,13 @@
           </div>
         </form>
         <form id="formClima" class="recado" autocomplete="off">
-          <label for="coordClima"><strong>Lugar do clima</strong> — <span id="estadoClima">carregando…</span></label>
-          <input id="nomeClima" type="text" maxlength="40" placeholder="Nome (ex.: Centro)" aria-label="Nome do lugar">
-          <input id="coordClima" type="text" maxlength="60" placeholder="Coordenadas do Google Maps (ex.: -21.1795, -47.8105)" aria-label="Coordenadas">
+          <label for="cepClima"><strong>Endereço do clima</strong> — <span id="estadoClima">carregando…</span></label>
+          <input id="cepClima" type="text" inputmode="numeric" maxlength="9" placeholder="CEP (ex.: 14015-060)" aria-label="CEP">
+          <input id="numeroClima" type="text" inputmode="numeric" maxlength="6" placeholder="Número da casa (opcional)" aria-label="Número">
           <div class="recado-opcoes">
             <label><input id="faixaClima" type="checkbox"> previsão de 9 dias na tela inicial</label>
-            <button type="button" id="btnClimaAuto" class="botao-secundario">Automático</button>
-            <button type="submit">Salvar lugar</button>
+            <button type="button" id="btnClimaAuto" class="botao-secundario">Apagar endereço</button>
+            <button type="submit">Salvar endereço</button>
           </div>
         </form>
         <p class="aviso-curto">Voltar e Início respondem na hora; as outras teclas levam cerca de 1 s.</p>

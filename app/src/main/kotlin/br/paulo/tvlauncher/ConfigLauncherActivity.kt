@@ -239,17 +239,27 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaChuva)
 
-        // ---- Clima na tela inicial (05/11/2026): a faixa de 9 dias e o lugar (o lugar se escolhe no painel).
+        // ---- Clima (05/11/2026): a faixa de 9 dias e o endereço da casa (CEP + número; o launcher acha as coordenadas).
         lateinit var linhaFaixa: TextView
-        fun detalheFaixa(): String {
-            val lugar = LocalClima.ler(this)?.let { "lugar: ${it.nome} (escolhido no painel)" } ?: "lugar: automático (pela rede da TV)"
-            return (if (FaixaDias.ligada(this)) "ligada · OK desliga" else "desligada · OK liga") + " · " + lugar
-        }
+        fun detalheFaixa() = if (FaixaDias.ligada(this)) "ligada · OK desliga" else "desligada · OK liga"
         linhaFaixa = linha("Previsão de 9 dias na tela inicial", detalheFaixa()) {
             FaixaDias.definirLigada(this, !FaixaDias.ligada(this))
             linhaFaixa.detalhe(detalheFaixa())
         }
         adicionar(linhaFaixa)
+        lateinit var linhaEndereco: TextView
+        fun detalheEndereco() = LocalClima.ler(this)?.let { "${LocalClima.descrever(it)} · OK troca" }
+            ?: "nenhum · a TV se acha pelo Wi-Fi; o endereço vale quando o Wi-Fi não acha · OK cadastra"
+        linhaEndereco = linha("Endereço do clima", detalheEndereco()) {
+            pedirEndereco { cep, numero ->
+                linhaEndereco.detalhe("procurando o endereço…")
+                trabalho.execute {
+                    val r = LocalClima.definirPorCep(this, cep, numero)
+                    ui.post { if (!isDestroyed) linhaEndereco.detalhe(r.fold({ detalheEndereco() }, { "não deu: ${it.message} · OK tenta de novo" })) }
+                }
+            }
+        }
+        adicionar(linhaEndereco)
 
         // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
         // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
@@ -521,6 +531,33 @@ class ConfigLauncherActivity : Activity() {
             .setNegativeButton("Cancelar", null)
             .show()
         campo.requestFocus()
+    }
+
+    /** CEP e número com o teclado numérico da TV (AlertDialog: OK confirma, Voltar cancela). CEP vazio apaga o endereço. */
+    private fun pedirEndereco(aoConfirmar: (String, String) -> Unit) {
+        val atual = LocalClima.ler(this)
+        fun campo(dica: String, max: Int, valor: String) = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(android.text.InputFilter.LengthFilter(max))
+            hint = dica; setText(valor); setSingleLine()
+        }
+        val cep = campo("CEP (8 números)", 8, atual?.cep.orEmpty())
+        val numero = campo("Número da casa (opcional)", 6, atual?.numero.orEmpty())
+        val caixa = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 16, 48, 0)
+            addView(cep); addView(numero)
+        }
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Endereço do clima")
+            .setView(caixa)
+            .setPositiveButton("OK") { _, _ ->
+                if (cep.text.isBlank()) { LocalClima.limpar(this); recreate() }
+                else aoConfirmar(cep.text.toString(), numero.text.toString())
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+        cep.requestFocus()
     }
 
     // ---------------------------------------------------------------- peças
