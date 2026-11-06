@@ -20,6 +20,9 @@ object PlayerLista {
     const val TODOS = "*todos"
     const val FAVORITOS = "*favoritos"
     const val RECENTES = "*recentes"
+    const val BUSCA = "*busca"          // resultado da última busca (só existe enquanto há um termo)
+    const val ACAO_BUSCAR = "*acao:buscar"   // linhas de ação no topo da coluna (não são categorias)
+    const val ACAO_FILTROS = "*acao:filtros"
     const val MAX_RECENTES = 30
     const val MAX_FAVORITOS = 500
 
@@ -29,7 +32,7 @@ object PlayerLista {
     fun chaveDoGrupo(nome: String) = "g:$nome"
 
     /** As categorias com a contagem de canais. Favoritos e Recentes aparecem sempre (mesmo vazias: é onde o usuário aprende que existem). */
-    fun grupos(canais: List<Canal>, favoritos: Set<String>, recentes: List<String>): List<GrupoCanais> {
+    fun grupos(canais: List<Canal>, favoritos: Set<String>, recentes: List<String>, busca: Pair<String, Int>? = null): List<GrupoCanais> {
         val ids = canais.mapTo(HashSet()) { it.id }
         val contagem = LinkedHashMap<String, Int>()   // LinkedHashMap guarda a ordem da 1ª aparição
         for (c in canais) contagem[c.grupo.trim()] = (contagem[c.grupo.trim()] ?: 0) + 1
@@ -37,6 +40,7 @@ object PlayerLista {
         saida += GrupoCanais(TODOS, "", canais.size)
         saida += GrupoCanais(FAVORITOS, "", favoritos.count { it in ids })
         saida += GrupoCanais(RECENTES, "", recentes.count { it in ids })
+        busca?.let { (termo, n) -> saida += GrupoCanais(BUSCA, termo, n) }
         // Lista sem grupo nenhum: a categoria "Outros" sozinha seria igual a "Todos". Não mostra.
         if (contagem.size == 1 && contagem.containsKey(SEM_GRUPO)) return saida
         for ((nome, n) in contagem) if (nome != SEM_GRUPO) saida += GrupoCanais(chaveDoGrupo(nome), nome, n)
@@ -64,7 +68,7 @@ object PlayerLista {
 
     /** A categoria salva ainda existe nesta lista? Se não (a lista mudou), volta para Todos. */
     fun chaveValida(grupos: List<GrupoCanais>, chave: String?): String =
-        chave?.takeIf { c -> grupos.any { it.chave == c } } ?: TODOS
+        chave?.takeIf { c -> !c.startsWith("*acao:") && grupos.any { it.chave == c } } ?: TODOS
 
     /**
      * Onde o ▲▼ zapeia: dentro da categoria escolhida, se o canal atual estiver nela (é o que o usuário espera depois de
@@ -72,7 +76,7 @@ object PlayerLista {
      * ficaria pulando entre os mesmos dois canais.
      */
     fun listaDeZapping(canais: List<Canal>, chave: String, favoritos: Set<String>, recentes: List<String>, atual: Canal?): List<Canal> {
-        if (chave == TODOS || chave == RECENTES || atual == null) return canais
+        if (chave == TODOS || chave == RECENTES || chave == BUSCA || atual == null) return canais
         val f = filtrar(canais, chave, favoritos, recentes)
         return if (f.size > 1 && f.any { it.id == atual.id }) f else canais
     }

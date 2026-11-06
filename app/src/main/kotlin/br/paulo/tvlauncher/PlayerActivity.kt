@@ -66,6 +66,12 @@ class PlayerActivity : Activity() {
     private var favoritos: Set<String> = emptySet()
     private var recentes: List<String> = emptyList()
     private var categoria = PlayerLista.TODOS   // a escolhida na lista: o ▲▼ zapeia dentro dela
+    private var escondidos: Set<String> = emptySet()   // grupos que o usuário escondeu
+    private var liberados: Set<String> = emptySet()    // grupos adultos que ele liberou (começam ocultos)
+    private var filtro = PlayerFiltro.Filtro()
+    private var visiveis: List<Canal> = emptyList()    // canais depois do filtro: é o que a lista, o ▲▼ e o número usam
+    private var ultimaBusca = ""
+    private lateinit var janelas: PlayerJanelas
     private var visivel = false   // entre onStart e onStop: fora disso nada toca (nem a nova tentativa atrasada)
 
     private val papel = 0xFFF5F3EE.toInt()
@@ -92,7 +98,9 @@ class PlayerActivity : Activity() {
         video = SurfaceView(this)
         raiz.addView(video, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         raiz.addView(montarInfo(), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(dp(32), 0, dp(32), dp(26)) })
-        lista = PlayerListaTela(this, aoAssistir = { c, chave -> escolherNaLista(c, chave) }, aoFavoritar = { alternarFavorito(it) })
+        janelas = PlayerJanelas(this)
+        lista = PlayerListaTela(this, aoAssistir = { c, chave -> escolherNaLista(c, chave) }, aoFavoritar = { alternarFavorito(it) },
+            aoBuscar = { buscar() }, aoFiltros = { abrirFiltros() }, aoOcultarGrupo = { alternarOculto(it) })
         raiz.addView(lista.raiz, FrameLayout.LayoutParams(-1, -1))
         numero = TextView(this).apply {
             textSize = 56f; typeface = Typeface.DEFAULT_BOLD; setTextColor(papel); background = vidro(16)
@@ -130,20 +138,24 @@ class PlayerActivity : Activity() {
 
     private fun carregar() {
         Thread {
-            val lista = PlayerCarga.canais(this)
+            val lidos = PlayerCarga.canais(this)   // "lidos", não "lista": lista é a tela de canais
             val fav = PlayerArmazem.favoritos(this)
             val rec = PlayerArmazem.recentes(this)
             val cat = PlayerArmazem.categoria(this) ?: PlayerLista.TODOS
+            val esc = PlayerArmazem.gruposEscondidos(this)
+            val lib = PlayerArmazem.gruposLiberados(this)
             tela.post {
                 if (isDestroyed) return@post
-                canais = lista
-                favoritos = fav; recentes = rec; categoria = cat
-                if (lista.isEmpty()) { mostrarAviso(getString(R.string.player_sem_canais)); return@post }
+                canais = lidos
+                favoritos = fav; recentes = rec; categoria = cat; escondidos = esc; liberados = lib
+                refiltrar()
+                if (visiveis.isEmpty()) { mostrarAviso(getString(R.string.player_sem_canais)); return@post }
+                // Abre no último canal só se ele ainda passa no filtro (um canal de categoria oculta não abre sem PIN).
                 val pedido = intent.getStringExtra(EXTRA_CANAL) ?: PlayerArmazem.ultimoCanal(this)
-                sintonizar(lista.firstOrNull { it.id == pedido } ?: lista.first(), guardarAnterior = false)
+                sintonizar(visiveis.firstOrNull { it.id == pedido } ?: visiveis.first(), guardarAnterior = false)
             }
             // O guia vem depois: pode levar alguns segundos (arquivo grande) e o canal já está tocando.
-            val g = PlayerCarga.guia(this, lista)
+            val g = PlayerCarga.guia(this, lidos)
             tela.post { if (!isDestroyed) { guia = g; atualizarInfo(); lista.atualizarGuia(g) } }
         }.start()
     }
@@ -247,7 +259,7 @@ class PlayerActivity : Activity() {
 
     /** ▲ sobe o número do canal (como num controle de TV comum), dentro da categoria escolhida na lista. */
     private fun zapear(passo: Int) {
-        val onde = PlayerLista.listaDeZapping(canais, categoria, favoritos, recentes, atual)
+        val onde = PlayerLista.listaDeZapping(visiveis, categoria, favoritos, recentes, atual)
         PlayerDados.vizinho(onde, atual, passo)?.let { sintonizar(it) }
     }
 
@@ -267,7 +279,7 @@ class PlayerActivity : Activity() {
         val n = digitado.toIntOrNull()
         digitado = ""
         numero.visibility = View.GONE
-        val c = n?.let { PlayerDados.porNumero(canais, it) }
+        val c = n?.let { PlayerDados.porNumero(visiveis, it) }
         if (c != null) sintonizar(c) else if (n != null) mostrarAvisoBreve(getString(R.string.player_canal_nao_existe, n))
     }
 
@@ -340,10 +352,64 @@ class PlayerActivity : Activity() {
 
     // ---------------------------------------------------------------- lista completa (PlayerListaTela)
 
-    private fun abrirLista() {
+    private fun abrirLista(focarCategorias: Boolean = false) {
         if (canais.isEmpty()) return
         info.visibility = View.GONE
-        lista.abrir(canais, guia, favoritos, recentes, categoria, atual)
+        lista.abrir(visiveis, guia, favoritos, recentes, categoria, atual, PlayerFiltro.resumo(filtro),
+            if (filtro.mostrarOcultas) filtro.ocultas else emptySet(), focarCategorias)
+    }
+
+    /** Recalcula as ocultas e a lista visível (depois de carregar, mudar filtro ou esconder um grupo). */
+    private fun refiltrar() {
+        filtro = filtro.copy(ocultas = PlayerFiltro.ocultasEfetivas(canais, escondidos, liberados))
+        visiveis = PlayerFiltro.aplicar(canais, filtro)
+    }
+
+    // ---------------------------------------------------------------- busca e filtros
+
+    private fun buscar() {
+        janelas.buscar(ultimaBusca) { termo ->
+            if (termo.isEmpty()) return@buscar
+            ultimaBusca = termo
+            val agora = System.currentTimeMillis()
+            val achados = PlayerFiltro.buscar(visiveis, termo, { c -> c.guiaId.takeIf { it.isNotEmpty() }?.let { guia.agora(it, agora)?.titulo } })
+            lista.mostrarBusca(termo, achados)
+            if (achados.isEmpty()) mostrarAvisoBreve(getString(R.string.player_busca_nada, termo))
+        }
+    }
+
+    private fun abrirFiltros() {
+        janelas.filtros(if (filtro.mostrarOcultas) canais else visiveisSemFiltroDeNome(), filtro, filtro.ocultas.isNotEmpty(),
+            aoMudar = { novo -> aplicarFiltro(novo) },
+            aoPedirOcultas = { janelas.pedirPin(aoLiberar = { aplicarFiltro(filtro.copy(mostrarOcultas = true)) }, aviso = { mostrarAvisoBreve(it) }) })
+    }
+
+    /** Canais que as opções de filtro consideram: tudo menos as categorias ocultas (sem PIN, elas não contam). */
+    private fun visiveisSemFiltroDeNome(): List<Canal> = PlayerFiltro.aplicar(canais, PlayerFiltro.Filtro(ocultas = filtro.ocultas))
+
+    private fun aplicarFiltro(novo: PlayerFiltro.Filtro) {
+        filtro = novo
+        refiltrar()
+        abrirLista(focarCategorias = true)   // reabre com o filtro novo, no mesmo lugar
+    }
+
+    /** OK segurado numa categoria: esconde; se ela já estava oculta (aparecendo pelo PIN), volta a mostrar. */
+    private fun alternarOculto(grupo: String) {
+        val oculto = grupo in filtro.ocultas
+        if (oculto) {
+            escondidos = escondidos - grupo
+            if (PlayerFiltro.ehAdulto(grupo)) liberados = liberados + grupo
+        } else {
+            escondidos = escondidos + grupo
+            liberados = liberados - grupo
+            if (categoria == PlayerLista.chaveDoGrupo(grupo)) categoria = PlayerLista.TODOS
+        }
+        PlayerArmazem.definirGruposEscondidos(this, escondidos)
+        PlayerArmazem.definirGruposLiberados(this, liberados)
+        refiltrar()
+        abrirLista(focarCategorias = true)
+        mostrarAvisoBreve(getString(if (oculto) R.string.player_grupo_mostrado else R.string.player_grupo_oculto,
+            grupo.ifEmpty { getString(R.string.player_cat_outros) }))
     }
 
     private fun escolherNaLista(c: Canal, chave: String) {

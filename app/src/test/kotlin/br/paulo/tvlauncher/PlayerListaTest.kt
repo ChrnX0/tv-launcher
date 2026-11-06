@@ -54,6 +54,15 @@ class PlayerListaTest {
         assertEquals(6, PlayerLista.listaDeZapping(canais, PlayerLista.RECENTES, emptySet(), listOf("a", "b"), canais[0]).size)
     }
 
+    @Test fun buscaViraCategoriaEAcaoNuncaEhEscolhida() {
+        val g = PlayerLista.grupos(canais, emptySet(), emptyList(), "esp" to 2)
+        assertEquals(PlayerLista.BUSCA, g[3].chave); assertEquals("esp", g[3].nome); assertEquals(2, g[3].quantos)
+        assertEquals(PlayerLista.BUSCA, PlayerLista.chaveValida(g, PlayerLista.BUSCA))
+        assertEquals(PlayerLista.TODOS, PlayerLista.chaveValida(PlayerLista.grupos(canais, emptySet(), emptyList()), PlayerLista.BUSCA))
+        assertEquals(PlayerLista.TODOS, PlayerLista.chaveValida(g, PlayerLista.ACAO_FILTROS))
+        assertEquals(6, PlayerLista.listaDeZapping(canais, PlayerLista.BUSCA, emptySet(), emptyList(), canais[0]).size)
+    }
+
     @Test fun favoritosERecentes() {
         assertEquals(setOf("a"), PlayerLista.alternarFavorito(emptySet(), "a"))
         assertEquals(emptySet<String>(), PlayerLista.alternarFavorito(setOf("a"), "a"))

@@ -82,6 +82,12 @@ object PlayerArmazem {
     fun recentes(ctx: Context): List<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "recentes.json"), PlayerLista.MAX_RECENTES)
     fun definirRecentes(ctx: Context, ids: List<String>) = gravarArquivo(ctx, "recentes.json", PlayerLista.idsParaJson(ids))
 
+    /** Grupos escondidos pelo usuário e grupos adultos que ele liberou com o PIN (ver PlayerFiltro.ocultasEfetivas). */
+    fun gruposEscondidos(ctx: Context): Set<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "ocultas.json"), 500).toSet()
+    fun definirGruposEscondidos(ctx: Context, g: Set<String>) = gravarArquivo(ctx, "ocultas.json", PlayerLista.idsParaJson(g))
+    fun gruposLiberados(ctx: Context): Set<String> = PlayerLista.idsDeJson(lerArquivo(ctx, "liberadas.json"), 500).toSet()
+    fun definirGruposLiberados(ctx: Context, g: Set<String>) = gravarArquivo(ctx, "liberadas.json", PlayerLista.idsParaJson(g))
+
     /** A última categoria escolhida na lista (só o player usa: preferência basta). */
     fun categoria(ctx: Context): String? = prefs(ctx).getString("categoria", null)
     fun definirCategoria(ctx: Context, chave: String) = prefs(ctx).edit().putString("categoria", chave).apply()

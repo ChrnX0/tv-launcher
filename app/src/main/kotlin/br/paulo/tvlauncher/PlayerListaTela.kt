@@ -37,12 +37,16 @@ import java.util.Locale
  * mesmo que 20. O ◀ ▶ entre as colunas é a navegação de foco padrão do Android (a Activity devolve false para essas teclas).
  *
  * Teclas: ▲▼ andam; ◀ ▶ trocam de coluna; OK num canal assiste; OK segurado (ou MENU) põe/tira dos favoritos;
- * VOLTAR fecha.
+ * OK segurado numa categoria esconde/mostra a categoria; VOLTAR fecha.
+ * No topo da coluna de categorias ficam duas ações: Buscar e Filtros (as janelas são da PlayerActivity).
  */
 class PlayerListaTela(
     private val act: Activity,
     private val aoAssistir: (Canal, String) -> Unit,      // canal escolhido + categoria em que estava
     private val aoFavoritar: (Canal) -> Unit,
+    private val aoBuscar: () -> Unit,
+    private val aoFiltros: () -> Unit,
+    private val aoOcultarGrupo: (String) -> Unit,   // nome do grupo (vazio = "Outros")
 ) {
     private val tela = Handler(Looper.getMainLooper())
     private val papel = 0xFFF5F3EE.toInt()
@@ -61,6 +65,9 @@ class PlayerListaTela(
     private var chave = PlayerLista.TODOS              // categoria cujos canais estão na coluna do meio
     private var doMeio: List<Canal> = emptyList()
     private var atualId: String? = null
+    private var busca: Pair<String, List<Canal>>? = null   // termo + resultados (a categoria "Busca")
+    private var resumoFiltro = ""                           // "4K · BR" na linha de Filtros
+    private var ocultas: Set<String> = emptySet()           // grupos ocultos que estão aparecendo (PIN): ganham 🔒
 
     val raiz: FrameLayout = FrameLayout(act).apply {
         visibility = View.GONE
@@ -93,16 +100,44 @@ class PlayerListaTela(
 
     // ---------------------------------------------------------------- uso pela PlayerActivity
 
-    fun abrir(canais: List<Canal>, guia: Guia, favoritos: Set<String>, recentes: List<String>, chave: String, atual: Canal?) {
+    /**
+     * @param canais já filtrados (PlayerFiltro.aplicar): o que não passa no filtro nem aparece
+     * @param ocultas grupos ocultos que estão visíveis agora (depois do PIN), para marcar com 🔒
+     */
+    fun abrir(canais: List<Canal>, guia: Guia, favoritos: Set<String>, recentes: List<String>, chave: String, atual: Canal?,
+              resumoFiltro: String = "", ocultas: Set<String> = emptySet(), focarCategorias: Boolean = false) {
         this.canais = canais; this.guia = guia; this.favoritos = favoritos; this.recentes = recentes
+        this.resumoFiltro = resumoFiltro; this.ocultas = ocultas
         atualId = atual?.id
-        grupos = PlayerLista.grupos(canais, favoritos, recentes)
+        busca = busca?.let { (t, r) -> val ids = canais.mapTo(HashSet()) { it.id }; t to r.filter { it.id in ids } }
+        montarGrupos()
         this.chave = PlayerLista.chaveValida(grupos, chave)
         adaptadorGrupos.notifyDataSetChanged()
         listaGrupos.setSelection(grupos.indexOfFirst { it.chave == this.chave }.coerceAtLeast(0))
         preencherMeio(manterNoAtual = true)
         raiz.visibility = View.VISIBLE
-        listaCanais.requestFocus()
+        if (focarCategorias || doMeio.isEmpty()) focarGrupoAtual() else listaCanais.requestFocus()
+    }
+
+    /** Resultado de uma busca: vira a categoria "Busca", já escolhida, com o foco nos canais achados. */
+    fun mostrarBusca(termo: String, resultados: List<Canal>) {
+        busca = termo to resultados
+        montarGrupos()
+        chave = PlayerLista.BUSCA
+        adaptadorGrupos.notifyDataSetChanged()
+        listaGrupos.setSelection(grupos.indexOfFirst { it.chave == chave }.coerceAtLeast(0))
+        preencherMeio(manterNoAtual = false)
+        if (doMeio.isEmpty()) focarGrupoAtual() else listaCanais.requestFocus()
+    }
+
+    private fun focarGrupoAtual() {
+        listaGrupos.requestFocus()
+        listaGrupos.setSelection(grupos.indexOfFirst { it.chave == chave }.coerceAtLeast(0))
+    }
+
+    private fun montarGrupos() {
+        grupos = listOf(GrupoCanais(PlayerLista.ACAO_BUSCAR, "", -1), GrupoCanais(PlayerLista.ACAO_FILTROS, resumoFiltro, -1)) +
+            PlayerLista.grupos(canais, favoritos, recentes, busca?.let { it.first to it.second.size })
     }
 
     fun fechar() {
@@ -121,7 +156,7 @@ class PlayerListaTela(
     /** Favorito mudou (OK segurado): redesenha a estrela e a contagem sem tirar o foco do lugar. */
     fun atualizarFavoritos(f: Set<String>) {
         favoritos = f
-        grupos = PlayerLista.grupos(canais, favoritos, recentes)
+        montarGrupos()
         adaptadorGrupos.notifyDataSetChanged()
         if (chave == PlayerLista.FAVORITOS) {
             val pos = listaCanais.selectedItemPosition
@@ -167,14 +202,14 @@ class PlayerListaTela(
 
     private fun escolherGrupo(pos: Int) {
         val g = grupos.getOrNull(pos) ?: return
-        if (g.chave == chave) return
+        if (g.chave == chave || g.chave.startsWith("*acao:")) return   // passar pelas ações não troca a coluna do meio
         chave = g.chave
         adaptadorGrupos.notifyDataSetChanged()
         preencherMeio(manterNoAtual = true)
     }
 
     private fun preencherMeio(manterNoAtual: Boolean) {
-        doMeio = PlayerLista.filtrar(canais, chave, favoritos, recentes)
+        doMeio = if (chave == PlayerLista.BUSCA) busca?.second.orEmpty() else PlayerLista.filtrar(canais, chave, favoritos, recentes)
         adaptadorCanais.notifyDataSetChanged()
         atualizarTituloMeio()
         val pos = if (manterNoAtual) PlayerLista.posicao(doMeio, atualId) else 0
@@ -185,13 +220,17 @@ class PlayerListaTela(
 
     private fun atualizarTituloMeio() {
         val nome = grupos.firstOrNull { it.chave == chave }?.let { nomeDoGrupo(it) } ?: ""
-        tituloMeio.text = act.getString(R.string.player_canais_de, nome.uppercase(Locale.getDefault()), doMeio.size)
+        val filtro = resumoFiltro.takeIf { it.isNotEmpty() }?.let { "  ·  $it" } ?: ""
+        tituloMeio.text = act.getString(R.string.player_canais_de, nome.uppercase(Locale.getDefault()), doMeio.size) + filtro
     }
 
     private fun nomeDoGrupo(g: GrupoCanais): String = when (g.chave) {
         PlayerLista.TODOS -> act.getString(R.string.player_cat_todos)
         PlayerLista.FAVORITOS -> act.getString(R.string.player_cat_favoritos)
         PlayerLista.RECENTES -> act.getString(R.string.player_cat_recentes)
+        PlayerLista.BUSCA -> act.getString(R.string.player_cat_busca, g.nome)
+        PlayerLista.ACAO_BUSCAR -> act.getString(R.string.player_acao_buscar)
+        PlayerLista.ACAO_FILTROS -> act.getString(R.string.player_acao_filtros)
         else -> g.nome.ifEmpty { act.getString(R.string.player_cat_outros) }
     }
 
@@ -213,11 +252,19 @@ class PlayerListaTela(
                 text = when (g.chave) {
                     PlayerLista.FAVORITOS -> "★  " + nomeDoGrupo(g)
                     PlayerLista.RECENTES -> "↺  " + nomeDoGrupo(g)
-                    else -> nomeDoGrupo(g)
+                    PlayerLista.BUSCA -> "⌕  " + nomeDoGrupo(g)
+                    PlayerLista.ACAO_BUSCAR -> "⌕  " + nomeDoGrupo(g)
+                    PlayerLista.ACAO_FILTROS -> "☰  " + nomeDoGrupo(g)
+                    else -> (if (g.nome in ocultas) "🔒 " else "") + nomeDoGrupo(g)
                 }
-                setTextColor(if (escolhida) ambar else papel)
+                setTextColor(if (escolhida) ambar else if (g.chave == PlayerLista.ACAO_FILTROS && g.nome.isNotEmpty()) ambar else papel)
             }
-            (linha.getChildAt(1) as TextView).text = g.quantos.toString()
+            // Ações: Filtros mostra o filtro em vigor no lugar da contagem; Buscar não tem número.
+            (linha.getChildAt(1) as TextView).text = when {
+                g.chave == PlayerLista.ACAO_FILTROS -> g.nome
+                g.quantos < 0 -> ""
+                else -> g.quantos.toString()
+            }
             return linha
         }
     }
@@ -389,7 +436,18 @@ class PlayerListaTela(
             }
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
-        listaGrupos.setOnItemClickListener { _, _, pos, _ -> escolherGrupo(pos); listaCanais.requestFocus() }
+        listaGrupos.setOnItemClickListener { _, _, pos, _ ->
+            when (grupos.getOrNull(pos)?.chave) {
+                PlayerLista.ACAO_BUSCAR -> aoBuscar()
+                PlayerLista.ACAO_FILTROS -> aoFiltros()
+                else -> { escolherGrupo(pos); if (doMeio.isNotEmpty()) listaCanais.requestFocus() }
+            }
+        }
+        listaGrupos.isLongClickable = true
+        listaGrupos.setOnItemLongClickListener { _, _, pos, _ ->
+            grupos.getOrNull(pos)?.takeIf { it.chave.startsWith("g:") }?.let { aoOcultarGrupo(it.nome) }
+            true
+        }
         listaCanais.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) { mostrarDetalhe(doMeio.getOrNull(pos)) }
             override fun onNothingSelected(p: AdapterView<*>?) {}
