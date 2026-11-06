@@ -69,7 +69,7 @@ object McpServidor {
             val s = ServerSocket()
             try {
                 s.reuseAddress = true
-                s.bind(InetSocketAddress(InetAddress.getLoopbackAddress(), Config.MCP_PORTA), 16)
+                s.bind(InetSocketAddress(LOCAL_IPV4, Config.MCP_PORTA), 16)
             } catch (e: IOException) {
                 Log.w(TAG, "não consegui abrir 127.0.0.1:${Config.MCP_PORTA}: $e"); try { s.close() } catch (_: IOException) {}
                 return

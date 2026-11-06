@@ -22,6 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * só para a porta 443. Quem abre a conexão de verdade é este código Java, que o Android encaminha. O Tailscale usa
  * proxy para falar com o servidor de controle e com os DERP (relés); o UDP direto fica sem uso (tudo vai pelos relés).
  */
+/** 127.0.0.1 de propósito: no Android o getLoopbackAddress() devolve ::1, e o túnel (Go) chama 127.0.0.1 (medido na Sala). */
+val LOCAL_IPV4: InetAddress = InetAddress.getByAddress("localhost", byteArrayOf(127, 0, 0, 1))
+
 object PonteTunel {
     private const val TAG = "TvLauncher.Ponte"
     private const val MAX_CONEXOES = 48
@@ -35,7 +38,7 @@ object PonteTunel {
     @Synchronized fun garantir(): String? {
         if (servidor?.isClosed == false) return url()
         return try {
-            val s = ServerSocket(0, 16, InetAddress.getLoopbackAddress())
+            val s = ServerSocket(0, 16, LOCAL_IPV4)
             senha = ByteArray(18).also { SecureRandom().nextBytes(it) }.let { Base64.encodeToString(it, Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING) }
             porta = s.localPort
             servidor = s
