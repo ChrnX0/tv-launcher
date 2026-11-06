@@ -117,6 +117,8 @@ class MainActivity : Activity() {
     // A faixa ocupa a mesma altura do arco do sol/lua (tema Escuro) e da etiqueta da obra (Galeria): com ela ligada, o
     // fundo vem sem essas decorações (foto da TV em 05/11/2026: "nascer 05:28" e o sol caíam em cima das temperaturas).
     private var faixaNaCriacao = true
+    private var linhaAppsDp = Grade.LINHA_APPS   // onde a linha de apps começa nesta tela (ver montarTela)
+    private var subidaContinuar = SUBIDA_CONTINUAR
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
     private lateinit var fotoPerfil: ImageView        // a bolinha do perfil, no canto superior direito
     private var popup: PopupPerfil? = null            // menu da bolinha: perfis, Configuracoes, DNS, Wi-Fi
@@ -203,7 +205,7 @@ class MainActivity : Activity() {
         window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, novo ->
             val noContinuar = novo != null && dentro(novo, linhaContinuar)
             if (novo == null || (!dentro(novo, linhaApps) && !noContinuar)) { capaPedida = null; capa.esconder(); esconderDestaque() }
-            val alvo = if (noContinuar) -dp(SUBIDA_CONTINUAR).toFloat() else 0f
+            val alvo = if (noContinuar) -dp(subidaContinuar).toFloat() else 0f
             if (conteudo.translationY != alvo) {
                 conteudo.animate().translationY(alvo).setDuration(220).start()
                 capa.animate().translationY(alvo).setDuration(220).start()
@@ -289,6 +291,11 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- montagem da tela
 
     private fun montarTela(): View {
+        faixaNaCriacao = FaixaDias.ligada(this)
+        // Sem a faixa de 9 dias (o Paulo a desligou em 06/11: "ocupa um espaço desnecessário"), os apps sobem para o lugar
+        // dela e o Continuar vem logo abaixo: tudo numa tela só, sem a tela subir. Com a faixa, o layout de antes.
+        linhaAppsDp = if (faixaNaCriacao) Grade.LINHA_APPS else LINHA_APPS_COMPACTA
+        subidaContinuar = if (faixaNaCriacao) SUBIDA_CONTINUAR else 0
         // Tudo na grade (ver Grade.kt): o topo comeca em Grade.TOPO e a linha de apps em Grade.LINHA_APPS,
         // com as laterais em Grade.MARGEM. Nada de espacos elasticos: cada coisa tem lugar fixo.
         val raiz = FrameLayout(this).apply {
@@ -521,7 +528,7 @@ class MainActivity : Activity() {
         }
         raiz.addView(faixaDias, FrameLayout.LayoutParams(dp(Grade.largura(12)), dp(ALTURA_FAIXA)).apply {
             leftMargin = dp(Grade.MARGEM)
-            topMargin = dp(Grade.LINHA_APPS - 28 - ALTURA_FAIXA)
+            topMargin = dp(linhaAppsDp - 28 - ALTURA_FAIXA)
         })
 
         // ---- Linha de apps (rola na horizontal). O padding de cima/baixo e a folga para o card focado crescer;
@@ -538,7 +545,7 @@ class MainActivity : Activity() {
             clipChildren = false
         }
         rolagem.addView(linhaApps)
-        raiz.addView(rolagem, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.LINHA_APPS - folga) })
+        raiz.addView(rolagem, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(linhaAppsDp - folga) })
 
         // ---- Continuar (HOME recomendada): último canal e apps usados há pouco, em cards 16:9 com o banner do app. Fica
         // meio escondida na borda de baixo; com o foco nela (▼ num card solto), a tela inteira sobe para mostrá-la.
@@ -565,7 +572,7 @@ class MainActivity : Activity() {
         // subir aparecia só o topo dos cards e uma faixa vazia embaixo (visto na Sala, 06/11).
         raiz.addView(caixaContinuar, FrameLayout.LayoutParams(MATCH, dp(ALTURA_CONTINUAR)).apply {
             leftMargin = dp(Grade.MARGEM)
-            topMargin = dp(Grade.LINHA_APPS + ALTURA_LINHA_APPS)
+            topMargin = dp(linhaAppsDp + ALTURA_LINHA_APPS)
         })
 
         // ---- Guia de teclas do modo mover: uma faixa na parte de baixo, por cima de tudo. Some fora do modo mover.
@@ -582,8 +589,8 @@ class MainActivity : Activity() {
             }
         }
 
-        faixaNaCriacao = FaixaDias.ligada(this)
-        val vivo = criarFundo(this, tema, decoracao = !faixaNaCriacao) { bloco -> rede.execute { bloco() } }
+        // Sem decoração (arco do sol/lua, etiqueta da obra) na HOME v3: o lugar dela agora é do destaque e dos apps.
+        val vivo = criarFundo(this, tema, decoracao = false) { bloco -> rede.execute { bloco() } }
         fundo = vivo
         // Sem fundo preto aqui (nem na janela, ver onCreate): o fundo vivo já cobre a tela inteira e é opaco. Cada camada
         // de tela cheia a mais é a GPU pintando 1920x1080 de novo A CADA QUADRO (medido: 3 camadas, 22 ms por quadro).
@@ -771,6 +778,7 @@ class MainActivity : Activity() {
         const val CORAL = 0xFFFF8A80.toInt()   // a cor do "ao vivo"
         const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
         const val SUBIDA_CONTINUAR = 120    // quanto a tela sobe quando o foco está no Continuar (cards inteiros + folga)
+        const val LINHA_APPS_COMPACTA = 232 // linha de apps sem a faixa de 9 dias: logo abaixo do destaque (118 + ~90 + folga)
         const val ALTURA_CONTINUAR = 176    // título + cards 16:9 (111 dp) + folga do card focado
     }
 
