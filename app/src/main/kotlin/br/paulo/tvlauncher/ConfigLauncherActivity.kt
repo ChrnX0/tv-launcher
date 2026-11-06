@@ -195,13 +195,28 @@ class ConfigLauncherActivity : Activity() {
 
         // ---- Atualização (Atualizador.kt): o launcher confere o GitHub a cada 6 h e instala sozinho com a tela apagada.
         secao(getString(R.string.cfg_sec_atualizacao))
+        // 06/11/2026: duas linhas. "Procurar" só confere; "Instalar a versão N" só aparece quando há um Release que ESTA
+        // TV aceita (mesma chave), e é o botão de instalar. Antes era uma linha só, e não dava para saber que o OK instalava.
         lateinit var linhaAtualiza: TextView
+        lateinit var linhaInstalar: TextView
+        fun mostrarInstalar() {
+            val n = Atualizador.pendente(this)
+            linhaInstalar.visibility = if (n == null) View.GONE else View.VISIBLE
+            // O título leva o número da versão: remonta a linha inteira (título + detalhe).
+            if (n != null) linhaInstalar.montarLinha(getString(R.string.cfg_instalar, n), getString(R.string.cfg_instalar_det))
+        }
         linhaAtualiza = linha(getString(R.string.cfg_atualizar), getString(R.string.cfg_atualizar_det, versaoInstalada().toString(), Atualizador.estado(this))) {
             linhaAtualiza.detalhe(getString(R.string.cfg_procurando))
-            // OK = a pessoa pediu: instala na hora se houver (o launcher reinicia sozinho no fim).
-            Atualizador.verificar(this, instalar = true) { r -> runOnUiThread { linhaAtualiza.detalhe(r) } }
+            Atualizador.verificar(this, instalar = false) { r -> runOnUiThread { if (!isDestroyed) { linhaAtualiza.detalhe(r); mostrarInstalar() } } }
+        }
+        linhaInstalar = linha(getString(R.string.cfg_instalar, 0L), getString(R.string.cfg_instalar_det)) {
+            linhaInstalar.detalhe(getString(R.string.cfg_instalando))
+            // Baixa e confere de novo antes de instalar (o arquivo da procura não fica guardado). Device Owner: sem pergunta.
+            Atualizador.verificar(this, instalar = true) { r -> runOnUiThread { if (!isDestroyed) linhaInstalar.detalhe(r) } }
         }
         adicionar(linhaAtualiza)
+        adicionar(linhaInstalar)
+        mostrarInstalar()
 
         // ---- Rede: DNS e teste de velocidade (tirados do popup principal, que agora só mostra o Wi-Fi em si).
         secao(getString(R.string.cfg_sec_rede))
