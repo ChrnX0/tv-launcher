@@ -40,7 +40,7 @@ $ErrorActionPreference = "Stop"
 # ---------------------------------------------------------------- o que este script mexe
 
 $LauncherPkg   = "br.paulo.tvlauncher"
-$SetupWizard   = "com.google.android.tungsten.setupwraith"   # sem desativar isto, o Android abre o RecoveryActivity em loop como Home
+$SetupWizard   = "com.google.android.tungsten.setupwraith"   # NUNCA desativar: guarda as credenciais do Cast (ver TrocarHome)
 $GoogleTvHome  = "com.google.android.apps.tv.launcherx"
 
 # Apps de usuario removidos (apaga dados e login de cada um; reinstalam pela Play Store).
@@ -133,8 +133,9 @@ function TrocarHome($serial) {
     Adb @("-s", $serial, "shell", "am start -n $LauncherPkg/.MainActivity") | Out-Null
     # papel de Home: abaixo
     Adb @("-s", $serial, "shell", "cmd role add-role-holder --user 0 android.app.role.HOME $LauncherPkg") | Out-Host
-    Adb @("-s", $serial, "shell", "pm disable-user --user 0 $SetupWizard") | Out-Host
-    Adb @("-s", $serial, "shell", "pm disable-user --user 0 $GoogleTvHome") | Out-Host
+    # NAO desativar o $SetupWizard (06/11/2026): ele fornece o CastInfoProvider, e sem ele o Cast perde as credenciais de
+    # fabrica e o celular acusa "Dispositivo nao confiavel" (visto na Sala). Nem o launcherx: o Gemini e a busca moram nele
+    # (CLAUDE.md, "Launcher do Google"). A HOME e garantida pelo Device Owner e pela acessibilidade (Home.kt).
     Start-Sleep 2
 
     # Teste honesto: sai do launcher (abre Configuracoes) e aperta HOME. Se cair de volta no launcher novo, funcionou.
