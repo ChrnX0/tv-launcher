@@ -402,7 +402,7 @@ e curto. Commits/push: branch própria + PR em rascunho (permissão global de 04
   https://claude.ai/artifact/XYGCQ9U4YC8Paoz1iGSDbS. Ver o git (commit f7f80c5) se precisar do código antigo.
 - Ficaram, como base do futuro servidor MCP (Claude de fora chamando ferramentas da TV): `ComandosIa` (catálogo FECHADO e
   conferência: abrir app da HOME, abrir tela, despertador, volume, mídia, modo visita), `PedidoIa.propor` (limite 1 a cada 3 s e
-  30/h) e `ConfirmarIaActivity` (foco em Cancelar, 60 s e cancela). Nada roda sem OK no controle.
+  30/h) e `ConfirmarIaActivity` (foco em Cancelar, 60 s e cancela). Desde 06/11/2026 (Paulo: "tire o ok") as ações executam na hora, sem OK no controle (`Config.IA_CONFIRMAR_NO_CONTROLE = false`); a TV mostra um aviso do que fez. O catálogo continua fechado.
 - `PedidoIa.apagarRestosDaNuvem` (chamado no `LauncherApp.onCreate`) apaga na TV as prefs `ia_seguro` e a chave `ia_chave_api` do
   Keystore. A do UniFi (`unifi_chave_api`) é outra e fica.
 - Teste só pelo adb: `am broadcast -a br.paulo.tvlauncher.IA_TESTE --es frase "teste" --es resposta '{"acoes":[{"tipo":"abrir_tela","tela":"previsao"}],"resposta":"ok"}' -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver`

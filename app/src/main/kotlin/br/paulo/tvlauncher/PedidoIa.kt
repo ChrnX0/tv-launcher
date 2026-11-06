@@ -83,7 +83,15 @@ object PedidoIa {
                 p.mensagem = plano.resposta
                 if (plano.acoes.isEmpty()) { p.situacao = Situacao.NADA; return@execute }
                 p.situacao = Situacao.ESPERANDO
-                ui.post { mostrar(app, p) }
+                // Sem OK no controle (decisão do Paulo, 06/11/2026): o catálogo é fechado e conferido acima, e o limite de
+                // pedidos continua. A TV só avisa o que fez. Config.IA_CONFIRMAR_NO_CONTROLE = true volta a pedir o OK.
+                ui.post {
+                    if (Config.IA_CONFIRMAR_NO_CONTROLE) mostrar(app, p)
+                    else {
+                        responder(app, p.id, true)
+                        try { android.widget.Toast.makeText(app, "Claude: " + plano.acoes.joinToString(", ") { it.descricao }, android.widget.Toast.LENGTH_LONG).show() } catch (_: Exception) {}
+                    }
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "pedido ${p.id} falhou: ${e.javaClass.simpleName}")
                 falhar("erro na TV: ${e.javaClass.simpleName}")

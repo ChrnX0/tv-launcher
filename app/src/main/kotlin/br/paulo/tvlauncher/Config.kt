@@ -135,6 +135,8 @@ object Config {
 
     // --- Servidor MCP (McpServidor.kt): só em 127.0.0.1, alcançado de fora apenas pelo túnel do Tailscale (TunelTailscale.kt).
     const val MCP_PORTA = 8091
+    /** Ações pedidas pelo MCP (pedir_acoes) esperam OK no controle? false = executam na hora (Paulo, 06/11/2026: "tire o ok"). */
+    const val IA_CONFIRMAR_NO_CONTROLE = false
 
     // --- Depuração sem fio (adb pela rede, usado pelo computador para instalar e testar): true = o launcher a LIGA de novo
     //     sozinho quando a TV reinicia e sempre que abre, se o Android a tiver desligado. Custo: com ela ligada, a TV deixa uma porta de adb
