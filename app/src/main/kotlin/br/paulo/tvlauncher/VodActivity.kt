@@ -55,14 +55,23 @@ class VodActivity : Activity() {
         private const val EXTRA_TIPO = "tipo"
         const val TIPO_FILME = "filme"
         const val TIPO_EPISODIO = "episodio"
+        const val RESULTADO_TERMINOU = "terminou"
         private const val SALVAR_MS = 15_000L
         private const val ESCONDER_MS = 4_000L
 
         fun abrir(ctx: Context, tipo: String, fonteId: String, id: String, extensao: String, titulo: String, doComeco: Boolean = false) {
-            ctx.startActivity(Intent(ctx, VodActivity::class.java)
-                .putExtra(EXTRA_TIPO, tipo).putExtra(EXTRA_FONTE, fonteId).putExtra(EXTRA_ID, id)
-                .putExtra(EXTRA_EXT, extensao).putExtra(EXTRA_TITULO, titulo).putExtra("do_comeco", doComeco))
+            ctx.startActivity(intent(ctx, tipo, fonteId, id, extensao, titulo, doComeco))
         }
+
+        /** Para quem quer saber se o vídeo foi até o fim (séries: próximo episódio). */
+        fun abrirComResultado(act: Activity, codigo: Int, tipo: String, fonteId: String, id: String, extensao: String, titulo: String, doComeco: Boolean = false) {
+            act.startActivityForResult(intent(act, tipo, fonteId, id, extensao, titulo, doComeco), codigo)
+        }
+
+        private fun intent(ctx: Context, tipo: String, fonteId: String, id: String, extensao: String, titulo: String, doComeco: Boolean) =
+            Intent(ctx, VodActivity::class.java)
+                .putExtra(EXTRA_TIPO, tipo).putExtra(EXTRA_FONTE, fonteId).putExtra(EXTRA_ID, id)
+                .putExtra(EXTRA_EXT, extensao).putExtra(EXTRA_TITULO, titulo).putExtra("do_comeco", doComeco)
 
         /** Chave da posição salva (a mesma que Filme.chave / Episodio.chave usam). */
         fun chave(tipo: String, fonteId: String, id: String) = if (tipo == TIPO_EPISODIO) "$fonteId:e$id" else "$fonteId:f$id"
@@ -111,7 +120,7 @@ class VodActivity : Activity() {
         // O endereço (com a senha) e a posição salva saem do disco: fora da thread da tela.
         Thread {
             val endereco = PlayerArmazem.fontes(this).firstOrNull { it.id == fonte }?.xtream?.let { conta ->
-                Vod.urlFilme(conta, Filme(id, fonte, "", extensao = ext))
+                if (tipo == TIPO_EPISODIO) Series.urlEpisodio(conta, id, ext) else Vod.urlFilme(conta, Filme(id, fonte, "", extensao = ext))
             }
             val pos = if (intent.getBooleanExtra("do_comeco", false)) 0L else Vod.inicio(PlayerArmazem.posicoes(this)[chave])
             tela.post {
@@ -163,7 +172,12 @@ class VodActivity : Activity() {
             when (estado) {
                 Player.STATE_READY -> esconderAviso()
                 Player.STATE_BUFFERING -> mostrarAviso(getString(R.string.player_carregando_canal))
-                Player.STATE_ENDED -> { salvar(terminou = true); finish() }
+                Player.STATE_ENDED -> {
+                    salvar(terminou = true)
+                    // A tela de séries usa isto para tocar o próximo episódio sozinha.
+                    setResult(RESULT_OK, Intent().putExtra(RESULTADO_TERMINOU, true))
+                    finish()
+                }
                 else -> {}
             }
             atualizarBarra()

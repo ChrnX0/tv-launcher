@@ -509,6 +509,21 @@
     <string name="vod_legenda">Legenda</string>
     <string name="vod_faixas">Áudio e legenda</string>
     <string name="vod_teclas">OK pausa    ◀ 10 s    ▶ 30 s (segure para ir mais rápido)    ▼ áudio e legenda    VOLTAR sair</string>
+    <string name="player_acao_series">Séries</string>
+    <string name="series_titulo">SÉRIES</string>
+    <string name="series_carregando">Carregando as séries…</string>
+    <string name="series_vazio">Nenhuma série nas contas cadastradas (séries só vêm de conta Xtream).</string>
+    <string name="series_cabecalho">%1$s · %2$d SÉRIES</string>
+    <string name="series_ordem_recentes">com episódio novo</string>
+    <string name="series_busca_dica">Nome da série</string>
+    <string name="series_sem_episodios">O servidor não mandou episódios desta série.</string>
+    <string name="series_continuar">▶  Continuar %1$s de %2$s</string>
+    <string name="series_assistir">▶  Assistir %1$s</string>
+    <string name="series_temporada">Temporada %1$d</string>
+    <plurals name="series_temporadas">
+        <item quantity="one">%d temporada</item>
+        <item quantity="other">%d temporadas</item>
+    </plurals>
     <string name="player_acao_guia">Guia de programação</string>
     <string name="player_sem_guia_curto">Sem guia de programação</string>
     <string name="player_grade_teclas">OK assistir   ◀ ▶ programa   ▲ ▼ canal</string>

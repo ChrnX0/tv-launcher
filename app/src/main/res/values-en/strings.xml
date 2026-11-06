@@ -503,6 +503,21 @@
     <string name="vod_legenda">Subtitles</string>
     <string name="vod_faixas">Audio and subtitles</string>
     <string name="vod_teclas">OK pause    ◀ 10 s    ▶ 30 s (hold to go faster)    ▼ audio and subtitles    BACK exit</string>
+    <string name="player_acao_series">Series</string>
+    <string name="series_titulo">SERIES</string>
+    <string name="series_carregando">Loading series…</string>
+    <string name="series_vazio">No series in the saved accounts (series only come from Xtream accounts).</string>
+    <string name="series_cabecalho">%1$s · %2$d SERIES</string>
+    <string name="series_ordem_recentes">with a new episode</string>
+    <string name="series_busca_dica">Series name</string>
+    <string name="series_sem_episodios">The server sent no episodes for this series.</string>
+    <string name="series_continuar">▶  Continue %1$s from %2$s</string>
+    <string name="series_assistir">▶  Watch %1$s</string>
+    <string name="series_temporada">Season %1$d</string>
+    <plurals name="series_temporadas">
+        <item quantity="one">%d season</item>
+        <item quantity="other">%d seasons</item>
+    </plurals>
     <string name="player_acao_guia">Program guide</string>
     <string name="player_sem_guia_curto">No program guide</string>
     <string name="player_grade_teclas">OK watch   ◀ ▶ program   ▲ ▼ channel</string>

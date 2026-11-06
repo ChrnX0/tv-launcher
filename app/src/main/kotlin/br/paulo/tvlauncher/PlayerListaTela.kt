@@ -49,6 +49,7 @@ class PlayerListaTela(
     private val aoOcultarGrupo: (String) -> Unit,   // nome do grupo (vazio = "Outros")
     private val aoGuia: (List<Canal>, String) -> Unit,   // guia em grade dos canais da categoria + nome dela
     private val aoFilmes: () -> Unit,
+    private val aoSeries: () -> Unit,
 ) {
     private val tela = Handler(Looper.getMainLooper())
     private val papel = 0xFFF5F3EE.toInt()
@@ -144,7 +145,7 @@ class PlayerListaTela(
     private fun montarGrupos() {
         grupos = listOf(GrupoCanais(PlayerLista.ACAO_BUSCAR, "", -1), GrupoCanais(PlayerLista.ACAO_FILTROS, resumoFiltro, -1),
             GrupoCanais(PlayerLista.ACAO_GUIA, "", -1)) +
-            (if (temVod) listOf(GrupoCanais(PlayerLista.ACAO_FILMES, "", -1)) else emptyList()) +
+            (if (temVod) listOf(GrupoCanais(PlayerLista.ACAO_FILMES, "", -1), GrupoCanais(PlayerLista.ACAO_SERIES, "", -1)) else emptyList()) +
             PlayerLista.grupos(canais, favoritos, recentes, busca?.let { it.first to it.second.size })
     }
 
@@ -241,6 +242,7 @@ class PlayerListaTela(
         PlayerLista.ACAO_FILTROS -> act.getString(R.string.player_acao_filtros)
         PlayerLista.ACAO_GUIA -> act.getString(R.string.player_acao_guia)
         PlayerLista.ACAO_FILMES -> act.getString(R.string.player_acao_filmes)
+        PlayerLista.ACAO_SERIES -> act.getString(R.string.player_acao_series)
         else -> g.nome.ifEmpty { act.getString(R.string.player_cat_outros) }
     }
 
@@ -267,6 +269,7 @@ class PlayerListaTela(
                     PlayerLista.ACAO_FILTROS -> "☰  " + nomeDoGrupo(g)
                     PlayerLista.ACAO_GUIA -> "▦  " + nomeDoGrupo(g)
                     PlayerLista.ACAO_FILMES -> "🎬  " + nomeDoGrupo(g)
+                    PlayerLista.ACAO_SERIES -> "📺  " + nomeDoGrupo(g)
                     else -> (if (g.nome in ocultas) "🔒 " else "") + nomeDoGrupo(g)
                 }
                 setTextColor(if (escolhida) ambar else if (g.chave == PlayerLista.ACAO_FILTROS && g.nome.isNotEmpty()) ambar else papel)
@@ -453,6 +456,7 @@ class PlayerListaTela(
                 PlayerLista.ACAO_BUSCAR -> aoBuscar()
                 PlayerLista.ACAO_FILTROS -> aoFiltros()
                 PlayerLista.ACAO_FILMES -> aoFilmes()
+                PlayerLista.ACAO_SERIES -> aoSeries()
                 PlayerLista.ACAO_GUIA -> grupos.firstOrNull { it.chave == chave }?.let { aoGuia(doMeio, nomeDoGrupo(it)) }
                 else -> { escolherGrupo(pos); if (doMeio.isNotEmpty()) listaCanais.requestFocus() }
             }

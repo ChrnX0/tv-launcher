@@ -103,7 +103,8 @@ class PlayerActivity : Activity() {
         lista = PlayerListaTela(this, aoAssistir = { c, chave -> escolherNaLista(c, chave) }, aoFavoritar = { alternarFavorito(it) },
             aoBuscar = { buscar() }, aoFiltros = { abrirFiltros() }, aoOcultarGrupo = { alternarOculto(it) },
             aoGuia = { cs, nome -> abrirGrade(cs, nome) },
-            aoFilmes = { startActivity(android.content.Intent(this, FilmesActivity::class.java)) })
+            aoFilmes = { startActivity(android.content.Intent(this, FilmesActivity::class.java)) },
+            aoSeries = { startActivity(android.content.Intent(this, SeriesActivity::class.java)) })
         raiz.addView(lista.raiz, FrameLayout.LayoutParams(-1, -1))
         grade = PlayerGradeView(this, aoAssistir = { c -> grade.fechar(); lista.fechar(); if (c.id != atual?.id) sintonizar(c) else mostrarInfo() },
             aoFechar = { grade.fechar(); if (lista.aberta) lista.voltarFoco() })

@@ -25,6 +25,7 @@ object PlayerLista {
     const val ACAO_FILTROS = "*acao:filtros"
     const val ACAO_GUIA = "*acao:guia"
     const val ACAO_FILMES = "*acao:filmes"
+    const val ACAO_SERIES = "*acao:series"
     const val MAX_RECENTES = 30
     const val MAX_FAVORITOS = 500
 

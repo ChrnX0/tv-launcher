@@ -95,6 +95,31 @@ object PlayerCarga {
             .onFailure { Log.w(TAG, "ficha: ${it.javaClass.simpleName}") }.getOrNull()
     }
 
+    // ---------------------------------------------------------------- séries (só contas Xtream)
+
+    /** Séries de todas as contas Xtream. Cache de 12 h por conta; sem rede, o cache velho. */
+    fun series(ctx: Context, forcar: Boolean = false): List<Serie> = PlayerArmazem.fontes(ctx).flatMap { fonte ->
+        val conta = fonte.xtream ?: return@flatMap emptyList()
+        val cache = File(PlayerArmazem.pasta(ctx), "${fonte.id}.series.json")
+        val fresco = cache.exists() && System.currentTimeMillis() - cache.lastModified() < VALIDADE_LISTA
+        if (fresco && !forcar) Series.seriesDeJson(cache.readText(), fonte.id).takeIf { it.isNotEmpty() }?.let { return@flatMap it }
+        val baixadas = runCatching {
+            val cats = runCatching { Xtream.lerCategorias(baixarTexto(Series.urlCategorias(conta), 5L * 1024 * 1024)) }.getOrDefault(emptyList())
+            Series.lerSeries(baixarTexto(Series.urlSeries(conta), MAX_LISTA), fonte.id, cats)
+        }.onFailure { Log.w(TAG, "séries de ${fonte.servidorVisivel}: ${it.javaClass.simpleName}") }.getOrNull()
+        if (!baixadas.isNullOrEmpty()) {
+            runCatching { cache.writeText(Series.seriesParaJson(baixadas)) }
+            baixadas
+        } else if (cache.exists()) Series.seriesDeJson(cache.readText(), fonte.id) else emptyList()
+    }
+
+    /** Ficha e episódios de uma série (sem cache em disco: episódio novo aparece na hora). */
+    fun fichaSerie(ctx: Context, s: Serie): FichaSerie? {
+        val conta = PlayerArmazem.fontes(ctx).firstOrNull { it.id == s.fonteId }?.xtream ?: return null
+        return runCatching { Series.lerFicha(baixarTexto(Series.urlFicha(conta, s.id), 10L * 1024 * 1024)) }
+            .onFailure { Log.w(TAG, "ficha da série: ${it.javaClass.simpleName}") }.getOrNull()
+    }
+
     /** O endereço para tocar (com a senha: não guardar, não logar). */
     fun urlFilme(ctx: Context, f: Filme): String? =
         PlayerArmazem.fontes(ctx).firstOrNull { it.id == f.fonteId }?.xtream?.let { Vod.urlFilme(it, f) }
