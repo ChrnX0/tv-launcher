@@ -166,7 +166,7 @@ class PlayerActivity : Activity() {
         if (guardarAnterior && atual != null && atual?.id != c.id) anterior = atual
         atual = c
         tentativas = 0
-        PlayerArmazem.definirUltimoCanal(this, c)
+        gravarUltimo(c)
         tocar(c)
         mostrarInfo()
     }
@@ -333,8 +333,21 @@ class PlayerActivity : Activity() {
         tela.postDelayed(esconderInfo, ESCONDER_INFO_MS)
     }
 
+    // O que já foi gravado no ultimo.json (canal + início do 1º programa): só regrava quando muda.
+    private var gravado = ""
+
+    /** O último canal e os próximos programas dele, para o destaque da HOME (que roda em outro processo). */
+    private fun gravarUltimo(c: Canal) {
+        val programas = c.guiaId.takeIf { it.isNotEmpty() }?.let { guia.proximos(it, System.currentTimeMillis(), 4) }.orEmpty()
+        val marca = "${c.id}|${programas.firstOrNull()?.inicio}|${programas.size}"
+        if (marca == gravado) return
+        gravado = marca
+        PlayerArmazem.definirUltimoCanal(this, c, programas)
+    }
+
     private fun atualizarInfo() {
         val c = atual ?: return
+        gravarUltimo(c)   // o guia pode ter acabado de carregar, ou o programa ter mudado
         val agora = System.currentTimeMillis()
         val hora = SimpleDateFormat("HH:mm", Locale.getDefault())
         val prog = c.guiaId.takeIf { it.isNotEmpty() }?.let { guia.proximos(it, agora, 2) }.orEmpty()

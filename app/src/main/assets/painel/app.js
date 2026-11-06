@@ -1444,7 +1444,6 @@ function mostrarClima(c) {
   $('estadoClima').textContent = (c.fixo ? `cadastrado: ${c.fixo.descricao}` : 'nenhum cadastrado (a TV se acha pelo Wi-Fi ou pela internet)') +
     (c.usado ? ` · última posição usada: ${c.usado.lat.toFixed(3)}, ${c.usado.lon.toFixed(3)}` : '');
   if (c.fixo) { $('cepClima').value = c.fixo.cep; $('numeroClima').value = c.fixo.numero; }
-  $('faixaClima').checked = !!c.faixa;
 }
 
 async function carregarClima() {
@@ -1466,11 +1465,6 @@ $('btnClimaAuto').addEventListener('click', async () => {
     $('cepClima').value = ''; $('numeroClima').value = '';
     mostrar($('statusControle'), 'Endereço apagado: a TV se acha só pelo Wi-Fi ou pela internet.');
   } catch (e) { mostrar($('statusControle'), e.message); }
-});
-
-$('faixaClima').addEventListener('change', async () => {
-  try { mostrarClima(await chamar('POST', '/api/clima', { faixa: $('faixaClima').checked })); }
-  catch (e) { mostrar($('statusControle'), e.message); }
 });
 
 $('btnReiniciarTv').addEventListener('click', async () => {

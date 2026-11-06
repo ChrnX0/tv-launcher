@@ -6,22 +6,13 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 /**
- * A faixa de previsão da tela inicial (05/11/2026, pedido do Paulo: "as mesmas informações" da tela de clima do Google):
- * [DIAS] dias, cada um com o nome do dia, o ícone, a máxima e a mínima e a chance de chuva. Aqui fica só a lógica
- * (ler o JSON da Open-Meteo, nomes dos dias, liga/desliga), testável no computador; o desenho fica na MainActivity.
+ * Previsão por dia (05/11/2026). A faixa na tela inicial saiu em 06/11 (a previsão completa fica na tela do clima);
+ * [DIAS] dias, cada um com o nome do dia, o ícone, a máxima e a mínima e a chance de chuva. Aqui fica só a lógica (ler o JSON da Open-Meteo, nomes dos dias), testável no computador.
  */
 object FaixaDias {
     const val DIAS = 9                      // o mesmo que a tela do Google mostra
-    private const val PREFS = "launcher"
-    const val CHAVE = "home_faixa_dias"
 
     data class Dia(val data: String, val codigo: Int, val max: Int, val min: Int, val chuva: Int)
-
-    /** Ligada por padrão; desliga em Configurações > Tela inicial (deixa o fundo inteiro à mostra). */
-    fun ligada(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(CHAVE, true)
-    fun definirLigada(ctx: Context, sim: Boolean) {
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(CHAVE, sim).apply()
-    }
 
     /**
      * Lê o bloco "daily" da Open-Meteo (pedido com weather_code, temperature_2m_max/min e precipitation_probability_max).
