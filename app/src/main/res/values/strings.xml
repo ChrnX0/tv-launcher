@@ -479,6 +479,20 @@
     <string name="player_ao_vivo">AO VIVO</string>
     <string name="player_a_seguir">a seguir: %1$s</string>
     <string name="player_teclas">▲ ▼ canal    OK canais    ◀ canal anterior    VOLTAR sair</string>
-    <string name="player_canais">CANAIS</string>
+    <string name="player_categorias">CATEGORIAS</string>
+    <string name="player_canais_de">%1$s · %2$d CANAIS</string>
+    <string name="player_cat_todos">Todos</string>
+    <string name="player_cat_favoritos">Favoritos</string>
+    <string name="player_cat_recentes">Recentes</string>
+    <string name="player_cat_outros">Outros</string>
+    <string name="player_sem_favoritos">Nenhum favorito ainda. Segure OK num canal para guardar aqui.</string>
+    <string name="player_categoria_vazia">Nenhum canal nesta categoria.</string>
+    <string name="player_sem_guia">Sem guia de programação para este canal.</string>
+    <string name="player_horario">%1$s – %2$s · faltam %3$d min</string>
+    <string name="player_depois">DEPOIS</string>
+    <string name="player_lista_teclas">OK assistir    segure OK favoritar    ◀ categorias</string>
+    <string name="player_favorito_pos">★ %1$s nos favoritos</string>
+    <string name="player_favorito_tirou">%1$s saiu dos favoritos</string>
+    <string name="player_favoritos_cheio">Já há 500 favoritos: tire um antes.</string>
     <string name="player_assistindo">assistindo</string>
 </resources>

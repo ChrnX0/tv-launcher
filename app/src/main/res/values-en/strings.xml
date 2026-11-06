@@ -473,6 +473,20 @@
     <string name="player_ao_vivo">LIVE</string>
     <string name="player_a_seguir">next: %1$s</string>
     <string name="player_teclas">▲ ▼ channel    OK channels    ◀ previous channel    BACK exit</string>
-    <string name="player_canais">CHANNELS</string>
+    <string name="player_categorias">CATEGORIES</string>
+    <string name="player_canais_de">%1$s · %2$d CHANNELS</string>
+    <string name="player_cat_todos">All</string>
+    <string name="player_cat_favoritos">Favorites</string>
+    <string name="player_cat_recentes">Recent</string>
+    <string name="player_cat_outros">Other</string>
+    <string name="player_sem_favoritos">No favorites yet. Hold OK on a channel to add it here.</string>
+    <string name="player_categoria_vazia">No channels in this category.</string>
+    <string name="player_sem_guia">No program guide for this channel.</string>
+    <string name="player_horario">%1$s – %2$s · %3$d min left</string>
+    <string name="player_depois">LATER</string>
+    <string name="player_lista_teclas">OK watch    hold OK favorite    ◀ categories</string>
+    <string name="player_favorito_pos">★ %1$s added to favorites</string>
+    <string name="player_favorito_tirou">%1$s removed from favorites</string>
+    <string name="player_favoritos_cheio">There are already 500 favorites: remove one first.</string>
     <string name="player_assistindo">watching</string>
 </resources>
