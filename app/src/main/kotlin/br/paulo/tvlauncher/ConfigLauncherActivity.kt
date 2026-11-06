@@ -239,14 +239,7 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaChuva)
 
-        // ---- Clima (05/11/2026): a faixa de 9 dias e o endereço da casa (CEP + número; o launcher acha as coordenadas).
-        lateinit var linhaFaixa: TextView
-        fun detalheFaixa() = if (FaixaDias.ligada(this)) "ligada · OK desliga" else "desligada · OK liga"
-        linhaFaixa = linha("Previsão de 9 dias na tela inicial", detalheFaixa()) {
-            FaixaDias.definirLigada(this, !FaixaDias.ligada(this))
-            linhaFaixa.detalhe(detalheFaixa())
-        }
-        adicionar(linhaFaixa)
+        // ---- Clima (05/11/2026): o endereço da casa (CEP + número; o launcher acha as coordenadas).
         lateinit var linhaEndereco: TextView
         fun detalheEndereco() = LocalClima.ler(this)?.let { "${LocalClima.descrever(it)} · OK troca" }
             ?: "nenhum · a TV se acha pelo Wi-Fi; o endereço vale quando o Wi-Fi não acha · OK cadastra"

@@ -105,20 +105,11 @@ class MainActivity : Activity() {
     private lateinit var txtMax: TextView   // "↑ 32°" ao lado da temperatura
     private lateinit var txtMin: TextView   // "↓ 18°"
     private lateinit var iconeEclipse: IconeEclipse   // sol parcialmente coberto pela lua, desenhado em codigo
-    private lateinit var faixaDias: LinearLayout      // previsão de 9 dias entre o topo e os apps (FaixaDias.kt)
-    private var ultimosDias: List<FaixaDias.Dia> = emptyList()   // o que a faixa mostra (para não redesenhar igual)
     // Lugar do clima trocado no painel (LocalClima.kt; o painel roda neste mesmo processo): busca o clima na hora.
     // Campo (e não lambda solta): o SharedPreferences guarda o ouvinte por referência fraca.
     private val ouvinteLocal = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, chave ->
         if (chave == LocalClima.CHAVE_LAT || chave == LocalClima.CHAVE_LON) { ui.removeCallbacks(tarefaClima); ui.postDelayed(tarefaClima, 300) }
-        // Faixa ligada/desligada pelo painel com a HOME na tela: o fundo muda (arco/etiqueta), então recria.
-        if (chave == FaixaDias.CHAVE && FaixaDias.ligada(this) != faixaNaCriacao) ui.post { recreate() }
     }
-    // A faixa ocupa a mesma altura do arco do sol/lua (tema Escuro) e da etiqueta da obra (Galeria): com ela ligada, o
-    // fundo vem sem essas decorações (foto da TV em 05/11/2026: "nascer 05:28" e o sol caíam em cima das temperaturas).
-    private var faixaNaCriacao = true
-    private var linhaAppsDp = Grade.LINHA_APPS   // onde a linha de apps começa nesta tela (ver montarTela)
-    private var subidaContinuar = SUBIDA_CONTINUAR
     private lateinit var txtDica: TextView            // guia de teclas do modo mover (some fora dele)
     private lateinit var fotoPerfil: ImageView        // a bolinha do perfil, no canto superior direito
     private var popup: PopupPerfil? = null            // menu da bolinha: perfis, Configuracoes, DNS, Wi-Fi
@@ -201,15 +192,10 @@ class MainActivity : Activity() {
         setContentView(montarTela())
         TesteHome.aplicar = { ui.post { if (!isDestroyed) aplicarTeste() } }
         aplicarTeste()
-        // Foco fora da linha de apps (hora, clima, bolinha) apaga a capa; foco no Continuar sobe a tela para mostrá-lo.
+        // Foco fora da linha de apps e do Continuar (hora, clima, bolinha) apaga a capa e o destaque.
         window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, novo ->
             val noContinuar = novo != null && dentro(novo, linhaContinuar)
             if (novo == null || (!dentro(novo, linhaApps) && !noContinuar)) { capaPedida = null; capa.esconder(); esconderDestaque() }
-            val alvo = if (noContinuar) -dp(subidaContinuar).toFloat() else 0f
-            if (conteudo.translationY != alvo) {
-                conteudo.animate().translationY(alvo).setDuration(220).start()
-                capa.animate().translationY(alvo).setDuration(220).start()
-            }
         }
         window.setBackgroundDrawable(null)   // a janela não pinta o fundo padrão do tema por baixo de tudo (ver montarTela)
         Privilegio.religarAcessibilidade(this)   // religa o serviço de teclas do controle se o Android o desligou
@@ -229,7 +215,7 @@ class MainActivity : Activity() {
         super.onResume()
         // O tema agora só troca na tela separada de Configurações do launcher (ConfigLauncherActivity), que não
         // tem como chamar recreate() nesta Activity diretamente — então aqui a gente mesmo percebe a troca ao voltar.
-        if (Tema.atual(this) != tema || FaixaDias.ligada(this) != faixaNaCriacao) { recreate(); return }
+        if (Tema.atual(this) != tema) { recreate(); return }
         preencherApps()
         preencherContinuar()
         if (::linhaContinuar.isInitialized && linhaContinuar.hasFocus()) linhaApps.getChildAt(indiceFoco.coerceAtLeast(0))?.requestFocus()
@@ -238,7 +224,6 @@ class MainActivity : Activity() {
         ui.post(tarefaRede)
         ui.post(tarefaTimer)
         getSharedPreferences("launcher", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(ouvinteLocal)
-        faixaDias.visibility = if (FaixaDias.ligada(this) && ultimosDias.isNotEmpty()) View.VISIBLE else View.GONE
         vigiarRedeParaClima()   // busca o clima assim que a rede subir no boot, sem esperar o ciclo de 5 min
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
         // O atalho do painel só faz sentido com o launcherx do Google ativo (uma consulta ao PackageManager, barata).
@@ -291,11 +276,6 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- montagem da tela
 
     private fun montarTela(): View {
-        faixaNaCriacao = FaixaDias.ligada(this)
-        // Sem a faixa de 9 dias (o Paulo a desligou em 06/11: "ocupa um espaço desnecessário"), os apps sobem para o lugar
-        // dela e o Continuar vem logo abaixo: tudo numa tela só, sem a tela subir. Com a faixa, o layout de antes.
-        linhaAppsDp = if (faixaNaCriacao) Grade.LINHA_APPS else LINHA_APPS_COMPACTA
-        subidaContinuar = if (faixaNaCriacao) SUBIDA_CONTINUAR else 0
         // Tudo na grade (ver Grade.kt): o topo comeca em Grade.TOPO e a linha de apps em Grade.LINHA_APPS,
         // com as laterais em Grade.MARGEM. Nada de espacos elasticos: cada coisa tem lugar fixo.
         val raiz = FrameLayout(this).apply {
@@ -513,24 +493,6 @@ class MainActivity : Activity() {
             topMargin = dp(TOPO_DESTAQUE)
         })
 
-        // ---- Previsão de 9 dias (05/11/2026): no vão entre o topo e a linha de apps, de ponta a ponta da grade (12 colunas).
-        // Fica ACIMA da folga do card focado (24 dp), para o card que cresce não cobrir os números.
-        faixaDias = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            visibility = View.GONE   // aparece com a 1ª previsão (e só se ligada nas Configurações)
-            // "Vidro" do esboço: escuro translúcido com um fio claro (sem desfoque: custaria a GPU a cada quadro do fundo vivo)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(12).toFloat()
-                setColor(0x800B0F17.toInt())
-                setStroke(dp(1), 0x1FFFFFFF)
-            }
-        }
-        raiz.addView(faixaDias, FrameLayout.LayoutParams(dp(Grade.largura(12)), dp(ALTURA_FAIXA)).apply {
-            leftMargin = dp(Grade.MARGEM)
-            topMargin = dp(linhaAppsDp - 28 - ALTURA_FAIXA)
-        })
-
         // ---- Linha de apps (rola na horizontal). O padding de cima/baixo e a folga para o card focado crescer;
         // por isso a rolagem comeca FOLGA acima da linha da grade.
         val folga = 24
@@ -545,7 +507,7 @@ class MainActivity : Activity() {
             clipChildren = false
         }
         rolagem.addView(linhaApps)
-        raiz.addView(rolagem, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(linhaAppsDp - folga) })
+        raiz.addView(rolagem, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(LINHA_APPS_HOME - folga) })
 
         // ---- Continuar (HOME recomendada): último canal e apps usados há pouco, em cards 16:9 com o banner do app. Fica
         // meio escondida na borda de baixo; com o foco nela (▼ num card solto), a tela inteira sobe para mostrá-la.
@@ -572,7 +534,7 @@ class MainActivity : Activity() {
         // subir aparecia só o topo dos cards e uma faixa vazia embaixo (visto na Sala, 06/11).
         raiz.addView(caixaContinuar, FrameLayout.LayoutParams(MATCH, dp(ALTURA_CONTINUAR)).apply {
             leftMargin = dp(Grade.MARGEM)
-            topMargin = dp(linhaAppsDp + ALTURA_LINHA_APPS)
+            topMargin = dp(LINHA_APPS_HOME + ALTURA_LINHA_APPS)
         })
 
         // ---- Guia de teclas do modo mover: uma faixa na parte de baixo, por cima de tudo. Some fora do modo mover.
@@ -773,12 +735,12 @@ class MainActivity : Activity() {
     /** pacote -> (APK|activity, Item). Vive enquanto o processo da HOME viver (sobrevive à troca de tema). */
     private companion object {
         val cacheApps = HashMap<String, Pair<String, Item>>()
-        const val ALTURA_FAIXA = 46        // faixa fina de 9 dias (esboço V3Final); era 116, com ícone por dia
         const val TOPO_DESTAQUE = 118      // onde começa o bloco do destaque (abaixo da hora/clima)
         const val CORAL = 0xFFFF8A80.toInt()   // a cor do "ao vivo"
         const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
-        const val SUBIDA_CONTINUAR = 120    // quanto a tela sobe quando o foco está no Continuar (cards inteiros + folga)
-        const val LINHA_APPS_COMPACTA = 232 // linha de apps sem a faixa de 9 dias: logo abaixo do destaque (118 + ~90 + folga)
+        // Linha de apps logo abaixo do destaque (118 + ~90 + folga) e o Continuar embaixo dela: tudo numa tela só.
+        // A faixa de 9 dias saiu em 06/11 (Paulo: "abrindo o widget do clima essas informações já tem lá dentro").
+        const val LINHA_APPS_HOME = 232
         const val ALTURA_CONTINUAR = 176    // título + cards 16:9 (111 dp) + folga do card focado
     }
 
@@ -1050,7 +1012,6 @@ class MainActivity : Activity() {
     private fun aplicarTeste() {
         capa.visibility = if (TesteHome.capa) View.VISIBLE else View.GONE
         destaque.visibility = if (TesteHome.destaque) destaque.visibility.takeIf { it != View.GONE } ?: View.INVISIBLE else View.GONE
-        if (!TesteHome.faixa) faixaDias.visibility = View.GONE else mostrarDias(ultimosDias.also { ultimosDias = emptyList() })
         fundo?.visibility = if (TesteHome.fundo) View.VISIBLE else View.INVISIBLE
     }
 
@@ -1914,11 +1875,7 @@ class MainActivity : Activity() {
                 // Decodifica e apara o ícone AQUI, fora da thread da tela (04/11/2026: um ANR de 5 s do launcher tinha
                 // IconesClima.aparar na pilha da thread principal). Na tela, bitmap() já acha pronto no cache.
                 if (IconesClima.ehIcone(icone)) IconesClima.bitmap(this, icone)
-                // A faixa de 9 dias: hoje usa a mesma máxima/mínima do topo (corrigidas pela medida); ícones preparados aqui.
-                val dias = FaixaDias.ler(dia, temp, diasChuva = medModelo?.chuvaDias)
-                dias.forEach { IconesClima.bitmap(this, IconesClima.chave(it.codigo, true, false)) }
                 ui.post {
-                    mostrarDias(dias)
                     pontoAtual = ponto
                     ultimoCodigo = codigo
                     ultimoChovendo = chovendoAgora
@@ -1993,38 +1950,6 @@ class MainActivity : Activity() {
         }
     }
 
-
-    /**
-     * Desenha a faixa de previsão: por dia, o nome, o ícone, "máx° mín°" e "☂ chance%" (como a tela de clima do Google).
-     * Não redesenha se nada mudou (a busca roda a cada 5 min).
-     */
-    private fun mostrarDias(dias: List<FaixaDias.Dia>) {
-        faixaDias.visibility = if (TesteHome.faixa && FaixaDias.ligada(this) && dias.isNotEmpty()) View.VISIBLE else View.GONE
-        if (dias == ultimosDias) return
-        ultimosDias = dias
-        faixaDias.removeAllViews()
-        // Faixa fina (esboço V3Final, 06/11/2026): por dia, o nome em negrito e embaixo "máx° mín° · chance%".
-        dias.forEachIndexed { i, d ->
-            val item = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-            }
-            item.addView(texto(12f, Color.WHITE).apply {
-                text = FaixaDias.rotulo(d, i, getString(R.string.pv_hoje))
-                typeface = Typeface.create(fonteUi, Typeface.BOLD)
-                gravity = Gravity.CENTER
-                includeFontPadding = false
-            })
-            item.addView(texto(10.5f, textoClaro).apply {
-                text = "${d.max}° ${d.min}° · ${d.chuva}%"
-                gravity = Gravity.CENTER
-                includeFontPadding = false
-                maxLines = 1
-                setPadding(0, dp(3), 0, 0)
-            })
-            faixaDias.addView(item, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-    }
 
     /** Códigos de clima da Open-Meteo (padrão WMO) -> chave do ícone (IconesClima.kt) + texto. O eclipse (ICONE_ECLIPSE) só entra em atualizarEclipse(). */
     private fun descricaoClima(codigo: Int, dia: Boolean = true, chovendo: Boolean = false): Pair<String, String> {
