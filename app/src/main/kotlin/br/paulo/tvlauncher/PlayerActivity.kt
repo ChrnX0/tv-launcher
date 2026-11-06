@@ -88,6 +88,7 @@ class PlayerActivity : Activity() {
     private lateinit var infoHora: TextView
     private lateinit var infoProgresso: ProgressBar
     private lateinit var lista: PlayerListaTela
+    private lateinit var grade: PlayerGradeView
     private lateinit var numero: TextView
     private lateinit var aviso: TextView
 
@@ -100,8 +101,12 @@ class PlayerActivity : Activity() {
         raiz.addView(montarInfo(), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(dp(32), 0, dp(32), dp(26)) })
         janelas = PlayerJanelas(this)
         lista = PlayerListaTela(this, aoAssistir = { c, chave -> escolherNaLista(c, chave) }, aoFavoritar = { alternarFavorito(it) },
-            aoBuscar = { buscar() }, aoFiltros = { abrirFiltros() }, aoOcultarGrupo = { alternarOculto(it) })
+            aoBuscar = { buscar() }, aoFiltros = { abrirFiltros() }, aoOcultarGrupo = { alternarOculto(it) },
+            aoGuia = { cs, nome -> abrirGrade(cs, nome) })
         raiz.addView(lista.raiz, FrameLayout.LayoutParams(-1, -1))
+        grade = PlayerGradeView(this, aoAssistir = { c -> grade.fechar(); lista.fechar(); if (c.id != atual?.id) sintonizar(c) else mostrarInfo() },
+            aoFechar = { grade.fechar(); if (lista.aberta) lista.voltarFoco() })
+        raiz.addView(grade, FrameLayout.LayoutParams(-1, -1))
         numero = TextView(this).apply {
             textSize = 56f; typeface = Typeface.DEFAULT_BOLD; setTextColor(papel); background = vidro(16)
             setPadding(dp(22), dp(6), dp(22), dp(10)); visibility = View.GONE
@@ -156,7 +161,7 @@ class PlayerActivity : Activity() {
             }
             // O guia vem depois: pode levar alguns segundos (arquivo grande) e o canal já está tocando.
             val g = PlayerCarga.guia(this, lidos)
-            tela.post { if (!isDestroyed) { guia = g; atualizarInfo(); lista.atualizarGuia(g) } }
+            tela.post { if (!isDestroyed) { guia = g; atualizarInfo(); lista.atualizarGuia(g); grade.atualizarGuia(g) } }
         }.start()
     }
 
@@ -226,6 +231,12 @@ class PlayerActivity : Activity() {
     // ---------------------------------------------------------------- controle
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (grade.aberta) return super.onKeyDown(keyCode, event)   // a grade trata as dela; o que sobra (volume) segue
+        if (keyCode == KeyEvent.KEYCODE_GUIDE || keyCode == KeyEvent.KEYCODE_TV_DATA_SERVICE) {
+            // Tecla GUIA do controle (quando há): a grade da categoria escolhida, direto do vídeo.
+            val onde = PlayerLista.filtrar(visiveis, categoria, favoritos, recentes).ifEmpty { visiveis }
+            abrirGrade(onde, getString(R.string.player_acao_guia)); return true
+        }
         if (lista.aberta) {
             if (lista.tecla(keyCode)) return true
             if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) lista.fechar()   // número digitado: some a lista e troca
@@ -370,6 +381,12 @@ class PlayerActivity : Activity() {
         info.visibility = View.GONE
         lista.abrir(visiveis, guia, favoritos, recentes, categoria, atual, PlayerFiltro.resumo(filtro),
             if (filtro.mostrarOcultas) filtro.ocultas else emptySet(), focarCategorias)
+    }
+
+    private fun abrirGrade(canaisDaGrade: List<Canal>, nome: String) {
+        if (canaisDaGrade.isEmpty()) return
+        info.visibility = View.GONE
+        grade.abrir(canaisDaGrade, guia, nome, atual)
     }
 
     /** Recalcula as ocultas e a lista visível (depois de carregar, mudar filtro ou esconder um grupo). */

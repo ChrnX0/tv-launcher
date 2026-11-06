@@ -58,6 +58,27 @@ object PlayerLogos {
         }
     }
 
+    private val pedidos = HashSet<String>()   // downloads em andamento para quem desenha direto no Canvas
+
+    /**
+     * Para quem desenha no Canvas (o guia em grade): devolve o logo se já estiver na memória; senão pede e chama
+     * `aoChegar` quando chegar (a View então se redesenha). Nunca bloqueia.
+     */
+    fun emMemoria(ctx: Context, url: String, aoChegar: () -> Unit): Bitmap? {
+        if (url.isEmpty() || !M3u.urlAceita(url) || url in falhou) return null
+        memoria.get(url)?.let { return it }
+        if (!pedidos.add(url)) return null
+        val dir = File(ctx.cacheDir, "logos")
+        trabalho.execute {
+            val bmp = runCatching { obter(dir, url) }.getOrNull()
+            tela.post {
+                pedidos -= url
+                if (bmp == null) falhou += url else { memoria.put(url, bmp); aoChegar() }
+            }
+        }
+        return null
+    }
+
     private fun obter(dir: File, url: String): Bitmap? {
         val arquivo = File(dir, hash(url))
         val bytes = if (arquivo.exists()) arquivo.readBytes() else baixar(url).also {

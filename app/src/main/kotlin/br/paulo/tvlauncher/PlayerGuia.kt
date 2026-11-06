@@ -142,6 +142,9 @@ class Guia(programas: List<Programa>) {
     fun proximos(guiaId: String, instante: Long, quantos: Int = 4): List<Programa> =
         porCanal[guiaId].orEmpty().filter { it.fim > instante }.take(quantos)
 
+    /** Todos os programas de um canal, em ordem (lista vazia se o canal não tem guia). Para o guia em grade. */
+    fun doCanal(guiaId: String): List<Programa> = porCanal[guiaId].orEmpty()
+
     /** Fração já assistida do programa atual (0..1), para a barrinha de progresso dos cards. */
     fun progresso(p: Programa, instante: Long): Float =
         ((instante - p.inicio).toFloat() / (p.fim - p.inicio)).coerceIn(0f, 1f)
