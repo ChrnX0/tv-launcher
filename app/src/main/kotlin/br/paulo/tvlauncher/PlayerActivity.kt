@@ -228,7 +228,7 @@ class PlayerActivity : Activity() {
     }
 
     private val avisoCarregando = Runnable {
-        if (player?.playbackState == Player.STATE_BUFFERING) mostrarAviso(getString(R.string.player_carregando_canal))
+        if (player?.playbackState == Player.STATE_BUFFERING && !lista.aberta && !grade.aberta) mostrarAviso(getString(R.string.player_carregando_canal))
     }
 
     // ---------------------------------------------------------------- controle
@@ -341,6 +341,8 @@ class PlayerActivity : Activity() {
     private val esconderInfo = Runnable { info.visibility = View.GONE }
 
     private fun mostrarInfo() {
+        // Com a lista ou a grade aberta (ex.: voltou de Filmes e o canal retomou), a faixa do canal ficaria por cima delas.
+        if (lista.aberta || grade.aberta) return
         atualizarInfo()
         info.visibility = View.VISIBLE
         tela.removeCallbacks(esconderInfo)

@@ -102,7 +102,7 @@ class FilmesActivity : Activity() {
         direita.addView(focado)
         colunas.addView(direita, LinearLayout.LayoutParams(0, -1, 1f).apply { marginStart = dp(16) })
         raiz.addView(colunas, FrameLayout.LayoutParams(-1, -1))
-        painelFicha = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(0xF20B0F17.toInt()) }
+        painelFicha = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(0xFF0B0F17.toInt()) }
         raiz.addView(painelFicha, FrameLayout.LayoutParams(-1, -1))
         aviso = TextView(this).apply {
             textSize = 18f; setTextColor(papel); gravity = Gravity.CENTER; background = vidro(16)
@@ -415,7 +415,7 @@ class FilmesActivity : Activity() {
 
     private fun estiloLista(l: AbsListView) {
         l.isVerticalScrollBarEnabled = false
-        l.selector = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0x29F5F3EE); setStroke(dp(2), papel) }
+        PlayerFoco.molduraSoComFoco(l, GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0x29F5F3EE); setStroke(dp(2), papel) })
         l.setDrawSelectorOnTop(l is GridView)   // no pôster a moldura vai por cima (a capa cobre o fundo)
         l.cacheColorHint = Color.TRANSPARENT
         if (l is ListView) l.divider = null

@@ -103,7 +103,7 @@ class SeriesActivity : Activity() {
         colunas.addView(direita, LinearLayout.LayoutParams(0, -1, 1f).apply { marginStart = dp(16) })
         raiz.addView(colunas, FrameLayout.LayoutParams(-1, -1))
         // Focável: enquanto a ficha carrega, o foco sai da grade de baixo (senão ▲▼ mexeriam nela por trás).
-        painel = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(0xF20B0F17.toInt()); isFocusable = true }
+        painel = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(0xFF0B0F17.toInt()); isFocusable = true }
         raiz.addView(painel, FrameLayout.LayoutParams(-1, -1))
         aviso = TextView(this).apply {
             textSize = 18f; setTextColor(papel); gravity = Gravity.CENTER
@@ -458,7 +458,7 @@ class SeriesActivity : Activity() {
 
     private fun estilo(l: AbsListView) {
         l.isVerticalScrollBarEnabled = false
-        l.selector = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0x29F5F3EE); setStroke(dp(2), papel) }
+        PlayerFoco.molduraSoComFoco(l, GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0x29F5F3EE); setStroke(dp(2), papel) })
         l.setDrawSelectorOnTop(l is GridView)
         l.cacheColorHint = Color.TRANSPARENT
         if (l is ListView) l.divider = null
