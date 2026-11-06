@@ -476,7 +476,7 @@
     <string name="home_destaque_comecou">started %1$d min ago</string>
     <string name="home_destaque_termina">ends at %1$s</string>
     <string name="home_destaque_depois">next: %1$s %2$s</string>
-    <string name="home_destaque_pilha">%1$d apps · ▼ switches the front one</string>
+    <string name="home_destaque_pilha">%1$d apps · ▲ switches the front one</string>
     <string name="player_carregando">Loading channels…</string>
     <string name="player_carregando_canal">Loading channel…</string>
     <string name="player_sem_canais">No channel list added yet.</string>
