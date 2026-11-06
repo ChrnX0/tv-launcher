@@ -36,7 +36,6 @@
     <nav class="abas">
       <button class="aba ativa" data-aba="apps">Aplicativos</button>
       <button class="aba" data-aba="controle">Controle</button>
-      <button class="aba" data-aba="falar">Falar</button>
       <button class="aba" data-aba="arquivos">Arquivos</button>
       <button class="aba" data-aba="saude">Saúde</button>
       <button class="aba" data-aba="fotos">Fotos</button>
@@ -114,41 +113,6 @@
           </div>
           <p id="statusDesligar" class="aviso-curto"></p>
         </div>
-      </div>
-    </section>
-
-    <!-- IA na nuvem (bloco 6): a frase vai para a TV, a TV pergunta ao Gemini com a chave do dono e mostra o que vai
-         fazer; só executa com OK no controle, na TV. -->
-    <section id="abaFalar" class="painel-aba" hidden>
-      <div class="cartao">
-        <h2>Pedir à TV</h2>
-        <p id="avisoIa" class="aviso"></p>
-        <form id="formFalar" autocomplete="off">
-          <textarea id="campoFrase" rows="3" maxlength="300" placeholder="Ex.: abre a Netflix e aumenta o volume" aria-label="Pedido para a TV"></textarea>
-          <p class="aviso-curto">Dica: toque no microfone do teclado do celular e fale.</p>
-          <button type="submit" class="botao-primario" id="btnFalar">Enviar</button>
-        </form>
-        <p id="statusFalar" class="aviso" hidden></p>
-        <ul id="acoesFalar" class="lista-acoes" hidden></ul>
-      </div>
-      <div class="cartao">
-        <h2>IA, chave e modelo</h2>
-        <form id="formProvedor" class="form-pasta" autocomplete="off">
-          <select id="campoProvedor" aria-label="Qual IA usar"></select>
-        </form>
-        <p class="aviso">A chave é sua, de quem você escolher: <a id="linkChaveIa" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">pegar a chave</a>.
-          Cada IA guarda a sua chave e o seu modelo. Fica cifrada na TV e nunca volta para o painel (só os 4 últimos caracteres). Ligar ou desligar a IA é só nas Configurações do launcher, na TV.</p>
-        <p id="chaveIa" class="aviso-curto"></p>
-        <form id="formChave" class="form-pasta" autocomplete="off">
-          <input id="campoChave" type="password" maxlength="400" autocomplete="off" placeholder="Colar a chave de API" aria-label="Chave de API">
-          <button type="submit" class="botao-secundario">Guardar</button>
-          <button type="button" id="btnApagarChave" class="botao-perigo">Apagar</button>
-        </form>
-        <form id="formModelo" class="form-pasta" autocomplete="off">
-          <input id="campoModelo" type="text" maxlength="80" placeholder="gemini-flash-latest" aria-label="Modelo">
-          <button type="submit" class="botao-secundario">Trocar modelo</button>
-        </form>
-        <p id="statusChave" class="aviso" hidden></p>
       </div>
     </section>
 

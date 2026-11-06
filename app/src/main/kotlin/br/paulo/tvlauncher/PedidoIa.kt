@@ -12,26 +12,26 @@ import android.view.KeyEvent
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.SecureRandom
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
- * Um pedido em português para a IA na nuvem, do começo ao fim (bloco 6, 05/11/2026):
+ * Um pedido de ações do catálogo (ComandosIa), do começo ao fim:
  *
- *   frase (painel no celular, voz do teclado) -> [pedir] -> Gemini com a chave do dono -> ComandosIa.conferir
+ *   JSON de ações (hoje: gancho do adb IA_TESTE; depois: o servidor MCP) -> [propor] -> ComandosIa.conferir
  *   -> ConfirmarIaActivity na TV ("Vou fazer: ...", foco em Cancelar) -> OK no controle -> [executar].
  *
  * Só um pedido esperando confirmação por vez; um novo cancela o anterior. Sem resposta na TV em 60 s, cancela.
- * O painel acompanha pelo [estado] (id aleatório devolvido por [pedir]).
+ * Quem pediu acompanha pelo [estado] (id aleatório devolvido por [propor]).
+ *
+ * (05/11/2026) A IA na nuvem com a chave do dono (IaNuvem/IaArmazem, aba Falar do painel) foi removida por decisão do
+ * Paulo. [apagarRestosDaNuvem] limpa na TV o que ela tinha guardado.
  */
 object PedidoIa {
     private const val TAG = "TvLauncher.Ia"
     const val ESPERA_CONFIRMAR_MS = 60_000L
 
     enum class Situacao(val texto: String) {
-        PENSANDO("perguntando à IA"), ESPERANDO("esperando o OK na TV"), FEITO("feito"),
+        PENSANDO("conferindo o pedido"), ESPERANDO("esperando o OK na TV"), FEITO("feito"),
         CANCELADO("cancelado na TV"), EXPIRADO("ninguém confirmou na TV em 60 s"), NADA("nada a fazer"), ERRO("erro")
     }
 
@@ -64,46 +64,62 @@ object PedidoIa {
     }
 
     /**
-     * Começa um pedido. Devolve o Pedido (já com a situação ERRO se não deu para começar). [respostaTeste]: só para o
-     * gancho do adb; pula a nuvem e usa este JSON como se fosse a resposta da IA (teste da tela sem chave).
+     * Começa um pedido com as ações em JSON (formato de ComandosIa.esquema). Devolve o Pedido (já com a situação ERRO
+     * se não deu para começar). Nada roda sem o OK no controle.
      */
-    fun pedir(ctx: Context, fraseCrua: String?, origem: String, respostaTeste: String? = null): Pedido {
+    fun propor(ctx: Context, fraseCrua: String?, origem: String, acoesJson: String): Pedido {
         val app = ctx.applicationContext
         val frase = ComandosIa.limparFrase(fraseCrua)
         val p = Pedido(novoId(), frase ?: "", origem)
         guardar(p)
         fun falhar(m: String) = p.apply { situacao = Situacao.ERRO; mensagem = m }
         if (frase == null) return falhar("frase vazia")
-        if (respostaTeste == null) {
-            if (!IaArmazem.ligada(app)) return falhar("a IA está desligada. Ligue em Configurações do launcher, na TV.")
-            if (!IaArmazem.temChave(app)) return falhar("falta cadastrar a chave de API do ${IaArmazem.provedor(app).nome}")
-            IaArmazem.reservarVez()?.let { return falhar("muitos pedidos seguidos; espere $it s") }
-        }
+        reservarVez()?.let { return falhar("muitos pedidos seguidos; espere $it s") }
         Log.i(TAG, "pedido ${p.id} de $origem (${frase.length} caracteres)")
         trabalho.execute {
             try {
-                val apps = appsDaHome(app)
-                val texto = respostaTeste ?: run {
-                    // Provedor lido UMA vez: se trocarem no painel no meio do pedido, chave e modelo continuam do mesmo.
-                    val prov = IaArmazem.provedor(app)
-                    val chave = IaArmazem.chave(app, prov) ?: throw IaNuvem.Falha("a chave guardada não abriu; cadastre de novo")
-                    val agora = SimpleDateFormat("EEEE, dd/MM/yyyy HH:mm", Locale("pt", "BR")).format(Date())
-                    IaNuvem.perguntar(prov, chave, IaArmazem.modelo(app, prov), ComandosIa.instrucoes(apps, agora), frase)
-                }
-                val plano = ComandosIa.conferir(texto, apps)
+                val plano = ComandosIa.conferir(acoesJson, appsDaHome(app))
                 p.plano = plano
                 p.mensagem = plano.resposta
                 if (plano.acoes.isEmpty()) { p.situacao = Situacao.NADA; return@execute }
                 p.situacao = Situacao.ESPERANDO
                 ui.post { mostrar(app, p) }
-            } catch (e: IaNuvem.Falha) {
-                falhar(e.message ?: "falhou")
             } catch (e: Exception) {
                 Log.w(TAG, "pedido ${p.id} falhou: ${e.javaClass.simpleName}")
                 falhar("erro na TV: ${e.javaClass.simpleName}")
             }
         }
         return p
+    }
+
+    private val horarios = ArrayDeque<Long>()
+
+    /**
+     * No máximo 1 pedido a cada 3 s e 30 por hora: cada pedido abre uma tela na TV, e quem está no sofá não pode ser
+     * bombardeado por um script. Devolve null se pode, ou quantos segundos esperar.
+     */
+    @Synchronized fun reservarVez(agora: Long = System.currentTimeMillis()): Long? {
+        while (horarios.isNotEmpty() && agora - horarios.first() > 3_600_000) horarios.removeFirst()
+        horarios.lastOrNull()?.let { if (agora - it < 3_000) return (3_000 - (agora - it) + 999) / 1000 }
+        if (horarios.size >= 30) return (3_600_000 - (agora - horarios.first()) + 999) / 1000
+        horarios.addLast(agora)
+        return null
+    }
+
+    /**
+     * A IA na nuvem (removida em 05/11/2026) guardava a chave de API cifrada em "ia_seguro" e a chave AES no Keystore
+     * com o apelido "ia_chave_api". Apaga os dois; sem nada guardado, não faz nada. Chamar fora da thread da tela.
+     */
+    fun apagarRestosDaNuvem(ctx: Context) {
+        try {
+            val app = ctx.applicationContext
+            if (java.io.File(app.applicationInfo.dataDir, "shared_prefs/ia_seguro.xml").exists()) {
+                app.deleteSharedPreferences("ia_seguro")
+                Log.i(TAG, "apaguei as preferências da IA na nuvem")
+            }
+            val ks = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (ks.containsAlias("ia_chave_api")) { ks.deleteEntry("ia_chave_api"); Log.i(TAG, "apaguei a chave do Keystore da IA na nuvem") }
+        } catch (e: Exception) { Log.w(TAG, "limpeza da IA na nuvem: ${e.javaClass.simpleName}") }
     }
 
     private fun novoId(): String = ByteArray(9).also { aleatorio.nextBytes(it) }.joinToString("") { "%02x".format(it) }
@@ -185,7 +201,7 @@ object PedidoIa {
 
     /**
      * Pacote -> nome dos apps que a HOME mostra (os mesmos critérios de MainActivity.carregarApps e do modo visita):
-     * instalados pelo usuário e os de sistema em Config.SEMPRE_MOSTRAR. Só estes podem ser abertos pela IA.
+     * instalados pelo usuário e os de sistema em Config.SEMPRE_MOSTRAR. Só estes podem ser abertos por um pedido.
      */
     fun appsDaHome(app: Context): Map<String, String> {
         val pm = app.packageManager

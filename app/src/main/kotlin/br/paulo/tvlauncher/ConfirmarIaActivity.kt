@@ -15,7 +15,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * A confirmação NA TV de um pedido feito à IA pelo painel (bloco 6, 05/11/2026). Nada do que a IA devolve roda sem
+ * A confirmação NA TV de um pedido de ações do catálogo (ComandosIa; hoje pelo adb, depois pelo MCP). Nada roda sem
  * alguém apertar OK aqui, no controle de verdade.
  *
  * O foco começa em "Cancelar" (o seguro), ◀ ▶ trocam, OK escolhe. Voltar = cancelar. Sem resposta em 60 s, a tela

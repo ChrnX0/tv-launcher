@@ -360,37 +360,6 @@ class ConfigLauncherActivity : Activity() {
             adicionar(linhaDesfazer)
         }
 
-        // ---- IA na nuvem (bloco 6, PedidoIa.kt): pedidos em português pelo painel, com a chave do dono (Gemini, Claude,
-        // OpenAI ou Perplexity; provedor escolhido no painel). As linhas mostram o provedor ativo.
-        // Desligada por padrão. LIGAR é só aqui, na TV: o painel cadastra a chave, mas não liga.
-        secao("IA na nuvem")
-        lateinit var linhaIa: TextView
-        lateinit var linhaChaveIa: TextView
-        fun detalheIa(): String = when {
-            IaArmazem.ligada(this) && IaArmazem.temChave(this) -> "ligada · pedidos pelo painel, aba Falar, sempre com confirmação aqui · OK desliga"
-            IaArmazem.ligada(this) -> "ligada, mas falta a chave (cadastre pelo painel) · OK desliga"
-            else -> "desligada · OK liga (só vai para a nuvem a frase pedida e os nomes dos apps)"
-        }
-        linhaIa = linha("IA na nuvem (${IaArmazem.provedor(this).nome})", detalheIa()) {
-            IaArmazem.definirLigada(this, !IaArmazem.ligada(this))
-            linhaIa.detalhe(detalheIa())
-        }
-        adicionar(linhaIa)
-        fun detalheChaveIa() = IaArmazem.finalDaChave(this)?.let { "cadastrada ($it), guardada cifrada · OK apaga" }
-            ?: "nenhuma · cadastre pelo painel no navegador, em Falar"
-        var confirmarApagar = false
-        linhaChaveIa = linha("Chave de API", detalheChaveIa()) {
-            if (!IaArmazem.temChave(this)) return@linha
-            // Dois OKs para apagar: um OK sem querer não perde a chave.
-            if (!confirmarApagar) { confirmarApagar = true; linhaChaveIa.detalhe("OK de novo para APAGAR a chave"); return@linha }
-            confirmarApagar = false
-            IaArmazem.definirChave(this, null)
-            linhaChaveIa.detalhe(detalheChaveIa())
-            linhaIa.detalhe(detalheIa())
-        }
-        adicionar(linhaChaveIa)
-        adicionar(info("Modelo", IaArmazem.modelo(this) + " · troca pelo painel"))
-
         // ---- Permissões: status do que o launcher usa para funcionar sem o computador por perto.
         // Modo sem Device Owner (Recursos.kt): cada poder com ligado/faltando; OK num que falta tenta ligar sem PC.
         secao(getString(R.string.cfg_sec_ligado, Recursos.resumo(this)))
