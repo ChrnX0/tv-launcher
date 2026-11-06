@@ -36,6 +36,7 @@
     <nav class="abas">
       <button class="aba ativa" data-aba="apps">Aplicativos</button>
       <button class="aba" data-aba="controle">Controle</button>
+      <button class="aba" data-aba="tv">TV ao vivo</button>
       <button class="aba" data-aba="arquivos">Arquivos</button>
       <button class="aba" data-aba="saude">Saúde</button>
       <button class="aba" data-aba="fotos">Fotos</button>
@@ -114,6 +115,35 @@
           </div>
           <p id="statusDesligar" class="aviso-curto"></p>
         </div>
+      </div>
+    </section>
+
+    <section id="abaTv" class="painel-aba" hidden>
+      <div class="cartao">
+        <h2>Contas de TV ao vivo</h2>
+        <p class="aviso">Listas de canais (link .m3u) ou contas Xtream que o player da TV usa. Usuário, senha e link ficam cifrados na TV
+          e nunca voltam para o painel: aqui aparece só o nome e o servidor. Cadastrar e apagar pedem o PIN de novo.</p>
+        <div id="listaContasTv" class="lista-registro"></div>
+        <div class="barra-acoes">
+          <button type="button" class="botao-secundario" id="btnCarregarTv">Testar e recarregar canais</button>
+        </div>
+        <p id="statusTv" class="aviso" hidden></p>
+      </div>
+      <div class="cartao">
+        <h2>Cadastrar conta</h2>
+        <form id="formContaTv" autocomplete="off">
+          <select id="tvTipo" aria-label="Tipo de conta">
+            <option value="m3u">Lista de canais (link .m3u)</option>
+            <option value="xtream">Xtream (servidor, usuário e senha)</option>
+          </select>
+          <input id="tvNome" type="text" maxlength="40" placeholder="Nome (ex.: TV da casa)" aria-label="Nome da conta">
+          <input id="tvEndereco" type="text" maxlength="2000" autocomplete="off" placeholder="Link da lista (http:// ou https://)" aria-label="Endereço">
+          <input id="tvUsuario" type="text" maxlength="200" autocomplete="off" placeholder="Usuário" aria-label="Usuário" hidden>
+          <input id="tvSenha" type="password" maxlength="200" autocomplete="new-password" placeholder="Senha" aria-label="Senha" hidden>
+          <input id="tvGuia" type="text" maxlength="2000" autocomplete="off" placeholder="Link do guia XMLTV (opcional)" aria-label="Link do guia">
+          <button type="submit" class="botao-primario">Cadastrar</button>
+        </form>
+        <p id="statusContaTv" class="aviso" hidden></p>
       </div>
     </section>
 
