@@ -192,11 +192,8 @@ class MainActivity : Activity() {
         setContentView(montarTela())
         TesteHome.aplicar = { ui.post { if (!isDestroyed) aplicarTeste() } }
         aplicarTeste()
-        // Foco fora da linha de apps e do Continuar (hora, clima, bolinha) apaga a capa e o destaque.
-        window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, novo ->
-            val noContinuar = novo != null && dentro(novo, linhaContinuar)
-            if (novo == null || (!dentro(novo, linhaApps) && !noContinuar)) { capaPedida = null; capa.esconder(); esconderDestaque() }
-        }
+        // Foco no topo (hora, pílulas, perfil): o destaque e a capa ficam com o último card em foco, para o meio da tela
+        // não ficar vazio (visto na Sala, 06/11). Só o card "Ocultos" os apaga (ver mostrarCapa).
         window.setBackgroundDrawable(null)   // a janela não pinta o fundo padrão do tema por baixo de tudo (ver montarTela)
         Privilegio.religarAcessibilidade(this)   // religa o serviço de teclas do controle se o Android o desligou
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
@@ -309,12 +306,14 @@ class MainActivity : Activity() {
             if (tema != Tema.ESCURO) setShadowLayer(dp(10).toFloat(), 0f, 0f, 0x99000000.toInt())
             letterSpacing = -0.02f
             includeFontPadding = false
-            setPadding(f, f, f, f)
+            // Folga do realce só em cima e dos lados: embaixo, o realce da hora não pode cobrir a data (e vice-versa;
+            // visto na Sala, 06/11: o contorno da data cortava os números da hora).
+            setPadding(f, f, f, dp(3))
             isFocusable = true
             isClickable = true
             setOnClickListener { startActivity(Intent(this@MainActivity, AlarmesActivity::class.java)) }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
-        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -dp(3)) })
         blocoHora.addView(TextClock(this).apply {
             format12Hour = getString(R.string.fmt_data_longa)
             format24Hour = getString(R.string.fmt_data_longa)
@@ -323,13 +322,13 @@ class MainActivity : Activity() {
             setTextColor(if (tema == Tema.ESCURO) textoSuave else 0xFAF7F3EA.toInt())
             typeface = fonteUi
             if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
-            setPadding(f, f + dp(1), f, f)
+            setPadding(f, dp(3), f, f)
             isFocusable = true
             isClickable = true
             // No modo visita a agenda (do perfil ativo) não abre.
             setOnClickListener { if (!ModoVisita.ativo(this@MainActivity)) startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
-        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -dp(2), -f, -f) })
 
         // Pílula do clima: [ícone] 24° · chuva 20% (ou a condição de agora). O ícone pode ser imagem, texto ou o eclipse.
         txtIcone = texto(16f, Color.WHITE).apply { gravity = Gravity.CENTER; includeFontPadding = false }
