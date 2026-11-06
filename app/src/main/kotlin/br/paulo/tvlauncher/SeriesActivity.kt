@@ -289,7 +289,7 @@ class SeriesActivity : Activity() {
             clipToOutline = true
         }
         col.addView(capa, LinearLayout.LayoutParams(-1, dp(150)))
-        val nome = TextView(this).apply { textSize = 12f; setTextColor(papel); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(6), 0, 0) }
+        val nome = TituloCard(this, 12f).apply { setTextColor(papel); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(6), 0, 0) }
         col.addView(nome)
         val sub = TextView(this).apply { textSize = 11f; setTextColor(ambar) }
         col.addView(sub)

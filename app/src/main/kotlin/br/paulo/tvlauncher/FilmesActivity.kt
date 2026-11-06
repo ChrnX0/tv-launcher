@@ -304,7 +304,7 @@ class FilmesActivity : Activity() {
             max = 1000; progressTintList = ColorStateList.valueOf(coral); progressBackgroundTintList = ColorStateList.valueOf(0x38FFFFFF)
         }
         col.addView(barra, LinearLayout.LayoutParams(-1, dp(3)).apply { topMargin = dp(4) })
-        val nome = TextView(this).apply { textSize = 12f; setTextColor(papel); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(4), 0, 0) }
+        val nome = TituloCard(this, 12f).apply { setTextColor(papel); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(4), 0, 0) }
         col.addView(nome)
         col.layoutParams = AbsListView.LayoutParams(-1, dp(212))
         col.tag = Card(capa, nome, barra)
