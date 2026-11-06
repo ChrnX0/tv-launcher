@@ -412,6 +412,14 @@ object PainelWeb {
                 val texto = ConectarClaudeActivity.Passo.agora(app).qr ?: return erro(404, "sem código agora")
                 return Resposta(200, "image/png", QrCodigo.png(texto))
             }
+            // Player universal, passo 4 (06/11/2026): contas de TV ao vivo. Listar mostra só nome, tipo e servidor (nunca
+            // usuário, senha nem o link inteiro, que no Xtream e em muitas listas leva a senha). Cadastrar e apagar pedem o PIN.
+            "/api/tv/contas" -> when (req.metodo) {
+                "GET" -> return json(200, tvContas())
+                "POST" -> return tvAdicionar(req, token, ip)
+            }
+            "/api/tv/contas/apagar" -> if (req.metodo == "POST") return tvApagar(req, token, ip)
+            "/api/tv/carregar" -> if (req.metodo == "POST") return tvCarregar(ip)
             "/api/roteador" -> if (req.metodo == "GET") return json(200, roteadorEstado())
             "/api/roteador/config" -> if (req.metodo == "POST") return roteadorConfig(req, ip)
             "/api/roteador/certificado" -> if (req.metodo == "POST") return roteadorCertificado(ip)
@@ -659,6 +667,54 @@ object PainelWeb {
         val n = PainelArquivos.apagar(app, caminho)
         PainelArmazem.registrar(app, ip, "apagar ${caminho.take(120)}", "ok, $n item(ns)")
         return json(200, JSONObject().put("ok", true).put("apagados", n))
+    }
+
+    // ---------------------------------------------------------------- TV ao vivo (player universal)
+
+    private fun tvContas(): JSONObject {
+        val lista = JSONArray()
+        for (f in PlayerArmazem.fontes(app)) lista.put(JSONObject().put("id", f.id).put("nome", f.nome).put("tipo", f.tipo)
+            .put("servidor", f.servidorVisivel).put("temGuia", f.guia.isNotEmpty()))
+        return JSONObject().put("contas", lista).put("maximo", 8)
+    }
+
+    private fun tvAdicionar(req: Requisicao, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val r = PlayerArmazem.adicionar(app, o.optString("nome"), o.optString("tipo"), o.optString("endereco"),
+            o.optString("usuario"), o.optString("senha"), o.optString("guia"))
+        val f = r.getOrElse {
+            PainelArmazem.registrar(app, ip, "TV: cadastrar conta", "recusada")
+            return erro(400, it.message ?: "dados inválidos")
+        }
+        // No registro vai só o servidor visível (sem usuário, senha nem caminho do link).
+        PainelArmazem.registrar(app, ip, "TV: cadastrar conta ${f.nome} (${f.servidorVisivel})", "ok")
+        return json(200, JSONObject().put("ok", true).put("id", f.id))
+    }
+
+    private fun tvApagar(req: Requisicao, token: String?, ip: String): Resposta {
+        if (!sessoes.elevada(token)) return precisaPin()
+        val o = corpoJson(req) ?: return erro(400, "JSON inválido")
+        val id = o.optString("id")
+        val nome = PlayerArmazem.fontes(app).firstOrNull { it.id == id }?.nome ?: return erro(404, "conta não encontrada")
+        if (!PlayerArmazem.apagar(app, id)) return erro(500, "não consegui apagar")
+        PainelArmazem.registrar(app, ip, "TV: apagar conta $nome", "ok")
+        return json(200, JSONObject().put("ok", true))
+    }
+
+    /** Baixa de novo a lista (e o guia) de todas as contas e conta o que veio: é o teste de que a conta funciona. */
+    private fun tvCarregar(ip: String): Resposta {
+        val inicio = System.currentTimeMillis()
+        val porConta = JSONArray()
+        for (f in PlayerArmazem.fontes(app)) {
+            porConta.put(JSONObject().put("id", f.id).put("canais", PlayerCarga.canaisDaFonte(app, f, forcar = true).size))
+        }
+        val canais = PlayerCarga.canais(app)
+        val guia = PlayerCarga.guia(app, canais, forcar = true)
+        val comGuia = canais.count { it.guiaId.isNotEmpty() && guia.agora(it.guiaId, System.currentTimeMillis()) != null }
+        PainelArmazem.registrar(app, ip, "TV: recarregar contas", "ok")
+        return json(200, JSONObject().put("contas", porConta).put("canais", canais.size).put("comGuia", comGuia)
+            .put("ms", System.currentTimeMillis() - inicio))
     }
 
     // ---------------------------------------------------------------- bloco C: tela, controle, ações de app

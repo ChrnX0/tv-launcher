@@ -98,6 +98,7 @@
     <application
         android:name=".LauncherApp"
         android:allowBackup="false"
+        android:networkSecurityConfig="@xml/rede"
         android:icon="@android:drawable/sym_def_app_icon"
         android:banner="@android:drawable/sym_def_app_icon"
         android:label="Início"
@@ -118,6 +119,17 @@
         <receiver
             android:name=".RotinaReceiver"
             android:exported="false" />
+        <!-- Player universal (06/11/2026): TV ao vivo em processo PRÓPRIO, para um vídeo pesado não derrubar a HOME.
+             Exportada só para quem tem DUMP (o adb, para testes); o próprio launcher abre sem precisar dela. -->
+        <activity
+            android:name=".PlayerActivity"
+            android:process=":player"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|uiMode|density|locale|layoutDirection"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <activity
             android:name=".LicencasActivity"
             android:exported="false"
@@ -491,6 +503,9 @@
                 <action android:name="br.paulo.tvlauncher.IA_ESTADO" />
                 <!-- Desligar sozinha: ver/definir/testar o aviso (testes). Só neste receiver (DUMP). -->
                 <action android:name="br.paulo.tvlauncher.AUTO_DESLIGAR" />
+                <!-- Player universal: cadastrar/apagar conta e ver o estado (06/11/2026, até o painel ter a aba). -->
+                <action android:name="br.paulo.tvlauncher.PLAYER_FONTE" />
+                <action android:name="br.paulo.tvlauncher.PLAYER_ESTADO" />
             </intent-filter>
         </receiver>
         <!-- Pedido de permissão de um app cliente do Shizuku: o servidor abre esta tela quando um app chama

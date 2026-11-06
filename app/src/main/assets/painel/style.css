@@ -186,3 +186,9 @@ details summary { cursor: pointer; color: var(--texto-fraco); margin-top: 12px; 
 .dicas li { margin-bottom: 6px; }
 #formClima { margin-top: 12px; }
 #formClima .recado-opcoes button[type=submit] { margin-left: 0; }
+
+/* ---------- TV ao vivo (contas do player) ---------- */
+#formContaTv { display: flex; flex-direction: column; gap: 8px; }
+#formContaTv input, #formContaTv select { width: 100%; }
+#formContaTv .botao-primario { align-self: flex-start; }
+#listaContasTv .linha-registro { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

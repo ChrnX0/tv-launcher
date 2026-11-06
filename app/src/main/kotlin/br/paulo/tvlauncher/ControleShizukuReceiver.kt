@@ -42,6 +42,8 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val IA_TESTE = "br.paulo.tvlauncher.IA_TESTE"     // confirmação de ações do catálogo, sem MCP (só adb)
         const val IA_ESTADO = "br.paulo.tvlauncher.IA_ESTADO"   // situação do último pedido (só adb)
         const val AUTO_DESLIGAR = "br.paulo.tvlauncher.AUTO_DESLIGAR"   // desligar sozinha: ver/definir/testar (só adb)
+        const val PLAYER_FONTE = "br.paulo.tvlauncher.PLAYER_FONTE"     // conta do player: cadastrar/apagar (só adb)
+        const val PLAYER_ESTADO = "br.paulo.tvlauncher.PLAYER_ESTADO"   // contas e canais do player, sem senha (só adb)
         const val UNIFI = "br.paulo.tvlauncher.UNIFI"     // verificar aparelho novo no roteador agora (só adb, testes)
         private val fila = Executors.newSingleThreadExecutor()
 
@@ -176,6 +178,38 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                 if (intent.hasExtra("minutos")) AutoDesligar.definir(ctx, intent.getIntExtra("minutos", -1))
                 if (intent.getBooleanExtra("aviso", false)) { AutoDesligar.iniciar(ctx); AutoDesligar.testarAviso() }
                 resultData = "minutos=${AutoDesligar.minutos(ctx)}"
+            }
+            // Só pelo adb (06/11/2026), até o painel ganhar a aba do player. Cadastrar:
+            //   --es tipo m3u --es endereco <link> [--es nome X] [--es guia <link xmltv>]
+            //   --es tipo xtream --es endereco <servidor> --es usuario U --es senha S [--es nome X]
+            // Apagar: --es apagar <id>. A resposta nunca repete o link nem a senha.
+            PLAYER_FONTE -> if (this is ControleShizukuAdbReceiver) {
+                val apagar = intent.getStringExtra("apagar")
+                resultData = if (apagar != null) { if (PlayerArmazem.apagar(ctx, apagar)) "apagada" else "não existe" }
+                else PlayerArmazem.adicionar(ctx, intent.getStringExtra("nome").orEmpty(), intent.getStringExtra("tipo").orEmpty(),
+                    intent.getStringExtra("endereco").orEmpty(), intent.getStringExtra("usuario").orEmpty(),
+                    intent.getStringExtra("senha").orEmpty(), intent.getStringExtra("guia").orEmpty())
+                    .fold({ "ok id=${it.id} ${it.tipo} ${it.servidorVisivel}" }, { "erro: ${it.message}" })
+            }
+            // Só pelo adb: as contas (sem link nem senha) e, com --ez carregar true, baixa e conta canais e programas.
+            PLAYER_ESTADO -> if (this is ControleShizukuAdbReceiver) {
+                val pendente = goAsync()   // pode baixar lista e guia: fora da thread principal
+                Thread {
+                    try {
+                        val fontes = PlayerArmazem.fontes(ctx)
+                        val b = StringBuilder(fontes.joinToString("\n") { "${it.id} ${it.tipo} ${it.nome} ${it.servidorVisivel}" }.ifEmpty { "nenhuma conta" })
+                        if (intent.getBooleanExtra("carregar", false)) {
+                            val t0 = System.currentTimeMillis()
+                            val canais = PlayerCarga.canais(ctx, forcar = true)
+                            val t1 = System.currentTimeMillis()
+                            val guia = PlayerCarga.guia(ctx, canais, forcar = true)
+                            val agora = System.currentTimeMillis()
+                            val comGuia = canais.count { it.guiaId.isNotEmpty() && guia.agora(it.guiaId, agora) != null }
+                            b.append("\ncanais=${canais.size} em ${t1 - t0} ms; com programa agora=$comGuia; guia em ${agora - t1} ms")
+                        }
+                        pendente.resultData = b.toString()
+                    } finally { pendente.finish() }
+                }.start()
             }
             UNIFI -> if (this is ControleShizukuAdbReceiver) {
                 val pendente = goAsync()   // HTTP: fora da thread principal

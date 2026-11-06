@@ -125,6 +125,8 @@ function mudarAba(nome) {
   $('abaApps').hidden = nome !== 'apps';
   $('abaArquivos').hidden = nome !== 'arquivos';
   $('abaControle').hidden = nome !== 'controle';
+  $('abaTv').hidden = nome !== 'tv';
+  if (nome === 'tv') carregarTv();
   if (nome === 'controle') { atualizarFoto(); carregarClima(); } else pararFoto();
   $('abaBackup').hidden = nome !== 'backup';
   $('abaSaude').hidden = nome !== 'saude';
@@ -669,6 +671,77 @@ async function carregarRegistro() {
     const p = document.createElement('p'); p.className = 'erro'; p.textContent = e.message; lista.appendChild(p);
   }
 }
+
+// ---------- TV ao vivo: contas do player (PainelWeb.tvContas; passo 4 do player universal) ----------
+
+function ajustarFormTv() {
+  const xt = $('tvTipo').value === 'xtream';
+  $('tvEndereco').placeholder = xt ? 'Servidor (ex.: http://servidor:8080)' : 'Link da lista (http:// ou https://)';
+  $('tvUsuario').hidden = !xt;
+  $('tvSenha').hidden = !xt;
+}
+$('tvTipo').addEventListener('change', ajustarFormTv);
+
+async function carregarTv() {
+  const lista = $('listaContasTv');
+  lista.replaceChildren();
+  try {
+    const r = await chamar('GET', '/api/tv/contas');
+    if (!r.contas.length) {
+      const p = document.createElement('p'); p.className = 'aviso';
+      p.textContent = 'Nenhuma conta ainda. Sem conta, o disco "TV ao vivo" não aparece na HOME.';
+      lista.appendChild(p);
+    }
+    for (const c of r.contas) {
+      const linha = document.createElement('div');
+      linha.className = 'linha-registro';
+      const info = document.createElement('span');
+      // textContent: nome e servidor vêm do que foi digitado, nunca viram HTML.
+      info.textContent = `${c.nome} · ${c.tipo === 'xtream' ? 'Xtream' : 'lista'} · ${c.servidor}` + (c.temGuia ? ' · guia próprio' : '');
+      const apagar = document.createElement('button');
+      apagar.type = 'button'; apagar.className = 'botao-perigo'; apagar.textContent = 'Apagar';
+      apagar.addEventListener('click', async () => {
+        const ok = await confirmar(`Apagar a conta "${c.nome}"?`, 'Os canais dela somem do player da TV. Para voltar, é preciso cadastrar de novo.',
+          'Apagar', () => chamar('POST', '/api/tv/contas/apagar', { id: c.id }));
+        if (ok) { mostrar($('statusTv'), 'Conta apagada.'); carregarTv(); }
+      });
+      linha.append(info, apagar);
+      lista.appendChild(linha);
+    }
+    $('formContaTv').querySelector('button[type=submit]').disabled = r.contas.length >= r.maximo;
+  } catch (e) {
+    const p = document.createElement('p'); p.className = 'erro'; p.textContent = e.message; lista.appendChild(p);
+  }
+}
+
+$('formContaTv').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const corpo = {
+    tipo: $('tvTipo').value, nome: $('tvNome').value.trim(), endereco: $('tvEndereco').value.trim(),
+    usuario: $('tvUsuario').value.trim(), senha: $('tvSenha').value, guia: $('tvGuia').value.trim(),
+  };
+  if (!corpo.endereco) { mostrar($('statusContaTv'), 'Falta o endereço.'); return; }
+  const r = await confirmar('Cadastrar a conta na TV?', 'Fica cifrada na TV. Depois, use "Testar e recarregar canais" para ver se ela funciona.',
+    'Cadastrar', () => chamar('POST', '/api/tv/contas', corpo));
+  if (r) {
+    for (const id of ['tvNome', 'tvEndereco', 'tvUsuario', 'tvSenha', 'tvGuia']) $(id).value = '';
+    mostrar($('statusContaTv'), 'Conta cadastrada.');
+    carregarTv();
+  }
+});
+
+$('btnCarregarTv').addEventListener('click', async () => {
+  const b = $('btnCarregarTv');
+  b.disabled = true;
+  mostrar($('statusTv'), 'Baixando a lista e o guia de cada conta (pode levar até um minuto)...');
+  try {
+    const r = await chamar('POST', '/api/tv/carregar');
+    const semCanal = r.contas.filter((c) => c.canais === 0).length;
+    mostrar($('statusTv'), `${r.canais} canais, ${r.comGuia} com programação agora (${(r.ms / 1000).toFixed(1)} s).` +
+      (semCanal ? ` ${semCanal} conta(s) sem nenhum canal: confira o link, o usuário e a senha.` : ''));
+  } catch (e) { mostrar($('statusTv'), e.message); }
+  b.disabled = false;
+});
 
 // ---------- roteador UniFi (só leitura; UnifiCliente.kt) ----------
 

@@ -41,6 +41,7 @@ import java.util.concurrent.Executors
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val TOKEN_OCULTOS = "ocultos"   // identifica o card "Ocultos" (nenhum pacote tem esse nome)
+private const val TOKEN_TV = "player:tv"      // o card "TV ao vivo" do player universal (06/11/2026; ":" não existe em pacote)
 private const val ID_PREVIA = "previa"       // id da pilha provisoria mostrada enquanto se arrasta um app para cima de outro
 private const val ICONE_ECLIPSE = "eclipse"  // no lugar de um emoji: sol coberto pela lua (IconeEclipse). So aparece durante um eclipse solar REAL (ver Eclipse.kt e o Config.kt)
 
@@ -66,6 +67,8 @@ class MainActivity : Activity() {
             val titulo: String get() = itens.joinToString(" + ") { it.nome }
         }
         class Ocultos(val itens: List<Item>, nome: String) : Entrada(TOKEN_OCULTOS, nome)
+        /** "TV ao vivo" (player universal): sempre o 1º card, só quando há conta de canais cadastrada. Não se move nem empilha. */
+        class Tv(nome: String) : Entrada(TOKEN_TV, nome)
     }
 
     private val ui = Handler(Looper.getMainLooper())          // roda código na thread da tela
@@ -750,6 +753,9 @@ class MainActivity : Activity() {
         }
         val escondidos = todos.filter { it.pacote in ocultos }.sortedBy { it.nome.lowercase() }
         if (escondidos.isNotEmpty() && !naVisita) entradas.add(Entrada.Ocultos(escondidos, getString(R.string.home_ocultos, escondidos.size)))
+        // HOME recomendada (esboço aprovado em 06/11/2026): a TV ao vivo é o 1º disco. Sem conta cadastrada, não aparece
+        // (ninguém dá de cara com uma tela vazia).
+        if (PlayerArmazem.temContas(this)) entradas.add(0, Entrada.Tv(getString(R.string.home_tv)))
         return entradas
     }
 
@@ -832,6 +838,7 @@ class MainActivity : Activity() {
             is Entrada.App -> "A|${e.nome}|${ic(e.item)}"
             is Entrada.Pilha -> "P|${e.id}|${e.nome}|${e.frente}|" + e.itens.joinToString(",") { ic(it) }
             is Entrada.Ocultos -> "O|${e.nome}|" + e.itens.joinToString(",") { ic(it) }
+            is Entrada.Tv -> "T|${e.nome}"
         }
     }
 
@@ -846,6 +853,13 @@ class MainActivity : Activity() {
             // Pilha: o OK abre o app da frente (▲▼ trocam qual é).
             is Entrada.Pilha -> montarCartao(entrada.token, entrada.nome, miniaturaPilha(entrada.itens, entrada.frente), { abrir(entrada.daFrente.pacote) }, aoFocar)
             is Entrada.Ocultos -> montarCartao(entrada.token, entrada.nome, miniaturaOcultos(), { abrirPasta(entrada) }, aoFocar)
+            // "Continuar": com o foco, o nome embaixo do disco vira o último canal (ex.: "Continuar: 12 · Globo"); sem foco, "TV ao vivo".
+            // Lido no foco (arquivo de ~80 bytes) porque o card é reaproveitado e o canal muda dentro do player.
+            is Entrada.Tv -> montarCartao(entrada.token, entrada.nome, miniaturaTv(), { abrirTv() }, { v ->
+                aoFocar(v)
+                val u = PlayerArmazem.ultimo(this)
+                nomeDoCartao(v)?.text = if (u == null) entrada.nome else getString(R.string.home_tv_continuar, u.numero, u.nome)
+            }, aoDesfocar = { v -> nomeDoCartao(v)?.text = entrada.nome })
         }
     }
 
@@ -855,7 +869,8 @@ class MainActivity : Activity() {
      * para dentro das pastas. [token] identifica o card (modo de mover e menu), [aoAbrir] roda ao apertar OK.
      * O card ocupa DISCO + VAO_DISCO de largura: o disco fica no meio e o nome tem espaço para respirar.
      */
-    private fun montarCartao(token: String, nome: String, miniatura: View, aoAbrir: () -> Unit, aoFocar: (View) -> Unit): View {
+    private fun montarCartao(token: String, nome: String, miniatura: View, aoAbrir: () -> Unit, aoFocar: (View) -> Unit,
+                             aoDesfocar: ((View) -> Unit)? = null): View {
         val cartao = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -866,7 +881,7 @@ class MainActivity : Activity() {
             setOnClickListener { aoAbrir() }
             setOnFocusChangeListener { v, temFoco ->
                 estilizar(v, token, temFoco)
-                if (temFoco) aoFocar(v)
+                if (temFoco) aoFocar(v) else aoDesfocar?.invoke(v)
             }
         }
         // filho 0: o disco (o anel de foco é desenhado POR CIMA, no foreground). filho 1: o nome.
@@ -888,6 +903,26 @@ class MainActivity : Activity() {
         )
         cartao.layoutParams = LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP)
         return cartao
+    }
+
+    /** O nome embaixo do disco (filho 1 do card, ver [montarCartao]). */
+    private fun nomeDoCartao(card: View): TextView? = (card as? ViewGroup)?.getChildAt(1) as? TextView
+
+    /** O disco da TV ao vivo: coral (a cor do "ao vivo" nos esboços) com "TV" no meio. */
+    private fun miniaturaTv(): View = TextView(this).apply {
+        text = "TV"
+        textSize = 26f
+        typeface = Typeface.DEFAULT_BOLD
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFFF7A6E.toInt(), 0xFFC0392B.toInt()))
+        circular(this)
+    }
+
+    /** Abre o player (processo próprio, ver PlayerActivity) no último canal assistido. */
+    private fun abrirTv() {
+        try { startActivity(Intent(this, PlayerActivity::class.java)) }
+        catch (e: Exception) { android.util.Log.w("TvLauncher.Player", "não abriu o player: ${e.javaClass.simpleName}") }
     }
 
     /** O ícone do app num disco (já pronto em [iconeRedondo]). */
@@ -1074,7 +1109,7 @@ class MainActivity : Activity() {
         val itens = when (entrada) {
             is Entrada.Pilha -> entrada.itens
             is Entrada.Ocultos -> entrada.itens
-            is Entrada.App -> return
+            is Entrada.App, is Entrada.Tv -> return
         }
         fecharPasta()
         val linha = LinearLayout(this).apply {
@@ -1185,7 +1220,7 @@ class MainActivity : Activity() {
         val segurado = event.repeatCount >= 1 || (event.flags and KeyEvent.FLAG_LONG_PRESS) != 0
         if (event.action != KeyEvent.ACTION_DOWN || !segurado) return false
         val token = focado?.tag as? String ?: return false   // só os cards têm tag
-        if (token == TOKEN_OCULTOS) return false              // o card "Ocultos" não tem opções
+        if (token == TOKEN_OCULTOS || token == TOKEN_TV) return false   // "Ocultos" e "TV ao vivo" não têm opções
         val dentroDe = pastaToken
         if (dentroDe == TOKEN_OCULTOS) {
             engolirUp = true
@@ -1357,7 +1392,7 @@ class MainActivity : Activity() {
      */
 
     /** Os cards que ficam parados enquanto o [arrastado] anda. */
-    private fun outrosCards(): List<Entrada> = lista.filter { it !is Entrada.Ocultos && it.token != arrastado?.token }
+    private fun outrosCards(): List<Entrada> = lista.filter { it !is Entrada.Ocultos && it !is Entrada.Tv && it.token != arrastado?.token }
 
     /** O card em cima do qual o arrastado está (pré-pilha), ou null se está "ao lado". */
     private fun alvoDeEmpilhar(): Entrada? = if (posMover % 2 == 1) outrosCards()[posMover / 2] else null
@@ -1375,15 +1410,16 @@ class MainActivity : Activity() {
         val alvo = alvoDeEmpilhar()
         if (alvo == null) fila.add(posMover / 2, movido) else fila[posMover / 2] = fundir(alvo, movido as Entrada.App)
         lista.lastOrNull { it is Entrada.Ocultos }?.let { fila.add(it) }   // "Ocultos" fica sempre no fim
+        lista.firstOrNull { it is Entrada.Tv }?.let { fila.add(0, it) }    // e a "TV ao vivo", sempre no começo
         return fila
     }
 
     private fun iniciarMover(token: String, porSegurar: Boolean) {
         val card = lista.firstOrNull { it.token == token } ?: return
-        if (card is Entrada.Ocultos) return
+        if (card is Entrada.Ocultos || card is Entrada.Tv) return
         modoMover = true
         arrastado = card
-        posMover = 2 * lista.filter { it !is Entrada.Ocultos }.indexOfFirst { it.token == token }   // começa "ao lado", onde estava
+        posMover = 2 * lista.filter { it !is Entrada.Ocultos && it !is Entrada.Tv }.indexOfFirst { it.token == token }   // começa "ao lado", onde estava
         ignorarProximoUp = porSegurar   // segurando OK, o "soltar" ainda vai chegar e não pode confirmar
         atualizarMover()
     }
@@ -1410,7 +1446,7 @@ class MainActivity : Activity() {
         val alvo = alvoDeEmpilhar()
         if (alvo != null && card is Entrada.App) {
             // Congela a ordem de agora (com o arrastado onde estava) e junta: a pilha ocupa o lugar do alvo.
-            Organizacao.salvarOrdem(this, lista.filter { it !is Entrada.Ocultos }.map { it.token })
+            Organizacao.salvarOrdem(this, lista.filter { it !is Entrada.Ocultos && it !is Entrada.Tv }.map { it.token })
             ultimoToken = if (alvo is Entrada.Pilha && alvo.id.startsWith(Organizacao.PREFIXO_AUTO)) {
                 // Soltar em cima de uma pilha automática: ela vira manual, já com o app novo na frente.
                 val token = Organizacao.criarPilha(this, alvo.itens.map { it.pacote } + card.token, card.token)
@@ -1418,7 +1454,7 @@ class MainActivity : Activity() {
                 token
             } else Organizacao.empilhar(this, card.token, alvo.token)
         } else {
-            Organizacao.salvarOrdem(this, listaMovendo().filter { it !is Entrada.Ocultos }.map { it.token })
+            Organizacao.salvarOrdem(this, listaMovendo().filter { it !is Entrada.Ocultos && it !is Entrada.Tv }.map { it.token })
         }
         terminarMover()
         reorganizar()
