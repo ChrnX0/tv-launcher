@@ -139,6 +139,11 @@ dependencies {
     // QR code (login do Tailscale e endereço do MCP na tela da TV e no painel). Só o núcleo, sem câmera.
     implementation("com.google.zxing:core:3.5.3")
 
+    // Player universal (06/11/2026): Media3 (ExoPlayer), o motor de vídeo do Google. "hls" = listas .m3u8, o formato
+    // mais comum de canal ao vivo; .ts direto (Xtream) já vem no exoplayer. Sem o media3-ui: a tela é nossa (Views).
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+
     // Testes que rodam no computador (gradlew testReleaseUnitTest), sem TV: a parte do painel no navegador que não
     // usa o Android (PainelHttp, PainelSeguranca). Não entra no APK.
     testImplementation("junit:junit:4.13.2")

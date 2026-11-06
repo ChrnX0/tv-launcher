@@ -76,6 +76,18 @@ object M3u {
         return desduplicarIds(canais)
     }
 
+    /**
+     * O link do guia que a própria lista anuncia na 1ª linha: `#EXTM3U x-tvg-url="..."` (ou url-tvg="...").
+     * Pode vir mais de um separado por vírgula: fica o primeiro http/https. null = a lista não diz.
+     */
+    fun guiaDaLista(texto: String): String? {
+        val cab = texto.removePrefix("﻿").lineSequence().firstOrNull()?.trim() ?: return null
+        if (!cab.startsWith("#EXTM3U", ignoreCase = true)) return null
+        val attrs = lerExtinf("#EXTM3U:" + cab.substring(7)).first
+        val valor = attrs["x-tvg-url"] ?: attrs["url-tvg"] ?: return null
+        return valor.split(',').map { it.trim() }.firstOrNull { urlAceita(it) }
+    }
+
     /** Só http e https: o Media3 toca esses, e um "file://" numa lista baixada da internet poderia ler arquivo da TV. */
     fun urlAceita(url: String): Boolean {
         val u = url.trim().lowercase()

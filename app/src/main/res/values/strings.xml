@@ -467,4 +467,16 @@
     <string name="atu_instalando">instalando %1$d (instalada %2$d)</string>
     <string name="atu_ok">atualizado</string>
     <string name="atu_falhou">instalação falhou (%1$d): %2$s</string>
+    <!-- Player universal (06/11/2026) -->
+    <string name="player_carregando">Carregando os canais…</string>
+    <string name="player_carregando_canal">Carregando o canal…</string>
+    <string name="player_sem_canais">Nenhuma lista de canais cadastrada ainda.</string>
+    <string name="player_tentando">Sem sinal no canal %1$d. Tentando de novo…</string>
+    <string name="player_sem_sinal">O canal %1$d não respondeu. Escolha outro com ▲ ▼ ou OK.</string>
+    <string name="player_canal_nao_existe">Não há canal %1$d.</string>
+    <string name="player_ao_vivo">AO VIVO</string>
+    <string name="player_a_seguir">a seguir: %1$s</string>
+    <string name="player_teclas">▲ ▼ canal    OK canais    ◀ canal anterior    VOLTAR sair</string>
+    <string name="player_canais">CANAIS</string>
+    <string name="player_assistindo">assistindo</string>
 </resources>

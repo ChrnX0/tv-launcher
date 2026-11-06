@@ -461,4 +461,16 @@
     <string name="atu_instalando">installing %1$d (installed %2$d)</string>
     <string name="atu_ok">updated</string>
     <string name="atu_falhou">install failed (%1$d): %2$s</string>
+    <!-- Universal player (06/11/2026) -->
+    <string name="player_carregando">Loading channels…</string>
+    <string name="player_carregando_canal">Loading channel…</string>
+    <string name="player_sem_canais">No channel list added yet.</string>
+    <string name="player_tentando">No signal on channel %1$d. Trying again…</string>
+    <string name="player_sem_sinal">Channel %1$d did not respond. Pick another with ▲ ▼ or OK.</string>
+    <string name="player_canal_nao_existe">There is no channel %1$d.</string>
+    <string name="player_ao_vivo">LIVE</string>
+    <string name="player_a_seguir">next: %1$s</string>
+    <string name="player_teclas">▲ ▼ channel    OK channels    ◀ previous channel    BACK exit</string>
+    <string name="player_canais">CHANNELS</string>
+    <string name="player_assistindo">watching</string>
 </resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rede do app (06/11/2026, player universal). A maioria dos servidores de IPTV e das listas M3U é http:// sem
+  criptografia, e o Android 9+ bloqueia http por padrão. Por isso o http fica liberado para o app inteiro: o Android
+  não deixa liberar só "os servidores que o usuário cadastrar", porque eles não são conhecidos na hora do build.
+  O que NÃO muda: https continua verificando o certificado normalmente, e só os certificados do sistema valem
+  (nada de certificado instalado pelo usuário). O resto do launcher só usa https (conferido no código em 06/11/2026).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
