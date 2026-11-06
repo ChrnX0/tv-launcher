@@ -464,6 +464,8 @@
     <!-- Universal player (06/11/2026) -->
     <string name="home_tv">Live TV</string>
     <string name="home_tv_continuar">Continue: %1$d · %2$s</string>
+    <string name="home_linha_continuar">▼ CONTINUE</string>
+    <string name="home_canal">Channel %1$d · %2$s</string>
     <string name="player_carregando">Loading channels…</string>
     <string name="player_carregando_canal">Loading channel…</string>
     <string name="player_sem_canais">No channel list added yet.</string>

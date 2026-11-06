@@ -113,6 +113,12 @@ class MainActivity : Activity() {
     private var popup: PopupPerfil? = null            // menu da bolinha: perfis, Configuracoes, DNS, Wi-Fi
     private var ultimaRede: Rede.Resultado? = null    // ultima medicao de rede (o menu mostra esta ao abrir)
     private lateinit var linhaApps: LinearLayout
+    // HOME recomendada (06/11/2026): capa de quem está em foco e a linha "Continuar" embaixo dos apps.
+    private lateinit var capa: CapaFoco
+    private lateinit var conteudo: FrameLayout          // tudo menos o fundo e a capa: sobe quando o foco vai para o Continuar
+    private lateinit var caixaContinuar: LinearLayout
+    private lateinit var linhaContinuar: LinearLayout
+    private val capas = HashMap<String, Pair<Bitmap?, IntArray>>()   // banner (ou cor) por pacote: lido uma vez
     private lateinit var rolagem: HorizontalScrollView
     private var instalados: List<Item> = emptyList()          // todos os apps de TV instalados (inclui os ocultos)
     private var lista: MutableList<Entrada> = mutableListOf()   // cards da linha principal, na ordem da tela
@@ -180,6 +186,16 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         tema = Tema.atual(this)
         setContentView(montarTela())
+        // Foco fora da linha de apps (hora, clima, bolinha) apaga a capa; foco no Continuar sobe a tela para mostrá-lo.
+        window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener { _, novo ->
+            val noContinuar = novo != null && dentro(novo, linhaContinuar)
+            if (novo == null || (!dentro(novo, linhaApps) && !noContinuar)) capa.esconder()
+            val alvo = if (noContinuar) -dp(SUBIDA_CONTINUAR).toFloat() else 0f
+            if (conteudo.translationY != alvo) {
+                conteudo.animate().translationY(alvo).setDuration(220).start()
+                capa.animate().translationY(alvo).setDuration(220).start()
+            }
+        }
         window.setBackgroundDrawable(null)   // a janela não pinta o fundo padrão do tema por baixo de tudo (ver montarTela)
         Privilegio.religarAcessibilidade(this)   // religa o serviço de teclas do controle se o Android o desligou
         Privilegio.vigiarDepuracaoSemFio(this)   // religa a Depuração sem fio sempre que o Android a desligar
@@ -200,6 +216,7 @@ class MainActivity : Activity() {
         // tem como chamar recreate() nesta Activity diretamente — então aqui a gente mesmo percebe a troca ao voltar.
         if (Tema.atual(this) != tema || FaixaDias.ligada(this) != faixaNaCriacao) { recreate(); return }
         preencherApps()
+        preencherContinuar()
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
@@ -472,6 +489,32 @@ class MainActivity : Activity() {
         rolagem.addView(linhaApps)
         raiz.addView(rolagem, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.LINHA_APPS - folga) })
 
+        // ---- Continuar (HOME recomendada): último canal e apps usados há pouco, em cards 16:9 com o banner do app. Fica
+        // meio escondida na borda de baixo; com o foco nela (▼ num card solto), a tela inteira sobe para mostrá-la.
+        linhaContinuar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
+        caixaContinuar = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            visibility = View.GONE
+            addView(texto(12f, textoSuave, fonteUi).apply {
+                text = getString(R.string.home_linha_continuar)
+                letterSpacing = 0.1f
+                if (tema != Tema.ESCURO) setShadowLayer(dp(6).toFloat(), 0f, 0f, 0x99000000.toInt())
+            })
+            addView(HorizontalScrollView(this@MainActivity).apply {
+                clipChildren = false
+                clipToPadding = false
+                isHorizontalScrollBarEnabled = false
+                setPadding(0, dp(10), dp(Grade.MARGEM), dp(16))
+                addView(linhaContinuar)
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+        raiz.addView(caixaContinuar, FrameLayout.LayoutParams(MATCH, WRAP).apply {
+            leftMargin = dp(Grade.MARGEM)
+            topMargin = dp(Grade.LINHA_APPS + ALTURA_LINHA_APPS)
+        })
+
         // ---- Guia de teclas do modo mover: uma faixa na parte de baixo, por cima de tudo. Some fora do modo mover.
         txtDica = texto(15f, corMover).apply {
             visibility = View.GONE
@@ -491,8 +534,12 @@ class MainActivity : Activity() {
         fundo = vivo
         // Sem fundo preto aqui (nem na janela, ver onCreate): o fundo vivo já cobre a tela inteira e é opaco. Cada camada
         // de tela cheia a mais é a GPU pintando 1920x1080 de novo A CADA QUADRO (medido: 3 camadas, 22 ms por quadro).
+        capa = CapaFoco(this)
+        conteudo = raiz
         return FrameLayout(this).apply {
             addView(vivo, FrameLayout.LayoutParams(MATCH, MATCH))
+            // A capa do foco: alto à direita, do tamanho do esboço (680 x 330 dp), atrás do topo e dos apps.
+            addView(capa, FrameLayout.LayoutParams(dp(680), dp(330), Gravity.TOP or Gravity.END))
             addView(raiz, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(txtDica, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 bottomMargin = dp(32)
@@ -658,6 +705,8 @@ class MainActivity : Activity() {
         // dp: nome do dia (~19) + ícone (6+34+4) + máx/mín (~21) + chuva (5+~17) = ~106, com folga. Com 96 a linha
         // da chuva era cortada (foto da TV, 05/11/2026).
         const val ALTURA_FAIXA = 116
+        const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
+        const val SUBIDA_CONTINUAR = 96     // quanto a tela sobe quando o foco está no Continuar
     }
 
     /** Todos os apps de TV instalados, sem ordem e sem tirar os ocultos (quem organiza é montarEntradas). */
@@ -847,6 +896,7 @@ class MainActivity : Activity() {
             ultimoToken = entrada.token
             indiceFoco = linhaApps.indexOfChild(v)
             centralizar(v, rolagem)
+            mostrarCapa(entrada)
         }
         return when (entrada) {
             is Entrada.App -> montarCartao(entrada.token, entrada.nome, miniaturaApp(entrada.item), { abrir(entrada.item.pacote) }, aoFocar)
@@ -904,6 +954,104 @@ class MainActivity : Activity() {
         cartao.layoutParams = LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP)
         return cartao
     }
+
+    // ---------------------------------------------------------------- HOME recomendada: capa do foco e Continuar
+
+    private fun dentro(v: View, pai: View): Boolean {
+        var p: Any? = v
+        while (p is View) { if (p === pai) return true; p = p.parent }
+        return false
+    }
+
+    /** A capa de quem está em foco: banner do app (ou a cor do ícone); a TV ao vivo, coral; o card "Ocultos", nada. */
+    private fun mostrarCapa(entrada: Entrada) {
+        val item = when (entrada) {
+            is Entrada.App -> entrada.item
+            is Entrada.Pilha -> entrada.daFrente
+            is Entrada.Tv -> { capa.mostrar(null, CapaFoco.CORES_TV); return }
+            is Entrada.Ocultos -> { capa.esconder(); return }
+        }
+        val (img, cores) = capas.getOrPut(item.pacote) {
+            val b = CapaFoco.banner(packageManager, item.pacote)?.let { runCatching { CapaFoco.bitmap(it) }.getOrNull() }
+            b to runCatching { CapaFoco.corDoIcone(item.icone) }.getOrDefault(intArrayOf(0xFF2B2F3A.toInt(), 0xFF0B0F17.toInt()))
+        }
+        capa.mostrar(img, if (img == null) cores else null)
+    }
+
+    private class Recente(val pacote: String, val nome: String, val banner: Bitmap?, val icone: Drawable?)
+
+    /** Monta o Continuar: o último canal (se houver conta) e até 4 apps usados nos últimos 14 dias. Uso lido fora da tela. */
+    private fun preencherContinuar() {
+        filaApps.execute {
+            val pm = packageManager
+            val ultimo = if (PlayerArmazem.temContas(this)) PlayerArmazem.ultimo(this) else null
+            val fora = setOf(packageName, Home.LAUNCHERX, "com.android.tv.settings", "com.google.android.tvlauncher")
+            val recentes = Uso.ultimoUso(this).entries.sortedByDescending { it.value }.asSequence()
+                .map { it.key }
+                .filter { it !in fora && CapaFoco.abrirIntent(pm, it) != null && !PrivilegioDO.estaOculto(this, it) }
+                .take(4)
+                .mapNotNull { pkg ->
+                    runCatching {
+                        val nome = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+                        val banner = CapaFoco.banner(pm, pkg)?.let { CapaFoco.bitmap(it) }
+                        Recente(pkg, nome, banner, if (banner == null) pm.getApplicationIcon(pkg) else null)
+                    }.getOrNull()
+                }.toList()
+            ui.post { if (!isDestroyed) desenharContinuar(ultimo, recentes) }
+        }
+    }
+
+    private fun desenharContinuar(ultimo: PlayerArmazem.Ultimo?, recentes: List<Recente>) {
+        val focoAqui = linhaContinuar.hasFocus()
+        linhaContinuar.removeAllViews()
+        fun adicionar(v: View) = linhaContinuar.addView(v, LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), dp(Grade.CARD_ALTURA)).apply {
+            marginEnd = dp(Grade.VAO)
+        })
+        if (ultimo != null) adicionar(cartaoContinuar(getString(R.string.home_canal, ultimo.numero, ultimo.nome), null, null, true) { abrirTv() })
+        for (r in recentes) adicionar(cartaoContinuar(r.nome, r.banner, r.icone, false) { abrir(r.pacote) })
+        caixaContinuar.visibility = if (linhaContinuar.childCount > 0) View.VISIBLE else View.GONE
+        if (focoAqui) linhaContinuar.getChildAt(0)?.requestFocus() ?: linhaApps.requestFocus()
+    }
+
+    /** Card 16:9 do Continuar: o banner (ou o ícone no meio, ou o coral da TV), com o nome num selo embaixo. */
+    private fun cartaoContinuar(nome: String, banner: Bitmap?, icone: Drawable?, aoVivo: Boolean, aoAbrir: () -> Unit): View =
+        FrameLayout(this).apply {
+            isFocusable = true
+            isClickable = true
+            clipToOutline = true
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, o: Outline) = o.setRoundRect(0, 0, v.width, v.height, dp(10).toFloat())
+            }
+            background = if (aoVivo) GradientDrawable(GradientDrawable.Orientation.TL_BR, CapaFoco.CORES_TV)
+                else ColorDrawable(0xFF1B2029.toInt())
+            when {
+                banner != null -> addView(ImageView(this@MainActivity).apply {
+                    setImageBitmap(banner); scaleType = ImageView.ScaleType.CENTER_CROP
+                }, FrameLayout.LayoutParams(MATCH, MATCH))
+                icone != null -> addView(ImageView(this@MainActivity).apply { setImageDrawable(icone) },
+                    FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = if (aoVivo) "● " + getString(R.string.player_ao_vivo) + "\n" + nome else nome
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (aoVivo) 14f else 11f)
+                typeface = fonteUi
+                maxLines = if (aoVivo) 3 else 1
+                ellipsize = TextUtils.TruncateAt.END
+                setPadding(dp(8), dp(3), dp(8), dp(3))
+                if (!aoVivo) background = GradientDrawable().apply { cornerRadius = dp(5).toFloat(); setColor(0xBF0B0F17.toInt()) }
+            }, FrameLayout.LayoutParams(WRAP, WRAP, if (aoVivo) Gravity.CENTER_VERTICAL or Gravity.START else Gravity.BOTTOM or Gravity.START).apply {
+                setMargins(dp(8), dp(8), dp(8), dp(8))
+            })
+            setOnClickListener { aoAbrir() }
+            setOnFocusChangeListener { v, temFoco ->
+                v.foreground = if (temFoco) GradientDrawable().apply {
+                    cornerRadius = dp(10).toFloat(); setStroke(dp(3), Color.WHITE)
+                } else null
+                val e = if (temFoco) 1.06f else 1f
+                v.animate().scaleX(e).scaleY(e).setDuration(120).start()
+            }
+        }
 
     /** O nome embaixo do disco (filho 1 do card, ver [montarCartao]). */
     private fun nomeDoCartao(card: View): TextView? = (card as? ViewGroup)?.getChildAt(1) as? TextView
