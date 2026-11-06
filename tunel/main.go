@@ -46,6 +46,9 @@ import (
 	"time"
 
 	"tailscale.com/client/local"
+	// Android: sem netlink nem /proc/net para app comum; este pacote dá a lista de interfaces por outro caminho
+	// (e DNS e certificados do Android). Sem ele: "netlinkrib: permission denied" (medido na Sala, 06/11/2026).
+	_ "tailscale.com/feature/androidbin"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tsnet"
 )
