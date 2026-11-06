@@ -44,6 +44,7 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
         const val AUTO_DESLIGAR = "br.paulo.tvlauncher.AUTO_DESLIGAR"   // desligar sozinha: ver/definir/testar (só adb)
         const val PLAYER_FONTE = "br.paulo.tvlauncher.PLAYER_FONTE"     // conta do player: cadastrar/apagar (só adb)
         const val PLAYER_ESTADO = "br.paulo.tvlauncher.PLAYER_ESTADO"   // contas e canais do player, sem senha (só adb)
+        const val HOME_TESTE = "br.paulo.tvlauncher.HOME_TESTE"   // ligar/desligar partes da HOME para medir a GPU (só adb)
         const val UNIFI = "br.paulo.tvlauncher.UNIFI"     // verificar aparelho novo no roteador agora (só adb, testes)
         private val fila = Executors.newSingleThreadExecutor()
 
@@ -210,6 +211,19 @@ open class ControleShizukuReceiver : BroadcastReceiver() {
                         pendente.resultData = b.toString()
                     } finally { pendente.finish() }
                 }.start()
+            }
+            // Só pelo adb, para medir engasgo (06/11/2026): esconde partes da HOME até o processo reiniciar. Ex.:
+            //   am broadcast -a br.paulo.tvlauncher.HOME_TESTE --ez capa false --ez destaque true --ez faixa true --ez fundo true
+            //     -n br.paulo.tvlauncher/.ControleShizukuAdbReceiver      (sem extras: só mostra o estado)
+            HOME_TESTE -> if (this is ControleShizukuAdbReceiver) {
+                TesteHome.capa = intent.getBooleanExtra("capa", TesteHome.capa)
+                TesteHome.destaque = intent.getBooleanExtra("destaque", TesteHome.destaque)
+                TesteHome.faixa = intent.getBooleanExtra("faixa", TesteHome.faixa)
+                TesteHome.fundo = intent.getBooleanExtra("fundo", TesteHome.fundo)
+                TesteHome.capaAnima = intent.getBooleanExtra("capaAnima", TesteHome.capaAnima)
+                TesteHome.capaCamada = intent.getBooleanExtra("capaCamada", TesteHome.capaCamada)
+                TesteHome.aplicar?.invoke()
+                resultData = TesteHome.run { "capa=$capa destaque=$destaque faixa=$faixa fundo=$fundo capaAnima=$capaAnima capaCamada=$capaCamada" }
             }
             UNIFI -> if (this is ControleShizukuAdbReceiver) {
                 val pendente = goAsync()   // HTTP: fora da thread principal

@@ -767,24 +767,19 @@ object PainelWeb {
         .put("opcoes", org.json.JSONArray(AutoDesligar.OPCOES))
         .put("ultimoDesligamento", AutoDesligar.ultimoDesligamento))
 
-    /** O endereço do clima (ou null), o ponto que a última busca usou e a faixa de 9 dias. */
+    /** O endereço do clima (ou null) e o ponto que a última busca usou. */
     private fun estadoClima(): JSONObject {
         val fixo = LocalClima.ler(app)
         val c = app.getSharedPreferences("clima", Context.MODE_PRIVATE)
         return JSONObject()
             .put("fixo", fixo?.let { JSONObject().put("nome", it.nome).put("cep", it.cep).put("numero", it.numero).put("descricao", LocalClima.descrever(it)) } ?: JSONObject.NULL)
             .put("usado", if (c.contains("lat")) JSONObject().put("lat", c.getFloat("lat", 0f).toDouble()).put("lon", c.getFloat("lon", 0f).toDouble()) else JSONObject.NULL)
-            .put("faixa", FaixaDias.ligada(app))
     }
 
-    /** {"cep","numero"} cadastra o endereço; {"automatico":true} apaga; {"faixa":bool} liga/desliga a faixa. */
+    /** {"cep","numero"} cadastra o endereço; {"automatico":true} apaga. */
     private fun mudarClima(req: Requisicao, ip: String): Resposta {
         val o = corpoJson(req) ?: return erro(400, "JSON inválido")
         when {
-            o.has("faixa") -> {
-                FaixaDias.definirLigada(app, o.optBoolean("faixa", true))
-                PainelArmazem.registrar(app, ip, "faixa de 9 dias ${if (FaixaDias.ligada(app)) "ligada" else "desligada"}", "ok")
-            }
             o.optBoolean("automatico", false) -> {
                 LocalClima.limpar(app)
                 PainelArmazem.registrar(app, ip, "clima: localização automática", "ok")
