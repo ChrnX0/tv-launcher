@@ -53,6 +53,7 @@ class PlayerActivity : Activity() {
         const val EXTRA_CANAL = "canal"   // id do canal para abrir (vazio = o último assistido)
         private const val ESCONDER_INFO_MS = 5_000L
         private const val ESPERA_NUMERO_MS = 1_500L
+        private const val SEGURAR_FAVORITO_MS = 2_000L   // segurar OK este tempo põe/tira dos favoritos
     }
 
     private val tela = Handler(Looper.getMainLooper())
@@ -102,9 +103,7 @@ class PlayerActivity : Activity() {
         janelas = PlayerJanelas(this)
         lista = PlayerListaTela(this, aoAssistir = { c, chave -> escolherNaLista(c, chave) }, aoFavoritar = { alternarFavorito(it) },
             aoBuscar = { buscar() }, aoFiltros = { abrirFiltros() }, aoOcultarGrupo = { alternarOculto(it) },
-            aoGuia = { cs, nome -> abrirGrade(cs, nome) },
-            aoFilmes = { startActivity(android.content.Intent(this, FilmesActivity::class.java)) },
-            aoSeries = { startActivity(android.content.Intent(this, SeriesActivity::class.java)) })
+            aoGuia = { cs, nome -> abrirGrade(cs, nome) })
         raiz.addView(lista.raiz, FrameLayout.LayoutParams(-1, -1))
         grade = PlayerGradeView(this, aoAssistir = { c -> grade.fechar(); lista.fechar(); if (c.id != atual?.id) sintonizar(c) else mostrarInfo() },
             aoFechar = { grade.fechar(); if (lista.aberta) lista.voltarFoco() })
@@ -151,11 +150,10 @@ class PlayerActivity : Activity() {
             val cat = PlayerArmazem.categoria(this) ?: PlayerLista.TODOS
             val esc = PlayerArmazem.gruposEscondidos(this)
             val lib = PlayerArmazem.gruposLiberados(this)
-            val vod = PlayerCarga.temVod(this)
             tela.post {
                 if (isDestroyed) return@post
                 canais = lidos
-                favoritos = fav; recentes = rec; categoria = cat; escondidos = esc; liberados = lib; lista.temVod = vod
+                favoritos = fav; recentes = rec; categoria = cat; escondidos = esc; liberados = lib
                 refiltrar()
                 if (visiveis.isEmpty()) { mostrarAviso(getString(R.string.player_sem_canais)); return@post }
                 // Abre no último canal só se ele ainda passa no filtro (um canal de categoria oculta não abre sem PIN).
@@ -249,8 +247,8 @@ class PlayerActivity : Activity() {
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP -> { zapear(+1); return true }
             KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN -> { zapear(-1); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                // repeatCount > 0 = OK segurado: não reabre a lista que acabou de fechar ao escolher um canal.
-                if (digitado.isNotEmpty()) confirmarNumero() else if (event.repeatCount == 0) abrirLista()
+                // Só chega aqui com um número digitado (o resto do OK é tratado em dispatchKeyEvent).
+                if (digitado.isNotEmpty()) confirmarNumero()
                 return true
             }
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_LAST_CHANNEL -> {
@@ -269,6 +267,40 @@ class PlayerActivity : Activity() {
         }
         if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) { digitar((keyCode - KeyEvent.KEYCODE_0).toString()); return true }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun ehOk(k: Int) = k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER
+
+    // OK no vídeo ou num canal da lista (pedido do Paulo, 06/11/2026): toque curto = abrir a lista / assistir;
+    // segurar 2 s = pôr nos favoritos, ou tirar se já for favorito. Tratado aqui, antes da ListView, porque o
+    // "segurar" do Android dispara em ~0,5 s e não dá para mudar esse tempo na ListView.
+    private var okAlvo = 0          // 0 = nada; 1 = vídeo; 2 = canal em foco na lista
+    private var okSegurou = false   // já favoritou nesta apertada: soltar não faz mais nada
+
+    override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        val nosso = ehOk(e.keyCode) && !grade.aberta && digitado.isEmpty() && (!lista.aberta || lista.canaisComFoco())
+        if (!nosso) {
+            if (ehOk(e.keyCode) && e.action == KeyEvent.ACTION_UP && okAlvo != 0) okAlvo = 0
+            return super.dispatchKeyEvent(e)
+        }
+        when (e.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (e.repeatCount == 0) { okSegurou = false; okAlvo = if (lista.aberta) 2 else 1 }
+                else if (!okSegurou && okAlvo != 0 && e.eventTime - e.downTime >= SEGURAR_FAVORITO_MS) {
+                    okSegurou = true
+                    (if (okAlvo == 2) lista.canalEmFoco() else atual)?.let { alternarFavorito(it) }
+                }
+            }
+            KeyEvent.ACTION_UP -> {
+                val alvo = okAlvo
+                okAlvo = 0
+                if (!okSegurou && !e.isCanceled) when (alvo) {
+                    1 -> abrirLista()
+                    2 -> lista.assistirEmFoco()
+                }
+            }
+        }
+        return true
     }
 
     /** ▲ sobe o número do canal (como num controle de TV comum), dentro da categoria escolhida na lista. */
