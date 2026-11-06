@@ -890,7 +890,7 @@ class MainActivity : Activity() {
         if (atalhoAberto >= 0) return   // voltando de TV/Séries/Filmes: o foco volta para aquele card (desenharContinuar)
         linhaApps.post {
             // Foco no Continuar (o TV na abertura): não roubar. A volta de um app já o trouxe para os apps no onResume.
-            if (linhaContinuar.hasFocus()) return@post
+            if (::linhaContinuar.isInitialized && linhaContinuar.hasFocus()) return@post
             val achado = cards.indexOfFirst { it.token == ultimoToken }
             // Se o card sumiu (ex.: app ocultado), o foco fica na mesma posição, que agora é o vizinho.
             val alvo = if (achado >= 0) achado else indiceFoco.coerceIn(0, cards.lastIndex)
