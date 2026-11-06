@@ -18,5 +18,7 @@ class LauncherApp : Application() {
         super.onCreate()
         instancia = this
         RegistroErros.instalar(this)
+        // A IA na nuvem saiu em 05/11/2026: apaga a chave cifrada que ela tenha deixado (fora da thread da tela).
+        Thread({ PedidoIa.apagarRestosDaNuvem(this) }, "limpa-ia").start()
     }
 }
