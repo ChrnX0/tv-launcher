@@ -223,6 +223,7 @@ class MainActivity : Activity() {
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
         ui.post(tarefaTimer)
+        atualizarPilulaAlarme()   // o alarme pode ter mudado na tela do despertador
         getSharedPreferences("launcher", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(ouvinteLocal)
         vigiarRedeParaClima()   // busca o clima assim que a rede subir no boot, sem esperar o ciclo de 5 min
         atualizarFotoPerfil()   // a conta ativa ou uma foto pode ter mudado
@@ -276,37 +277,33 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- montagem da tela
 
     private fun montarTela(): View {
-        // Tudo na grade (ver Grade.kt): o topo comeca em Grade.TOPO e a linha de apps em Grade.LINHA_APPS,
-        // com as laterais em Grade.MARGEM. Nada de espacos elasticos: cada coisa tem lugar fixo.
+        // Laterais em Grade.MARGEM; alturas fixas: topo em TOPO_PALCO, destaque em TOPO_DESTAQUE, apps em LINHA_APPS_HOME.
         val raiz = FrameLayout(this).apply {
             clipChildren = false   // a bolinha e o card focado crescem um pouco alem da propria caixa
             clipToPadding = false
         }
 
-        // ---- Topo, nas colunas da grade (ver Grade.kt):
-        //   1-4: hora / data   |   5-8: icone (+ maxima/minima ao lado), temperatura, chuva   9-11: tres linhas de info   12: bolinha
-        // Hora e temperatura tem a mesma fonte e tamanho; data e descricao tambem: tudo cai nas mesmas alturas.
-        // As 3 linhas de informacao (lua, umidade, chuva) se dividem igualmente na altura dos blocos ao lado.
-        // Hora e temperatura tem a mesma fonte e tamanho; data e descricao tambem: tudo cai nas mesmas alturas.
         val topo = FrameLayout(this).apply {
             clipChildren = false
             clipToPadding = false
         }
 
-        // A hora e um botao: OK abre o despertador (AlarmesActivity). Mesma folga de foco do clima (ver abaixo).
+        // ---- Topo no formato do esboço "Palco" (06/11/2026): hora com a data embaixo, e ao lado duas "pílulas" de vidro:
+        // o clima ("☁ 24° · chuva 20%", OK abre a previsão) e o próximo despertador ("⏰ amanhã 6:30", OK abre os alarmes).
+        // À direita: "diga o que quer ver" (busca por voz), o painel do Google e a bolinha do perfil.
         val folgaFoco = 12
-        // Hora e data sao dois botoes: OK na hora abre o despertador; OK na data, a agenda do perfil ativo.
-        // Cada um tem a folga do realce (padding de 12 dp e margem de -12 dp): o texto continua na grade.
+        val f = dp(folgaFoco)
+        // Hora e data são dois botões: OK na hora abre o despertador; OK na data, a agenda do perfil ativo. Cada um tem a
+        // folga do realce (padding de 12 dp e margem de -12 dp): o texto continua no lugar.
         val blocoHora = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
         }
-        val f = dp(folgaFoco)
         blocoHora.addView(TextClock(this).apply {
             format12Hour = "HH:mm"
             format24Hour = "HH:mm"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 44f)   // HOME recomendada (06/11): topo compacto; era 72/84
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f)
             setTextColor(Color.WHITE)
             typeface = fonteLeve
             if (tema != Tema.ESCURO) setShadowLayer(dp(10).toFloat(), 0f, 0f, 0x99000000.toInt())
@@ -321,150 +318,118 @@ class MainActivity : Activity() {
         blocoHora.addView(TextClock(this).apply {
             format12Hour = getString(R.string.fmt_data_longa)
             format24Hour = getString(R.string.fmt_data_longa)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            maxLines = 1   // "segunda-feira, 2 de novembro" quebrava em 2 linhas: encolhe a letra até caber (mín. 11 sp)
-            setAutoSizeTextTypeUniformWithConfiguration(11, 13, 1, TypedValue.COMPLEX_UNIT_SP)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            maxLines = 1
             setTextColor(if (tema == Tema.ESCURO) textoSuave else 0xFAF7F3EA.toInt())
             typeface = fonteUi
             if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
-            letterSpacing = 0.03f
-            setPadding(f, f + dp(2), f, f)
+            setPadding(f, f + dp(1), f, f)
             isFocusable = true
             isClickable = true
             // No modo visita a agenda (do perfil ativo) não abre.
             setOnClickListener { if (!ModoVisita.ativo(this@MainActivity)) startActivity(Intent(this@MainActivity, CalendarioActivity::class.java)) }
             setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
-        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(-f, -f, -f, -f) })
-        topo.addView(blocoHora, FrameLayout.LayoutParams(dp(Grade.largura(4)), WRAP).apply { leftMargin = dp(Grade.x(1)) })
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(-f, -f, -f, -f) })
 
-        // Clima (como na foto de referencia), em tres linhas, alinhadas a esquerda como a hora:
-        //   [icone] ↑ max         icone do tempo, com a maxima em cima e a minima embaixo, ao lado dele
-        //           ↓ min
-        //   31°                   temperatura
-        //   ☔ Chuva 80% em 3 h    previsao de chuva
-        // Antes dele, uma barra fina vertical separa o clima da hora.
-        txtIcone = texto(44f, Color.WHITE).apply {
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-        }
-        imgIcone = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_START; adjustViewBounds = true; visibility = View.GONE }   // FIT_START: o desenho encosta na esquerda, alinhado com o texto de baixo
+        // Pílula do clima: [ícone] 24° · chuva 20% (ou a condição de agora). O ícone pode ser imagem, texto ou o eclipse.
+        txtIcone = texto(16f, Color.WHITE).apply { gravity = Gravity.CENTER; includeFontPadding = false }
+        imgIcone = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; visibility = View.GONE }
         iconeEclipse = IconeEclipse(this).apply { visibility = View.GONE }
         val caixaIcone = FrameLayout(this).apply {
             addView(txtIcone, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
-            addView(imgIcone, FrameLayout.LayoutParams(WRAP, MATCH, Gravity.START))
+            addView(imgIcone, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(iconeEclipse, FrameLayout.LayoutParams(MATCH, MATCH))
         }
-        txtMax = texto(12f, textoClaro).apply { includeFontPadding = false }
-        txtMin = texto(12f, textoClaro).apply {
+        txtTemp = texto(15f, Color.WHITE, fonteUi).apply { includeFontPadding = false; text = "…" }
+        // Máxima e mínima não aparecem mais na HOME (estão na tela do clima); os campos ficam para o código que os preenche.
+        txtMax = texto(12f, textoClaro).apply { visibility = View.GONE }
+        txtMin = texto(12f, textoClaro).apply { visibility = View.GONE }
+        txtChuva = texto(12.5f, textoClaro).apply {
             includeFontPadding = false
-            setPadding(0, dp(3), 0, 0)
-        }
-        txtTemp = texto(34f, Color.WHITE, fonteLeve).apply {
-            letterSpacing = -0.02f
-            includeFontPadding = false
-            text = "…"
-        }
-        // Linha 1 (mesma altura do numero da hora): [icone][temperatura][max / min empilhadas]
-        val linhaIcone = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(caixaIcone, LinearLayout.LayoutParams(WRAP, dp(46)).apply { marginEnd = dp(10) })
-            addView(txtTemp, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(txtMax)
-                addView(txtMin)
-            }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(12) })
-        }
-        // Linha 2 (mesma altura da data): a chuva, com o mesmo tamanho da data.
-        txtChuva = texto(12f, textoClaro).apply {
-            letterSpacing = 0.03f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
+            maxWidth = dp(200)
         }
         linhaChuva = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(4), 0, 0)
-            addView(txtChuva, LinearLayout.LayoutParams(WRAP, WRAP))
+            addView(texto(12.5f, textoClaro).apply { text = " · "; includeFontPadding = false })
+            addView(txtChuva)
         }
-        // O bloco do clima e um botao (OK abre a previsao de 7 dias). Folga de 12 dp em volta para o realce de foco:
-        // o padding empurra o conteudo 12 dp e a margem negativa puxa de volta, entao o texto fica na grade.
-        val blocoClima = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(folgaFoco), dp(folgaFoco), dp(folgaFoco), dp(folgaFoco))
-            isFocusable = true
-            isClickable = true
+        val blocoClima = pilula().apply {
+            addView(caixaIcone, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(6) })
+            addView(txtTemp)
+            addView(linhaChuva)
             setOnClickListener { abrirPrevisao() }
-            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
-            addView(linhaIcone, LinearLayout.LayoutParams(WRAP, WRAP))
-            addView(linhaChuva, LinearLayout.LayoutParams(WRAP, WRAP))
-        }
-        topo.addView(blocoClima, FrameLayout.LayoutParams(WRAP, WRAP).apply {
-            leftMargin = dp(Grade.x(5) - folgaFoco)
-            topMargin = -dp(folgaFoco)
-        })
-        // A barra separadora: no meio da calha entre as colunas 4 e 5, com a altura do bloco da hora.
-        val barra = View(this).apply { setBackgroundColor(0x66FFFFFF) }
-        topo.addView(barra, FrameLayout.LayoutParams(dp(2), WRAP).apply { leftMargin = dp(Grade.x(5) - Grade.VAO / 2 - 1) })
-
-        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            val altura = v.height   // altura do bloco hora + data (as folgas do realce se anulam com as margens negativas)
-            // As duas linhas do clima tem a altura das duas linhas da esquerda: icone/temperatura/max-min na da hora, chuva na da data.
-            val hora = blocoHora.getChildAt(0).height - 2 * f
-            val data = blocoHora.getChildAt(1).height - 2 * f
-            // O icone do clima tem a altura do numero da hora.
-            if (caixaIcone.layoutParams.height != hora) {
-                caixaIcone.layoutParams = caixaIcone.layoutParams.apply { height = hora }
-                iconeEclipse.layoutParams = FrameLayout.LayoutParams(hora, hora, Gravity.START)
-            }
-            if (linhaIcone.layoutParams.height != hora || linhaChuva.layoutParams.height != data) {
-                linhaIcone.layoutParams = linhaIcone.layoutParams.apply { height = hora }
-                linhaChuva.layoutParams = linhaChuva.layoutParams.apply { height = data }
-            }
-            if (barra.layoutParams.height != altura) {
-                barra.layoutParams = barra.layoutParams.apply { height = altura }
-            }
         }
 
-        // Timer (05/11/2026): uma linha embaixo da data, fora do bloco da hora (senão a barra e o clima, que copiam a
-        // altura dele, cresceriam junto). OK nela cancela. Fica escondida sem timer (ver tarefaTimer).
-        txtTimer = texto(18f, Color.WHITE, fonteUi).apply {
+        // Pílula do despertador: o próximo toque ("⏰ amanhã 6:30"). Some se não houver alarme (ver atualizarPilulaAlarme).
+        txtAlarme = texto(12.5f, textoClaro).apply { includeFontPadding = false }
+        pilulaAlarme = pilula().apply {
+            addView(txtAlarme)
+            setOnClickListener { startActivity(Intent(this@MainActivity, AlarmesActivity::class.java)) }
+        }
+
+        val esquerda = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            addView(blocoHora, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(14) })
+            addView(blocoClima, LinearLayout.LayoutParams(WRAP, dp(32)).apply { marginEnd = dp(10) })
+            addView(pilulaAlarme, LinearLayout.LayoutParams(WRAP, dp(32)))
+        }
+        topo.addView(esquerda, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.MARGEM) })
+
+        // Direita: busca por voz, painel do Google e a bolinha do perfil.
+        val voz = pilula().apply {
+            addView(texto(12f, textoClaro).apply { text = getString(R.string.home_voz); includeFontPadding = false })
+            setOnClickListener { abrirBuscaPorVoz() }
+        }
+        val bolinha = botaoPerfil()
+        val painel = botaoPainel()
+        val direita = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            addView(voz, LinearLayout.LayoutParams(WRAP, dp(32)).apply { marginEnd = dp(10) })
+            addView(painel, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(8) })
+            addView(bolinha, LinearLayout.LayoutParams(dp(40), dp(40)))
+        }
+        topo.addView(direita, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.END).apply { rightMargin = dp(Grade.MARGEM) })
+        // As duas pontas centradas na mesma linha: a da direita acompanha o meio do bloco da hora.
+        esquerda.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            val y = ((v.height - direita.height) / 2f).coerceAtLeast(0f)
+            if (direita.translationY != y) direita.translationY = y
+        }
+
+        // Timer (05/11/2026): mais uma pílula na mesma linha, depois do despertador. OK nela cancela. Some sem timer
+        // (ver tarefaTimer).
+        txtTimer = texto(12.5f, Color.WHITE, fonteUi).apply {
             visibility = View.GONE
-            if (tema != Tema.ESCURO) setShadowLayer(dp(8).toFloat(), 0f, 0f, 0x99000000.toInt())
-            setPadding(f, f, f, f)
+            includeFontPadding = false
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), 0, dp(12), 0)
             isFocusable = true
             isClickable = true
+            fun fundo(foco: Boolean) = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(if (foco) 0x33FFFFFF else 0x8C0B0F17.toInt())
+                setStroke(dp(if (foco) 2 else 1), if (foco) Color.WHITE else 0x24FFFFFF)
+            }
+            background = fundo(false)
             setOnClickListener {
                 if (Timer.cancelar(this@MainActivity)) Toast.makeText(this@MainActivity, "Timer cancelado", Toast.LENGTH_SHORT).show()
                 ui.removeCallbacks(tarefaTimer); ui.post(tarefaTimer)
             }
-            setOnFocusChangeListener { v, temFoco -> v.background = if (temFoco) realceFoco() else null }
+            setOnFocusChangeListener { v, temFoco -> v.background = fundo(temFoco) }
         }
-        topo.addView(txtTimer, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.x(1)) - f })
-        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            // + 4 dp sem descontar a folga: o realce do foco (que ocupa a folga) não encosta na data.
-            val y = v.height + dp(4)
-            if ((txtTimer.layoutParams as FrameLayout.LayoutParams).topMargin != y)
-                txtTimer.layoutParams = (txtTimer.layoutParams as FrameLayout.LayoutParams).apply { topMargin = y }
-        }
+        esquerda.addView(txtTimer, LinearLayout.LayoutParams(WRAP, dp(32)).apply { marginStart = dp(10) })
 
-        // Bolinha: exatamente a coluna 12 (50 dp). Centrada na altura da linha grande (hora/temperatura).
-        val bolinha = botaoPerfil()
-        topo.addView(bolinha, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(12)) })
-        // Atalho para o painel do Google (04/11/2026), na coluna 11, ao lado da bolinha: o mesmo do HOME segurado.
-        val painel = botaoPainel()
-        topo.addView(painel, FrameLayout.LayoutParams(dp(Grade.COLUNA), dp(Grade.COLUNA)).apply { leftMargin = dp(Grade.x(11)) })
-        blocoHora.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            // centro do numero da hora = metade da altura do TextClock sem a folga do realce (a folga se anula com a margem negativa)
-            val alturaHora = (v as LinearLayout).getChildAt(0).height - 2 * dp(folgaFoco)
-            bolinha.translationY = ((alturaHora - bolinha.height) / 2f).coerceAtLeast(0f)
-            painel.translationY = bolinha.translationY
-        }
-        raiz.addView(topo, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(Grade.TOPO) })
+        raiz.addView(topo, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(TOPO_PALCO) })
 
-        // ---- Destaque (HOME recomendada, esboço V3Final): o que está em foco, em letra grande, entre o topo e a faixa de
-        // 9 dias. TV: "● AO VIVO · CANAL N", o programa de agora (gravado pelo player) e quanto falta. App: o nome.
+        // ---- Destaque (esboço Palco): o que está em foco, em letra grande, entre o topo e a linha de apps. TV: "● AO VIVO · CANAL N", o programa de agora (gravado pelo player) e quanto falta. App: o nome.
         txtDestaqueRotulo = texto(11.5f, CORAL, fonteUi).apply {
             letterSpacing = 0.08f
             typeface = Typeface.create(fonteUi, Typeface.BOLD)
@@ -600,7 +565,7 @@ class MainActivity : Activity() {
             isClickable = true
             setPadding(dp(3), dp(3), dp(3), dp(3))
             background = anel(false)
-            addView(fotoPerfil, FrameLayout.LayoutParams(dp(44), dp(44)))
+            addView(fotoPerfil, FrameLayout.LayoutParams(MATCH, MATCH))   // ocupa a bolinha toda (40 dp no topo Palco)
             setOnClickListener { abrirPopup() }
             setOnFocusChangeListener { v, temFoco ->
                 v.background = anel(temFoco)
@@ -611,6 +576,8 @@ class MainActivity : Activity() {
     }
 
     private lateinit var botaoPainelGoogle: View
+    private lateinit var txtAlarme: TextView          // "⏰ amanhã 6:30" na pílula do despertador
+    private lateinit var pilulaAlarme: LinearLayout
     private lateinit var destaque: LinearLayout      // o bloco grande do que está em foco (ver mostrarDestaque)
     private lateinit var txtDestaqueRotulo: TextView
     private lateinit var txtDestaqueTitulo: TextView
@@ -735,7 +702,8 @@ class MainActivity : Activity() {
     /** pacote -> (APK|activity, Item). Vive enquanto o processo da HOME viver (sobrevive à troca de tema). */
     private companion object {
         val cacheApps = HashMap<String, Pair<String, Item>>()
-        const val TOPO_DESTAQUE = 118      // onde começa o bloco do destaque (abaixo da hora/clima)
+        const val TOPO_PALCO = 24          // onde começa a linha do topo (hora e pílulas), como no esboço
+        const val TOPO_DESTAQUE = 100      // onde começa o bloco do destaque (abaixo da linha da hora e das pílulas)
         const val CORAL = 0xFFFF8A80.toInt()   // a cor do "ao vivo"
         const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
         // Linha de apps logo abaixo do destaque (118 + ~90 + folga) e o Continuar embaixo dela: tudo numa tela só.
@@ -1009,6 +977,53 @@ class MainActivity : Activity() {
         mostrarCapaDoApp(item.pacote, item.icone)
     }
 
+    /** Pílula de vidro do topo (esboço Palco): escura translúcida, fio claro, cantos redondos; focável, com realce. */
+    private fun pilula(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(12), 0, dp(12), 0)
+        isFocusable = true
+        isClickable = true
+        fun fundo(foco: Boolean) = GradientDrawable().apply {
+            cornerRadius = dp(16).toFloat()
+            setColor(if (foco) 0x33FFFFFF else 0x8C0B0F17.toInt())
+            setStroke(dp(if (foco) 2 else 1), if (foco) Color.WHITE else 0x24FFFFFF)
+        }
+        background = fundo(false)
+        setOnFocusChangeListener { v, temFoco -> v.background = fundo(temFoco) }
+    }
+
+    /** O próximo despertador na pílula: "hoje 18:30", "amanhã 6:30" ou "sáb 7:00". Sem alarme, a pílula some. */
+    private fun atualizarPilulaAlarme() {
+        val prox = runCatching { Despertador.proximo(this) }.getOrNull()
+        if (prox == null) { if (pilulaAlarme.hasFocus()) linhaApps.requestFocus(); pilulaAlarme.visibility = View.GONE; return }
+        val quando = java.util.Calendar.getInstance().apply { timeInMillis = prox.second }
+        val hoje = java.util.Calendar.getInstance()
+        val dias = ((java.time.LocalDate.of(quando.get(java.util.Calendar.YEAR), quando.get(java.util.Calendar.MONTH) + 1, quando.get(java.util.Calendar.DAY_OF_MONTH)).toEpochDay()) -
+            java.time.LocalDate.of(hoje.get(java.util.Calendar.YEAR), hoje.get(java.util.Calendar.MONTH) + 1, hoje.get(java.util.Calendar.DAY_OF_MONTH)).toEpochDay())
+        val hora = java.text.SimpleDateFormat("H:mm", java.util.Locale.getDefault()).format(java.util.Date(prox.second))
+        val dia = when (dias) {
+            0L -> getString(R.string.home_alarme_hoje)
+            1L -> getString(R.string.home_alarme_amanha)
+            else -> java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault()).format(java.util.Date(prox.second)).trimEnd('.')
+        }
+        txtAlarme.text = "⏰ $dia $hora"
+        pilulaAlarme.visibility = View.VISIBLE
+    }
+
+    /** "Diga o que quer ver": abre o assistente de voz da TV; sem ele, a busca do sistema. Não verificado na Sala. */
+    private fun abrirBuscaPorVoz() {
+        val tentativas = listOf(
+            Intent(Intent.ACTION_ASSIST),
+            Intent("android.intent.action.VOICE_ASSIST"),
+            Intent("android.search.action.GLOBAL_SEARCH"),
+        )
+        for (i in tentativas) {
+            try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (e: Exception) { }
+        }
+        Toast.makeText(this, R.string.home_voz_indisponivel, Toast.LENGTH_SHORT).show()
+    }
+
     private fun aplicarTeste() {
         capa.visibility = if (TesteHome.capa) View.VISIBLE else View.GONE
         destaque.visibility = if (TesteHome.destaque) destaque.visibility.takeIf { it != View.GONE } ?: View.INVISIBLE else View.GONE
@@ -1023,8 +1038,6 @@ class MainActivity : Activity() {
         txtDestaqueTitulo.text = titulo
         txtDestaqueSub.text = sub
         txtDestaqueSub.visibility = if (sub == null) View.GONE else View.VISIBLE
-        // Com o timer na tela (linha embaixo da data), o destaque desce para não ficar por baixo dele.
-        destaque.translationY = if (txtTimer.visibility == View.VISIBLE) dp(36).toFloat() else 0f
         if (destaque.visibility != View.VISIBLE) {
             destaque.alpha = 0f
             destaque.visibility = View.VISIBLE
