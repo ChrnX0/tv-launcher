@@ -498,7 +498,7 @@ class MainActivity : Activity() {
         // subir aparecia só o topo dos cards e uma faixa vazia embaixo (visto na Sala, 06/11).
         raiz.addView(caixaContinuar, FrameLayout.LayoutParams(MATCH, dp(ALTURA_CONTINUAR)).apply {
             leftMargin = dp(Grade.MARGEM)
-            topMargin = dp(LINHA_APPS_HOME + ALTURA_LINHA_APPS)
+            topMargin = dp(TOPO_CONTINUAR)
         })
 
         // ---- Guia de teclas do modo mover: uma faixa na parte de baixo, por cima de tudo. Some fora do modo mover.
@@ -707,8 +707,10 @@ class MainActivity : Activity() {
         const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
         // Linha de apps logo abaixo do destaque (118 + ~90 + folga) e o Continuar embaixo dela: tudo numa tela só.
         // A faixa de 9 dias saiu em 06/11 (Paulo: "abrindo o widget do clima essas informações já tem lá dentro").
-        const val LINHA_APPS_HOME = 232
-        const val ALTURA_CONTINUAR = 176    // título + cards 16:9 (111 dp) + folga do card focado
+        // Arranjo 1 do Palco (06/11/2026): o Continuar logo abaixo do destaque, e os apps (discos menores) embaixo.
+        const val TOPO_CONTINUAR = 204
+        const val LINHA_APPS_HOME = 384
+        const val ALTURA_CONTINUAR = 160    // título + cards 16:9 (111 dp) + folga do card focado
     }
 
     /** Todos os apps de TV instalados, sem ordem e sem tirar os ocultos (quem organiza é montarEntradas). */
@@ -942,13 +944,13 @@ class MainActivity : Activity() {
         }
         cartao.addView(moldura, LinearLayout.LayoutParams(dp(Grade.DISCO + 2 * ANEL), dp(Grade.DISCO + 2 * ANEL)))
         cartao.addView(
-            texto(15f, textoSuave).apply {
+            texto(11.5f, textoSuave).apply {
                 text = nome
                 maxLines = 1
                 gravity = Gravity.CENTER
                 ellipsize = TextUtils.TruncateAt.END
             },
-            LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP).apply { topMargin = dp(8) }
+            LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP).apply { topMargin = dp(5) }
         )
         cartao.layoutParams = LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP)
         return cartao
@@ -1181,7 +1183,7 @@ class MainActivity : Activity() {
     /** O disco da TV ao vivo: coral (a cor do "ao vivo" nos esboços) com "TV" no meio. */
     private fun miniaturaTv(): View = TextView(this).apply {
         text = "TV"
-        textSize = 26f
+        textSize = 19f   // disco de 56 dp (layout Palco)
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(Color.WHITE)
         gravity = Gravity.CENTER
@@ -1306,59 +1308,18 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- ▲▼ numa pilha: trocar o app da frente
 
-    private var cimaAgendado: Runnable? = null   // o cronometro do "segurar ▲"; null = nenhum rodando
-    private var cimaSaiu = false   // true: este "segurar ▲" ja tirou o foco da pilha; o soltar nao troca o app
-
     /**
-     * Num card de pilha:
-     *  - ▼ (toque) troca o app da frente para o proximo, na hora (só sem a linha Continuar; com ela, ▼ desce);
-     *  - ▲ (toque) troca para o anterior, ao SOLTAR a tecla;
-     *  - ▲ segurado por 2 s sai da pilha e vai para o topo da tela (clima, bolinha do perfil).
-     * Os dois dao a volta (depois do ultimo vem o primeiro). Segurar ▼ nao gira a pilha inteira.
-     * Em card solto nao faz nada: a tecla segue o caminho normal.
+     * Num card de pilha, ▼ troca o app da frente para o próximo (dá a volta; segurar não gira a pilha inteira).
+     * Desde o layout Palco (06/11/2026) os apps são a última linha da tela: ▼ não tem para onde descer, e ▲ sobe
+     * normalmente para o Continuar (antes ▲ também girava, e era preciso segurá-lo 2 s para sair da pilha).
+     * Em card solto não faz nada: a tecla segue o caminho normal.
      */
-    private var cimaApertadoEm: View? = null   // o card em que o ▲ foi apertado (o soltar só gira a pilha se for o mesmo)
-
     private fun trocarDaFrente(event: KeyEvent): Boolean {
-        val sobe = event.keyCode == KeyEvent.KEYCODE_DPAD_UP
-        if (!sobe && event.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false
-        // Anota onde o ▲ foi apertado ANTES de ver se é pilha: assim um aperto em outro card nunca fica valendo para ela.
-        if (sobe && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) cimaApertadoEm = currentFocus
+        if (event.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false
         val atual = currentFocus ?: return false
         val token = atual.tag as? String ?: return false
         val pilha = lista.firstOrNull { it.token == token } as? Entrada.Pilha ?: return false
-        if (!sobe) {
-            // 06/11/2026: com a linha Continuar na tela, ▼ desce para ela, como em qualquer card (senão, a partir de uma
-            // pilha, o Continuar ficava inalcançável). Só ▲ troca o app da frente. Sem Continuar, ▼ gira como antes.
-            if (caixaContinuar.visibility == View.VISIBLE) return false
-            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) girarPilha(pilha, +1)
-            return true
-        }
-        when (event.action) {
-            KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) {
-                cimaSaiu = false
-                cimaAgendado?.let { ui.removeCallbacks(it) }
-                // Um cronometro, em vez de contar as repeticoes da tecla segurada: a 1a repeticao so chega ~0,5 s depois do aperto
-                // e nem todo controle repete. Soltar antes do tempo cancela o cronometro e a tecla vira "trocar o app da frente".
-                cimaAgendado = Runnable {
-                    cimaAgendado = null
-                    if (currentFocus === atual) {
-                        cimaSaiu = true
-                        atual.focusSearch(View.FOCUS_UP)?.requestFocus()
-                    }
-                }.also { ui.postDelayed(it, Config.PILHA_SUBIR_MS) }
-            }
-            KeyEvent.ACTION_UP -> {
-                cimaAgendado?.let { ui.removeCallbacks(it) }
-                cimaAgendado = null
-                // ▲ apertado em OUTRO card (ex.: no Continuar, embaixo): o foco chegou na pilha com a tecla ainda apertada, e
-                // o soltar não pode girá-la (visto na Sala, 06/11: subindo do Continuar, a pilha Play Store trocava de app).
-                val daqui = cimaApertadoEm === atual
-                cimaApertadoEm = null
-                if (!daqui) return true
-                if (!cimaSaiu) girarPilha(pilha, -1)
-            }
-        }
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) girarPilha(pilha, +1)
         return true
     }
 
