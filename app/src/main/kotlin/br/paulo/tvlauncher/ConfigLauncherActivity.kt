@@ -254,14 +254,7 @@ class ConfigLauncherActivity : Activity() {
         }
         adicionar(linhaChuva)
 
-        // ---- Clima (05/11/2026): a faixa de 9 dias e o endereço da casa (CEP + número; o launcher acha as coordenadas).
-        lateinit var linhaFaixa: TextView
-        fun detalheFaixa() = if (FaixaDias.ligada(this)) "ligada · OK desliga" else "desligada · OK liga"
-        linhaFaixa = linha("Previsão de 9 dias na tela inicial", detalheFaixa()) {
-            FaixaDias.definirLigada(this, !FaixaDias.ligada(this))
-            linhaFaixa.detalhe(detalheFaixa())
-        }
-        adicionar(linhaFaixa)
+        // ---- Clima (05/11/2026): o endereço da casa (CEP + número; o launcher acha as coordenadas).
         lateinit var linhaEndereco: TextView
         fun detalheEndereco() = LocalClima.ler(this)?.let { "${LocalClima.descrever(it)} · OK troca" }
             ?: "nenhum · a TV se acha pelo Wi-Fi; o endereço vale quando o Wi-Fi não acha · OK cadastra"
@@ -275,6 +268,13 @@ class ConfigLauncherActivity : Activity() {
             }
         }
         adicionar(linhaEndereco)
+
+        // ---- TV ao vivo (player universal, 06/11/2026): contas de canais pelo controle, sem depender do painel. As contas
+        // ficam cifradas na TV (PlayerArmazem); aqui aparece só nome, tipo e servidor, nunca usuário, senha ou link inteiro.
+        secao("TV ao vivo")
+        val caixaContas = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false }
+        lista.addView(caixaContas, LinearLayout.LayoutParams(MATCH, WRAP))
+        montarContasTv(caixaContas)
 
         // ---- Apps ocultos: os que o launcher some pelo Device Owner (ver Config.APPS_OCULTAR/PrivilegioDO.ocultar) —
         // ocultar libera a memória que eles seguravam sem desinstalar, e dá pra mostrar de volta a qualquer momento.
@@ -561,6 +561,101 @@ class ConfigLauncherActivity : Activity() {
                 }
             }
         }
+    }
+
+    // ---------------------------------------------------------------- TV ao vivo: contas
+
+    /** (Re)desenha a lista de contas e as linhas de cadastrar/testar. Refeita no lugar depois de mudar, sem perder a tela. */
+    private fun montarContasTv(caixa: LinearLayout) {
+        caixa.removeAllViews()
+        fun adicionar(v: View) = caixa.addView(v, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) })
+        val contas = PlayerArmazem.fontes(this)
+        for (f in contas) {
+            val tipo = if (f.tipo == FonteTv.TIPO_XTREAM) "Xtream" else "lista"
+            adicionar(linha(f.nome, "$tipo · ${f.servidorVisivel} · OK apaga") {
+                android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                    .setTitle("Apagar a conta \"${f.nome}\"?")
+                    .setMessage("Os canais dela somem da TV ao vivo. Para voltar, é preciso cadastrar de novo.")
+                    .setPositiveButton("Apagar") { _, _ ->
+                        PlayerArmazem.apagar(this, f.id)
+                        montarContasTv(caixa)
+                        caixa.post { caixa.getChildAt(0)?.requestFocus() }
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            })
+        }
+        if (contas.size < 8) {
+            adicionar(linha("Cadastrar conta Xtream", "servidor, usuário e senha (o que o vendedor do IPTV manda) · OK") {
+                pedirContaTv(caixa, FonteTv.TIPO_XTREAM)
+            })
+            adicionar(linha("Cadastrar lista de canais", "um link .m3u (http:// ou https://) · OK") {
+                pedirContaTv(caixa, FonteTv.TIPO_M3U)
+            })
+        }
+        if (contas.isNotEmpty()) {
+            lateinit var linhaTestar: TextView
+            linhaTestar = linha("Testar e recarregar canais", "baixa a lista e o guia de novo e conta os canais · OK") {
+                linhaTestar.detalhe("baixando… (pode levar até um minuto)")
+                trabalho.execute {
+                    val agora = System.currentTimeMillis()
+                    val semCanal = PlayerArmazem.fontes(this).count { PlayerCarga.canaisDaFonte(this, it, forcar = true).isEmpty() }
+                    val canais = PlayerCarga.canais(this)
+                    val guia = PlayerCarga.guia(this, canais, forcar = true)
+                    val comGuia = canais.count { it.guiaId.isNotEmpty() && guia.agora(it.guiaId, agora) != null }
+                    val texto = "${canais.size} canais, $comGuia com programação agora" +
+                        (if (semCanal > 0) " · $semCanal conta(s) sem canal: confira servidor, usuário e senha" else "") + " · OK de novo"
+                    ui.post { if (!isDestroyed) linhaTestar.detalhe(texto) }
+                }
+            }
+            adicionar(linhaTestar)
+        }
+    }
+
+    /**
+     * Caixa para cadastrar uma conta com o teclado da TV (AlertDialog: OK confirma, Voltar cancela). Xtream: servidor,
+     * usuário e senha; lista: o link. O nome é opcional. Erro de validação reabre a caixa com o que já foi digitado.
+     */
+    private fun pedirContaTv(caixaContas: LinearLayout, tipo: String, antes: List<String>? = null, erro: String? = null) {
+        val xtream = tipo == FonteTv.TIPO_XTREAM
+        fun campo(dica: String, max: Int, tipoTexto: Int, valor: String?) = android.widget.EditText(this).apply {
+            inputType = tipoTexto
+            filters = arrayOf(android.text.InputFilter.LengthFilter(max))
+            hint = dica; setText(valor.orEmpty()); setSingleLine()
+        }
+        val T = android.text.InputType.TYPE_CLASS_TEXT
+        val nome = campo("Nome (opcional, ex.: Playon)", 40, T, antes?.getOrNull(0))
+        val endereco = campo(if (xtream) "Servidor (ex.: http://servidor:8080)" else "Link da lista (http://…)", 2000,
+            T or android.text.InputType.TYPE_TEXT_VARIATION_URI, antes?.getOrNull(1))
+        val usuario = campo("Usuário", 200, T or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, antes?.getOrNull(2))
+        // A senha não volta preenchida num erro: digitar de novo é mais seguro que deixá-la na memória da caixa.
+        val senha = campo("Senha", 200, T or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD, null)
+        val caixa = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 16, 48, 0)
+            if (erro != null) addView(TextView(this@ConfigLauncherActivity).apply { text = erro; setTextColor(0xFFFF8A80.toInt()) })
+            addView(endereco)
+            if (xtream) { addView(usuario); addView(senha) }
+            addView(nome)
+        }
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(if (xtream) "Conta Xtream" else "Lista de canais")
+            .setView(caixa)
+            .setPositiveButton("Cadastrar") { _, _ ->
+                val r = PlayerArmazem.adicionar(this, nome.text.toString(), tipo, endereco.text.toString(),
+                    usuario.text.toString(), senha.text.toString())
+                r.onSuccess {
+                    montarContasTv(caixaContas)
+                    // Foco em "Testar e recarregar": o próximo OK já confere se a conta funciona.
+                    caixaContas.post { caixaContas.getChildAt(caixaContas.childCount - 1)?.requestFocus() }
+                }.onFailure {
+                    pedirContaTv(caixaContas, tipo, listOf(nome.text.toString(), endereco.text.toString(), usuario.text.toString()),
+                        "Não cadastrei: ${it.message}")
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+        endereco.requestFocus()
     }
 
     // ---------------------------------------------------------------- PIN do painel

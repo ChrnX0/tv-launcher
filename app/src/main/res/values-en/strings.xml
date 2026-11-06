@@ -468,6 +468,19 @@
     <!-- Universal player (06/11/2026) -->
     <string name="home_tv">Live TV</string>
     <string name="home_tv_continuar">Continue: %1$d · %2$s</string>
+    <string name="home_linha_continuar">CONTINUE · TV, HOME AND APPS</string>
+    <string name="home_canal">Channel %1$d · %2$s</string>
+    <string name="home_voz">🎙 say what you want to watch</string>
+    <string name="home_voz_indisponivel">Voice search did not open on this TV</string>
+    <string name="home_alarme_hoje">today</string>
+    <string name="home_alarme_amanha">tomorrow</string>
+    <string name="home_destaque_ao_vivo">● LIVE · CHANNEL %1$d</string>
+    <string name="home_destaque_tv">● LIVE TV</string>
+    <string name="home_destaque_abrir_tv">OK opens the channels</string>
+    <string name="home_destaque_comecou">started %1$d min ago</string>
+    <string name="home_destaque_termina">ends at %1$s</string>
+    <string name="home_destaque_depois">next: %1$s %2$s</string>
+    <string name="home_destaque_pilha">%1$d apps · ▲ switches the front one</string>
     <string name="player_carregando">Loading channels…</string>
     <string name="player_carregando_canal">Loading channel…</string>
     <string name="player_sem_canais">No channel list added yet.</string>

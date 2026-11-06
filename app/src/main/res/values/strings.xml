@@ -474,6 +474,19 @@
     <!-- Player universal (06/11/2026) -->
     <string name="home_tv">TV ao vivo</string>
     <string name="home_tv_continuar">Continuar: %1$d · %2$s</string>
+    <string name="home_linha_continuar">CONTINUAR · TV, CASA E APPS</string>
+    <string name="home_canal">Canal %1$d · %2$s</string>
+    <string name="home_voz">🎙 diga o que quer ver</string>
+    <string name="home_voz_indisponivel">A busca por voz não abriu nesta TV</string>
+    <string name="home_alarme_hoje">hoje</string>
+    <string name="home_alarme_amanha">amanhã</string>
+    <string name="home_destaque_ao_vivo">● AO VIVO · CANAL %1$d</string>
+    <string name="home_destaque_tv">● TV AO VIVO</string>
+    <string name="home_destaque_abrir_tv">OK abre os canais</string>
+    <string name="home_destaque_comecou">começou há %1$d min</string>
+    <string name="home_destaque_termina">termina às %1$s</string>
+    <string name="home_destaque_depois">depois: %1$s %2$s</string>
+    <string name="home_destaque_pilha">%1$d apps · ▲ troca o da frente</string>
     <string name="player_carregando">Carregando os canais…</string>
     <string name="player_carregando_canal">Carregando o canal…</string>
     <string name="player_sem_canais">Nenhuma lista de canais cadastrada ainda.</string>
