@@ -572,4 +572,10 @@
     <string name="player_favorito_tirou">%1$s removed from favorites</string>
     <string name="player_favoritos_cheio">There are already 500 favorites: remove one first.</string>
     <string name="player_assistindo">watching</string>
+    <string name="home_linha_apps">APPS</string>
+    <string name="home_card_tv">TV</string>
+    <string name="home_card_series">Series</string>
+    <string name="home_card_filmes">Movies</string>
+    <string name="home_destaque_series">Seasons, episodes and pick up where you left off</string>
+    <string name="home_destaque_filmes">New releases, classics and pick up where you left off</string>
 </resources>
