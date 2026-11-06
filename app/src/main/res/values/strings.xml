@@ -578,4 +578,10 @@
     <string name="player_favorito_tirou">%1$s saiu dos favoritos</string>
     <string name="player_favoritos_cheio">Já há 500 favoritos: tire um antes.</string>
     <string name="player_assistindo">assistindo</string>
+    <string name="home_linha_apps">APPS</string>
+    <string name="home_card_tv">TV</string>
+    <string name="home_card_series">Séries</string>
+    <string name="home_card_filmes">Filmes</string>
+    <string name="home_destaque_series">Temporadas, episódios e continuar de onde parou</string>
+    <string name="home_destaque_filmes">Lançamentos, clássicos e continuar de onde parou</string>
 </resources>

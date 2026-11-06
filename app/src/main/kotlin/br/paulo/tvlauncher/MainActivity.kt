@@ -217,7 +217,7 @@ class MainActivity : Activity() {
         if (Tema.atual(this) != tema) { recreate(); return }
         preencherApps()
         preencherContinuar()
-        if (::linhaContinuar.isInitialized && linhaContinuar.hasFocus()) linhaApps.getChildAt(indiceFoco.coerceAtLeast(0))?.requestFocus()
+        if (atalhoAberto < 0 && ::linhaContinuar.isInitialized && linhaContinuar.hasFocus()) linhaApps.getChildAt(indiceFoco.coerceAtLeast(0))?.requestFocus()
         ui.post(tarefaClima)
         ui.post(tarefaEclipse)
         ui.post(tarefaRede)
@@ -466,7 +466,7 @@ class MainActivity : Activity() {
             clipChildren = false    // senão a rolagem corta o card focado quando ele cresce
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
-            setPadding(dp(Grade.MARGEM - Grade.VAO_DISCO / 2), dp(folga) - dp(ANEL), dp(Grade.MARGEM - Grade.VAO_DISCO / 2), dp(folga))
+            setPadding(dp(Grade.MARGEM - ANEL), dp(folga) - dp(ANEL), dp(Grade.MARGEM), dp(folga))
         }
         linhaApps = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -474,6 +474,12 @@ class MainActivity : Activity() {
         }
         rolagem.addView(linhaApps)
         raiz.addView(rolagem, FrameLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(LINHA_APPS_HOME - folga) })
+        // Título "APPS" em cima da linha, como o "CONTINUAR" (esboço do Paulo, 06/11 noite).
+        raiz.addView(texto(12f, textoSuave, fonteUi).apply {
+            text = getString(R.string.home_linha_apps)
+            letterSpacing = 0.1f
+            if (tema != Tema.ESCURO) setShadowLayer(dp(6).toFloat(), 0f, 0f, 0x99000000.toInt())
+        }, FrameLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(Grade.MARGEM); topMargin = dp(LINHA_APPS_HOME - 32) })
 
         // ---- Continuar (HOME recomendada): último canal e apps usados há pouco, em cards 16:9 com o banner do app. Fica
         // meio escondida na borda de baixo; com o foco nela (▼ num card solto), a tela inteira sobe para mostrá-la.
@@ -530,9 +536,8 @@ class MainActivity : Activity() {
             // A capa do foco: alto à direita, do tamanho do esboço (680 x 330 dp), atrás do topo e dos apps. Desenhada em
             // METADE da resolução e ampliada 2x (06/11: a capa cheia custava ~5 ms de GPU por quadro na Sala; é uma imagem
             // de fundo escurecida, a perda de nitidez não aparece). A ampliação parte do canto de cima à direita.
-            // Arranjo 2: a capa começa logo abaixo da linha de apps (antes as letras do banner ficavam atrás dos apps e dos nomes).
-            // Arranjo 2: 400 x 180 dp na metade direita da faixa do meio (entre os apps e o Continuar), ao lado do destaque.
-            addView(capa, FrameLayout.LayoutParams(dp(200), dp(90), Gravity.TOP or Gravity.END).apply { topMargin = dp(TOPO_CAPA) })
+            // Esboço do Paulo (06/11 noite): de volta ao alto à direita, atrás do topo e do destaque, sumindo antes dos apps.
+            addView(capa, FrameLayout.LayoutParams(dp(340), dp(165), Gravity.TOP or Gravity.END))
             capa.scaleX = 2f
             capa.scaleY = 2f
             capa.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> v.pivotX = v.width.toFloat(); v.pivotY = 0f }
@@ -706,16 +711,21 @@ class MainActivity : Activity() {
     private companion object {
         val cacheApps = HashMap<String, Pair<String, Item>>()
         const val TOPO_PALCO = 24          // onde começa a linha do topo (hora e pílulas), como no esboço
-        const val TOPO_DESTAQUE = 232      // onde começa o bloco do destaque (entre a linha de apps e o Continuar)
+        const val TOPO_DESTAQUE = 100      // onde começa o bloco do destaque (logo abaixo do topo)
         const val CORAL = 0xFFFF8A80.toInt()   // a cor do "ao vivo"
         const val ALTURA_LINHA_APPS = 136   // da linha da grade dos apps até o fim do nome embaixo do disco (com folga)
         // Linha de apps logo abaixo do destaque (118 + ~90 + folga) e o Continuar embaixo dela: tudo numa tela só.
         // A faixa de 9 dias saiu em 06/11 (Paulo: "abrindo o widget do clima essas informações já tem lá dentro").
         // Arranjo 2 do Palco (escolha do Paulo, 06/11/2026), com respiro entre os blocos (ele achou o 1º teste colado):
         // topo 24, apps (discos de 56 dp) em 116, destaque em 232, Continuar em 352 (cards até ~488, sobra ~50 embaixo).
-        const val LINHA_APPS_HOME = 116
-        const val TOPO_CONTINUAR = 352
-        const val TOPO_CAPA = 196          // a capa do foco: de 196 a 376 dp, com as bordas sumindo (apps acabam ~200, Continuar começa em 352)
+        // Esboço do Paulo (06/11 noite, "a home já é parte do player"): topo 24, destaque 100, Continuar 214 (começa com os
+        // cards TV, Séries e Filmes), apps em retângulos 16:9 embaixo, em 404 (até ~467; sobram ~70 dp).
+        const val TOPO_CONTINUAR = 214
+        const val LINHA_APPS_HOME = 414     // 404 deixava o retângulo focado encostado no título "APPS"
+        const val RET_L = 112               // retângulo de um app na linha de baixo (16:9, a arte de banner do app)
+        const val RET_A = 63
+        val CORES_SERIES = intArrayOf(0xFF9B7BFF.toInt(), 0xFF4A2C9A.toInt())   // roxo
+        val CORES_FILMES = intArrayOf(0xFF4C9BFF.toInt(), 0xFF1A3F8F.toInt())   // azul
         const val ALTURA_CONTINUAR = 160    // título + cards 16:9 (111 dp) + folga do card focado
     }
 
@@ -812,9 +822,7 @@ class MainActivity : Activity() {
         }
         val escondidos = todos.filter { it.pacote in ocultos }.sortedBy { it.nome.lowercase() }
         if (escondidos.isNotEmpty() && !naVisita) entradas.add(Entrada.Ocultos(escondidos, getString(R.string.home_ocultos, escondidos.size)))
-        // HOME recomendada (esboço aprovado em 06/11/2026): a TV ao vivo é o 1º disco. Sem conta cadastrada, não aparece
-        // (ninguém dá de cara com uma tela vazia).
-        if (PlayerArmazem.temContas(this)) entradas.add(0, Entrada.Tv(getString(R.string.home_tv)))
+        // A TV saiu da linha de apps (06/11 noite): agora é o 1º card do Continuar, ao lado de Séries e Filmes.
         return entradas
     }
 
@@ -836,6 +844,8 @@ class MainActivity : Activity() {
             val todos = carregarApps()   // cacheApps só é tocado nesta fila (uma thread)
             // Uso recente também aqui fora (04/11/2026): antes rodava dentro de montarEntradas, na thread da tela.
             val uso = if (Config.ORDENAR_POR_USO_RECENTE) Uso.ultimoUso(this) else emptyMap()
+            // Os retângulos mostram o banner de cada app: lê os que faltam ANTES de desenhar (só na 1ª vez do processo).
+            for (app in todos) if (!capas.containsKey(app.pacote)) runCatching { lerCapa(app.pacote, app.icone) }
             val t1 = android.os.SystemClock.elapsedRealtime()
             ui.post {
                 if (isDestroyed) return@post
@@ -847,8 +857,6 @@ class MainActivity : Activity() {
                 android.util.Log.i("TvLauncher.Apps", "preencherApps: carregar=${t1 - t0} ms (fora da tela), " +
                     "desenhar=${android.os.SystemClock.elapsedRealtime() - t1} ms")
             }
-            // Depois de mandar desenhar: lê de antemão as capas que faltam, para o foco nunca esperar por elas.
-            for (app in todos) if (!capas.containsKey(app.pacote)) runCatching { lerCapa(app.pacote, app.icone) }
         }
     }
     private val filaApps = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "Apps") }
@@ -875,10 +883,14 @@ class MainActivity : Activity() {
         if (assinatura == null || assinatura != ultimaAssinatura || linhaApps.childCount != cards.size) {
             linhaApps.removeAllViews()
             cards.forEach { linhaApps.addView(criarCartao(it)) }
+            prenderEsquerda(linhaApps.getChildAt(0))
             ultimaAssinatura = assinatura
         }
         if (cards.isEmpty()) return
+        if (atalhoAberto >= 0) return   // voltando de TV/Séries/Filmes: o foco volta para aquele card (desenharContinuar)
         linhaApps.post {
+            // Foco no Continuar (o TV na abertura): não roubar. A volta de um app já o trouxe para os apps no onResume.
+            if (::linhaContinuar.isInitialized && linhaContinuar.hasFocus()) return@post
             val achado = cards.indexOfFirst { it.token == ultimoToken }
             // Se o card sumiu (ex.: app ocultado), o foco fica na mesma posição, que agora é o vizinho.
             val alvo = if (achado >= 0) achado else indiceFoco.coerceIn(0, cards.lastIndex)
@@ -914,7 +926,7 @@ class MainActivity : Activity() {
             is Entrada.App -> montarCartao(entrada.token, entrada.nome, miniaturaApp(entrada.item), { abrir(entrada.item.pacote) }, aoFocar)
             // Pilha: o OK abre o app da frente (▲▼ trocam qual é).
             is Entrada.Pilha -> montarCartao(entrada.token, entrada.nome, miniaturaPilha(entrada.itens, entrada.frente), { abrir(entrada.daFrente.pacote) }, aoFocar)
-            is Entrada.Ocultos -> montarCartao(entrada.token, entrada.nome, miniaturaOcultos(), { abrirPasta(entrada) }, aoFocar)
+            is Entrada.Ocultos -> montarCartao(entrada.token, entrada.nome, miniaturaOcultos(entrada.nome), { abrirPasta(entrada) }, aoFocar)
             // O último canal fica no card "AO VIVO" da linha Continuar (no disco o nome não cabia: "Continuar: 4 ·…").
             is Entrada.Tv -> montarCartao(entrada.token, entrada.nome, miniaturaTv(), { abrirTv() }, aoFocar)
         }
@@ -948,17 +960,11 @@ class MainActivity : Activity() {
             addView(miniatura, FrameLayout.LayoutParams(MATCH, MATCH).apply { setMargins(dp(ANEL), dp(ANEL), dp(ANEL), dp(ANEL)) })
             foreground = fioFino()
         }
-        cartao.addView(moldura, LinearLayout.LayoutParams(dp(Grade.DISCO + 2 * ANEL), dp(Grade.DISCO + 2 * ANEL)))
-        cartao.addView(
-            texto(11.5f, textoSuave).apply {
-                text = nome
-                maxLines = 1
-                gravity = Gravity.CENTER
-                ellipsize = TextUtils.TruncateAt.END
-            },
-            LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP).apply { topMargin = dp(5) }
-        )
-        cartao.layoutParams = LinearLayout.LayoutParams(dp(Grade.DISCO + Grade.VAO_DISCO), WRAP)
+        cartao.addView(moldura, LinearLayout.LayoutParams(dp(RET_L + 2 * ANEL), dp(RET_A + 2 * ANEL)))
+        // O nome fica guardado (estilizar e o modo mover usam o filho 1), mas não aparece: o retângulo já mostra a arte do
+        // app, e quem não tem banner mostra o nome dentro (ver retanguloDoApp).
+        cartao.addView(texto(11.5f, textoSuave).apply { text = nome; visibility = View.GONE })
+        cartao.layoutParams = LinearLayout.LayoutParams(dp(RET_L + 2 * ANEL), WRAP).apply { marginEnd = dp(4) }
         return cartao
     }
 
@@ -1108,7 +1114,10 @@ class MainActivity : Activity() {
     private fun preencherContinuar() {
         filaApps.execute {
             val pm = packageManager
-            val ultimo = if (PlayerArmazem.temContas(this)) PlayerArmazem.ultimo(this) else null
+            val temTv = PlayerArmazem.temContas(this)
+            val ultimo = if (temTv) PlayerArmazem.ultimo(this) else null
+            // Séries e Filmes só existem numa conta Xtream (lista M3U não tem catálogo). fontes() decifra: fora da tela.
+            val temVod = temTv && PlayerArmazem.fontes(this).any { it.tipo == FonteTv.TIPO_XTREAM }
             val fora = setOf(packageName, Home.LAUNCHERX, "com.android.tv.settings", "com.google.android.tvlauncher")
             val recentes = Uso.ultimoUso(this).entries.sortedByDescending { it.value }.asSequence()
                 .map { it.key }
@@ -1121,24 +1130,51 @@ class MainActivity : Activity() {
                         Recente(pkg, nome, banner, if (banner == null) pm.getApplicationIcon(pkg) else null)
                     }.getOrNull()
                 }.toList()
-            ui.post { if (!isDestroyed) desenharContinuar(ultimo, recentes) }
+            ui.post { if (!isDestroyed) desenharContinuar(temTv, temVod, ultimo, recentes) }
         }
     }
 
-    private fun desenharContinuar(ultimo: PlayerArmazem.Ultimo?, recentes: List<Recente>) {
+    private fun desenharContinuar(temTv: Boolean, temVod: Boolean, ultimo: PlayerArmazem.Ultimo?, recentes: List<Recente>) {
         val focoAqui = linhaContinuar.hasFocus()
         linhaContinuar.removeAllViews()
         fun adicionar(v: View) = linhaContinuar.addView(v, LinearLayout.LayoutParams(dp(Grade.CARD_LARGURA), dp(Grade.CARD_ALTURA)).apply {
             marginEnd = dp(Grade.VAO)
         })
         ultimoTv = ultimo
-        if (currentFocus?.tag == TOKEN_TV) destaqueTv()   // o disco da TV já em foco: agora com o programa de agora
+        if (currentFocus?.tag == TOKEN_TV) destaqueTv()   // o card da TV já em foco: agora com o programa de agora
+        // Esboço do Paulo (06/11 noite): "a home já é parte do player". Os 3 primeiros lugares são TV (os canais), Séries e
+        // Filmes (cada um abre só o seu catálogo); depois vem o Continuar de sempre.
+        if (temTv) adicionar(cartaoAtalho(getString(R.string.home_card_tv), "📺", CapaFoco.CORES_TV,
+            { capaPedida = null; destaqueTv(); capa.mostrar(null, CapaFoco.CORES_TV) }) { abrirTv() }.apply { tag = TOKEN_TV })
+        if (temVod) {
+            adicionar(cartaoAtalho(getString(R.string.home_card_series), "🎞", CORES_SERIES, {
+                capaPedida = null
+                mostrarDestaque(null, getString(R.string.home_card_series), getString(R.string.home_destaque_series))
+                capa.mostrar(null, CORES_SERIES)
+            }) { abrirCatalogo(SeriesActivity::class.java) })
+            adicionar(cartaoAtalho(getString(R.string.home_card_filmes), "🎬", CORES_FILMES, {
+                capaPedida = null
+                mostrarDestaque(null, getString(R.string.home_card_filmes), getString(R.string.home_destaque_filmes))
+                capa.mostrar(null, CORES_FILMES)
+            }) { abrirCatalogo(FilmesActivity::class.java) })
+        }
         if (ultimo != null) adicionar(cartaoContinuar(getString(R.string.home_canal, ultimo.numero, ultimo.nome), null, null, true,
             { capaPedida = null; destaqueTv(); capa.mostrar(null, CapaFoco.CORES_TV) }) { abrirTv() })
         for (r in recentes) adicionar(cartaoContinuar(r.nome, r.banner, r.icone, false,
             { mostrarDestaque(null, r.nome, null); mostrarCapaDoApp(r.pacote, r.icone) }) { abrir(r.pacote) })
         caixaContinuar.visibility = if (linhaContinuar.childCount > 0) View.VISIBLE else View.GONE
-        if (focoAqui) linhaContinuar.getChildAt(0)?.requestFocus() ?: linhaApps.requestFocus()
+        prenderEsquerda(linhaContinuar.getChildAt(0))
+        // A HOME abre com o foco no card TV (Paulo, 06/11 noite: "a home já é parte do player"). Só na abertura: voltando de
+        // um app, o foco fica onde estava.
+        if (focoInicialNaTv) {
+            focoInicialNaTv = false
+            // return: o else-if lá embaixo ("foco no Continuar -> volta aos apps") tirava o foco do TV na hora (visto na Sala).
+            if (temTv && atalhoAberto < 0) { linhaContinuar.getChildAt(0)?.requestFocus(); return }
+        }
+        if (atalhoAberto >= 0) {
+            (linhaContinuar.getChildAt(atalhoAberto) ?: linhaApps.getChildAt(indiceFoco.coerceAtLeast(0)))?.requestFocus()
+            atalhoAberto = -1
+        } else if (focoAqui) linhaContinuar.getChildAt(0)?.requestFocus() ?: linhaApps.requestFocus()
         // Ao voltar de um app, o foco é da linha de apps (visto na Sala: voltando do player, ele caía no Continuar).
         else if (linhaContinuar.hasFocus()) linhaApps.getChildAt(indiceFoco.coerceAtLeast(0))?.requestFocus()
     }
@@ -1184,6 +1220,58 @@ class MainActivity : Activity() {
             }
         }
 
+    /** Card fixo do começo do Continuar (TV, Séries, Filmes): degradê da cor dele, símbolo e nome grandes embaixo. */
+    private fun cartaoAtalho(nome: String, simbolo: String, cores: IntArray, aoFocar: () -> Unit, aoAbrir: () -> Unit): View =
+        FrameLayout(this).apply {
+            isFocusable = true
+            isClickable = true
+            clipToOutline = true
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, o: Outline) = o.setRoundRect(0, 0, v.width, v.height, dp(10).toFloat())
+            }
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, cores)
+            addView(TextView(this@MainActivity).apply {
+                text = simbolo
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END).apply { setMargins(dp(10), dp(8), dp(12), dp(8)) })
+            addView(TextView(this@MainActivity).apply {
+                text = nome
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                typeface = Typeface.create(fonteUi, Typeface.BOLD)
+                maxLines = 1
+            }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(12), dp(8), dp(8), dp(8)) })
+            setOnClickListener { aoAbrir() }
+            setOnFocusChangeListener { v, temFoco ->
+                v.foreground = if (temFoco) GradientDrawable().apply {
+                    cornerRadius = dp(10).toFloat(); setStroke(dp(3), Color.WHITE)
+                } else null
+                val e = if (temFoco) 1.06f else 1f
+                v.animate().scaleX(e).scaleY(e).setDuration(120).start()
+                if (temFoco) aoFocar()
+            }
+        }
+
+    /** true até o 1º desenho do Continuar nesta abertura da HOME (ver desenharContinuar). */
+    private var focoInicialNaTv = true
+
+    /** ◀ no 1º card de uma linha não sai dela (antes o foco fugia para o relógio, lá em cima). */
+    private fun prenderEsquerda(v: View?) {
+        if (v == null) return
+        if (v.id == View.NO_ID) v.id = View.generateViewId()
+        v.nextFocusLeftId = v.id
+    }
+
+    /** Qual card fixo do Continuar (0 TV, 1 Séries, 2 Filmes) foi aberto: ao voltar, o foco volta nele. -1 = nenhum. */
+    private var atalhoAberto = -1
+
+    /** Abre só um catálogo do player (Séries ou Filmes), no processo dele; o VOLTAR de lá cai de novo na HOME. */
+    private fun abrirCatalogo(tela: Class<out Activity>) {
+        atalhoAberto = linhaContinuar.indexOfChild(currentFocus)
+        try { startActivity(Intent(this, tela)) }
+        catch (e: Exception) { android.util.Log.w("TvLauncher.Player", "não abriu ${tela.simpleName}: ${e.javaClass.simpleName}") }
+    }
+
     /** O nome embaixo do disco (filho 1 do card, ver [montarCartao]). */
     private fun nomeDoCartao(card: View): TextView? = (card as? ViewGroup)?.getChildAt(1) as? TextView
 
@@ -1200,12 +1288,41 @@ class MainActivity : Activity() {
 
     /** Abre o player (processo próprio, ver PlayerActivity) no último canal assistido. */
     private fun abrirTv() {
+        atalhoAberto = linhaContinuar.indexOfChild(currentFocus)
         try { startActivity(Intent(this, PlayerActivity::class.java)) }
         catch (e: Exception) { android.util.Log.w("TvLauncher.Player", "não abriu o player: ${e.javaClass.simpleName}") }
     }
 
-    /** O ícone do app num disco (já pronto em [iconeRedondo]). */
-    private fun miniaturaApp(app: Item): View = discoDoApp(app)
+    /** O app num retângulo 16:9 (esboço do Paulo, 06/11 noite). */
+    private fun miniaturaApp(app: Item): View = retanguloDoApp(app)
+
+    /**
+     * Retângulo do app: a arte de banner dele (a mesma da capa, já lida fora da tela em preencherApps). Sem banner, a cor
+     * do ícone com o ícone e o nome dentro.
+     */
+    private fun retanguloDoApp(app: Item): View = FrameLayout(this).apply {
+        val (banner, cores) = capas[app.pacote] ?: (null to intArrayOf(0xFF2B2F3A.toInt(), 0xFF0B0F17.toInt()))
+        arredondar(this, 10)
+        if (banner != null) {
+            addView(ImageView(this@MainActivity).apply {
+                setImageBitmap(banner); scaleType = ImageView.ScaleType.CENTER_CROP
+            }, FrameLayout.LayoutParams(MATCH, MATCH))
+        } else {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, cores)
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(8), 0, dp(6), 0)
+                addView(ImageView(this@MainActivity).apply { setImageDrawable(copia(app.icone)) }, LinearLayout.LayoutParams(dp(30), dp(30)))
+                addView(texto(12f, Color.WHITE, fonteUi).apply {
+                    text = app.nome
+                    maxLines = 2
+                    ellipsize = TextUtils.TruncateAt.END
+                    typeface = Typeface.create(fonteUi, Typeface.BOLD)
+                }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(6) })
+            }, FrameLayout.LayoutParams(MATCH, MATCH))
+        }
+    }
 
     private fun discoDoApp(app: Item): ImageView = ImageView(this).apply {
         setImageDrawable(copia(app.icone))
@@ -1259,15 +1376,14 @@ class MainActivity : Activity() {
         val camadas = (listOf(itens[frente]) + itens.filterIndexed { i, _ -> i != frente }).take(3)
         val caixa = FrameLayout(this).apply { clipChildren = false }
         for (i in camadas.indices.reversed()) {   // de trás para a frente: o último adicionado fica por cima
-            val disco = discoDoApp(camadas[i]).apply {
-                alpha = if (i == 0) 1f else 0.85f - 0.25f * (i - 1)
-                if (i > 0) setColorFilter(0xFF888888.toInt(), android.graphics.PorterDuff.Mode.MULTIPLY)   // escurece as de trás
+            val ret = retanguloDoApp(camadas[i]).apply {
+                alpha = if (i == 0) 1f else 0.7f - 0.25f * (i - 1)   // as de trás mais apagadas
             }
-            caixa.addView(disco, FrameLayout.LayoutParams(MATCH, MATCH).apply {
-                leftMargin = dp(8) * i
-                topMargin = -dp(5) * i
-                rightMargin = -dp(8) * i
-                bottomMargin = dp(5) * i
+            caixa.addView(ret, FrameLayout.LayoutParams(MATCH, MATCH).apply {
+                leftMargin = dp(6) * i
+                topMargin = -dp(4) * i
+                rightMargin = -dp(6) * i
+                bottomMargin = dp(4) * i
             })
         }
         caixa.addView(IndicadorPilha(this),
@@ -1277,11 +1393,12 @@ class MainActivity : Activity() {
         return caixa
     }
 
-    private fun miniaturaOcultos(): View = FrameLayout(this).apply {
-        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x26FFFFFF) }
-        addView(texto(32f, Color.WHITE).apply {
-            text = "🙈"
+    private fun miniaturaOcultos(nome: String): View = FrameLayout(this).apply {
+        background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0x26FFFFFF) }
+        addView(texto(12f, Color.WHITE, fonteUi).apply {
+            text = "🙈  $nome"
             gravity = Gravity.CENTER
+            maxLines = 2
         }, FrameLayout.LayoutParams(MATCH, MATCH))
     }
 
@@ -1339,7 +1456,6 @@ class MainActivity : Activity() {
         if (!sobe) {
             // 06/11/2026: com a linha Continuar na tela, ▼ desce para ela, como em qualquer card (senão, a partir de uma
             // pilha, o Continuar ficava inalcançável). Só ▲ troca o app da frente. Sem Continuar, ▼ gira como antes.
-            if (caixaContinuar.visibility == View.VISIBLE) return false
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) girarPilha(pilha, +1)
             return true
         }
@@ -1616,10 +1732,16 @@ class MainActivity : Activity() {
         // Sem anel no foco (o circulo branco ficava pesado sobre o icone): so o disco crescendo 12% e o nome
         // ficando branco ja mostram onde esta, como no Google TV de referencia. O fio fino continua sempre
         // (nao so no foco): e o que impede um icone escuro (ex.: Netflix) de sumir no fundo.
-        (grupo?.getChildAt(0))?.foreground = if (movendo) contorno(corMover, 0x2E7FD6C2, 3) else fioFino()
+        (grupo?.getChildAt(0))?.foreground = when {
+            movendo -> contorno(corMover, 0x2E7FD6C2, 3)
+            // O anel fica FORA do retângulo, com 2 dp de folga escura: num banner branco (Netflix, YouTube) um anel colado
+            // na borda sumia (visto na Sala, 06/11 noite).
+            focado -> android.graphics.drawable.InsetDrawable(contorno(Color.WHITE, Color.TRANSPARENT, 3), dp(1))
+            else -> fioFino()
+        }
         (grupo?.getChildAt(1) as? TextView)?.setTextColor(if (focado || movendo) Color.WHITE else textoSuave)
         // Só o disco cresce (o nome não: crescendo junto, ele encostava no nome do vizinho).
-        val escala = if (movendo) 1.16f else if (focado) 1.12f else 1f
+        val escala = if (movendo) 1.12f else if (focado) 1.08f else 1f
         (grupo?.getChildAt(0) ?: card).animate().scaleX(escala).scaleY(escala).setDuration(120).start()
     }
 
@@ -1630,7 +1752,7 @@ class MainActivity : Activity() {
 
     /** Anel circular de [espessura] dp (com [preenchimento] por dentro), desenhado por cima do disco. */
     private fun contorno(cor: Int, preenchimento: Int, espessura: Int): GradientDrawable = GradientDrawable().apply {
-        shape = GradientDrawable.OVAL
+        cornerRadius = dp(10).toFloat()   // retângulo de cantos redondos, como o card (era OVAL no tempo dos discos)
         setColor(preenchimento)
         setStroke(dp(espessura), cor)
     }
