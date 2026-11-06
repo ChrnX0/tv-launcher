@@ -592,8 +592,13 @@ class MainActivity : Activity() {
         return FrameLayout(this).apply {
             clipChildren = false   // a tela que sobe (Continuar) desenha o que estava abaixo da borda
             addView(vivo, FrameLayout.LayoutParams(MATCH, MATCH))
-            // A capa do foco: alto à direita, do tamanho do esboço (680 x 330 dp), atrás do topo e dos apps.
-            addView(capa, FrameLayout.LayoutParams(dp(680), dp(330), Gravity.TOP or Gravity.END))
+            // A capa do foco: alto à direita, do tamanho do esboço (680 x 330 dp), atrás do topo e dos apps. Desenhada em
+            // METADE da resolução e ampliada 2x (06/11: a capa cheia custava ~5 ms de GPU por quadro na Sala; é uma imagem
+            // de fundo escurecida, a perda de nitidez não aparece). A ampliação parte do canto de cima à direita.
+            addView(capa, FrameLayout.LayoutParams(dp(340), dp(165), Gravity.TOP or Gravity.END))
+            capa.scaleX = 2f
+            capa.scaleY = 2f
+            capa.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> v.pivotX = v.width.toFloat(); v.pivotY = 0f }
             addView(raiz, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(txtDica, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 bottomMargin = dp(32)
