@@ -27,7 +27,7 @@ object PlayerLista {
     const val MAX_RECENTES = 30
     const val MAX_FAVORITOS = 500
 
-    private val prefixoTipo = Regex("""^\s*(canais|canal|filmes|filme|s[ée]ries|s[ée]rie|movies|vod)\s*[|:\-–]\s*""", RegexOption.IGNORE_CASE)
+    private val prefixoTipo = Regex("""^\s*(canais|canal|filmes|filme|s[ée]ries|s[ée]rie|movies|vod)\s*[|:/\-–]\s*""", RegexOption.IGNORE_CASE)
 
     /**
      * Nome do grupo para a TELA, sem o prefixo do tipo que muitas listas põem ("Canais | Jogos de Hoje" vira
