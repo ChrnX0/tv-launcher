@@ -519,6 +519,15 @@
     <string name="filmes_ficha_carregando">Carregando a ficha…</string>
     <string name="filmes_direcao">Direção</string>
     <string name="filmes_elenco">Elenco</string>
+    <string name="filmes_interesses">Interesses</string>
+    <string name="filmes_assistidos">Assistidos</string>
+    <string name="filmes_interesse_pos">★ %1$s nos interesses</string>
+    <string name="filmes_interesse_tirou">%1$s saiu dos interesses</string>
+    <string name="filmes_interesses_cheio">Já há 500 interesses: tire um antes.</string>
+    <string name="filmes_interesses_vazio">Segure OK por 2 segundos num pôster para pôr aqui (e de novo para tirar).</string>
+    <string name="vod_grade_teclas">OK abrir · segure OK 2 s: pôr nos interesses ou tirar · VOLTAR categorias</string>
+    <string name="filmes_finalizado">Finalizado</string>
+    <string name="filmes_assistido">Assistido</string>
     <string name="vod_sem_conta">A conta deste vídeo não existe mais.</string>
     <string name="vod_erro">Não consegui tocar este vídeo. VOLTAR para sair.</string>
     <string name="vod_sem_legenda">Sem legenda</string>

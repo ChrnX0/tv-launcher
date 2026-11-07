@@ -92,9 +92,22 @@ object PlayerArmazem {
     fun posicoes(ctx: Context): Map<String, Posicao> = Vod.posicoesDeJson(lerArquivo(ctx, "posicoes.json"))
     fun definirPosicoes(ctx: Context, p: Map<String, Posicao>) = gravarArquivo(ctx, "posicoes.json", Vod.posicoesParaJson(p))
 
+    /**
+     * Filmes ou séries marcados como "interesse" (OK segurado 2 s na grade). Só as chaves, na ordem em que entraram.
+     * Um arquivo para cada tela: assim uma tela aberta por trás nunca grava por cima do que a outra mudou.
+     */
+    fun interesses(ctx: Context, series: Boolean): Set<String> =
+        PlayerLista.idsDeJson(lerArquivo(ctx, arquivoInteresses(series)), Vod.MAX_INTERESSES).toCollection(LinkedHashSet())
+    fun definirInteresses(ctx: Context, series: Boolean, chaves: Set<String>) = gravarArquivo(ctx, arquivoInteresses(series), PlayerLista.idsParaJson(chaves))
+    private fun arquivoInteresses(series: Boolean) = if (series) "interesses_series.json" else "interesses_filmes.json"
+
     /** Último episódio aberto em cada série (chave = Serie.chave). */
     fun ultimosEpisodios(ctx: Context): Map<String, UltimoEpisodio> = Series.ultimosDeJson(lerArquivo(ctx, "series_ultimos.json"))
     fun definirUltimosEpisodios(ctx: Context, u: Map<String, UltimoEpisodio>) = gravarArquivo(ctx, "series_ultimos.json", Series.ultimosParaJson(u))
+
+    /** Quantos episódios de cada série já foram vistos (chave = Serie.chave), para a etiqueta e os "Assistidos". */
+    fun progressoSeries(ctx: Context): Map<String, ProgressoSerie> = Series.progressoDeJson(lerArquivo(ctx, "series_progresso.json"))
+    fun definirProgressoSeries(ctx: Context, p: Map<String, ProgressoSerie>) = gravarArquivo(ctx, "series_progresso.json", Series.progressoParaJson(p))
 
     /** A última categoria escolhida na lista (só o player usa: preferência basta). */
     fun categoria(ctx: Context): String? = prefs(ctx).getString("categoria", null)

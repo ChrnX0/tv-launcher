@@ -41,7 +41,8 @@ data class Posicao(val ms: Long, val duracao: Long, val quando: Long)
 
 object Vod {
     const val MAX_FILMES = 30_000
-    const val MAX_POSICOES = 300
+    const val MAX_POSICOES = 1000             // filmes + episódios; ~60 KB de JSON (era 300; subiu para os "assistidos" durarem)
+    const val MAX_INTERESSES = 500
     private const val MIN_RETOMAR = 60_000L      // menos de 1 min assistido: começa do zero
     private const val FIM = 0.95                 // passou de 95%: conta como visto, não oferece "continuar"
 
@@ -144,6 +145,45 @@ object Vod {
     /** "Continuar assistindo": os começados e não terminados, do mais recente para o mais velho. */
     fun continuar(filmes: List<Filme>, posicoes: Map<String, Posicao>): List<Filme> =
         filmes.filter { deveRetomar(posicoes[it.chave]) }.sortedByDescending { posicoes[it.chave]?.quando ?: 0 }
+
+    // ---------------------------------------------------------------- assistidos e interesses (07/11/2026)
+
+    /** Já assistiu o bastante para contar (1 min, a mesma régua do "continuar") ou viu até o fim. */
+    fun assistido(p: Posicao?): Boolean = p != null && (p.ms >= MIN_RETOMAR || finalizado(p))
+
+    /** Passou de 95% (ou a VodActivity gravou o fim): "Finalizado". Sem duração conhecida não dá para saber. */
+    fun finalizado(p: Posicao?): Boolean = p != null && p.duracao > 0 && p.ms >= p.duracao * FIM
+
+    /**
+     * O número da etiqueta do pôster: null = sem etiqueta (nem começou); 0 = assistido, mas o servidor não deu a duração
+     * (mostra só "Assistido"); 1 a 99 = quanto viu; 100 = Finalizado. Nunca mostra 100 sem ter terminado nem 0% falso.
+     */
+    fun progresso(p: Posicao?): Int? = when {
+        !assistido(p) -> null
+        finalizado(p) -> 100
+        p!!.duracao <= 0 -> 0
+        else -> (p.ms * 100 / p.duracao).toInt().coerceIn(1, 99)
+    }
+
+    /** "Assistidos": tudo o que foi visto (terminado ou não), do mais recente para o mais velho. */
+    fun assistidos(filmes: List<Filme>, posicoes: Map<String, Posicao>): List<Filme> =
+        filmes.filter { assistido(posicoes[it.chave]) }.sortedByDescending { posicoes[it.chave]?.quando ?: 0 }
+
+    /** Põe ou tira dos interesses (mesma regra dos favoritos de canais). Cheio = devolve o mesmo conjunto. */
+    fun alternarInteresse(interesses: Set<String>, chave: String): Set<String> = when {
+        chave in interesses -> interesses - chave
+        interesses.size >= MAX_INTERESSES -> interesses
+        else -> LinkedHashSet(interesses).apply { add(chave) }
+    }
+
+    /**
+     * "Interesses" (filmes ou séries): o último adicionado primeiro.
+     * O que saiu do catálogo some da lista, mas a chave fica guardada (volta se o servidor devolver o título).
+     */
+    fun <T> interesses(itens: List<T>, interesses: Set<String>, chaveDe: (T) -> String): List<T> {
+        val porChave = itens.associateBy(chaveDe)
+        return interesses.reversed().mapNotNull { porChave[it] }
+    }
 
     fun posicoesParaJson(p: Map<String, Posicao>): String = JSONObject().apply {
         p.forEach { (k, v) -> put(k, JSONArray().put(v.ms).put(v.duracao).put(v.quando)) }
