@@ -42,6 +42,13 @@ data class FichaSerie(
     val temporadas: Map<Int, List<Episodio>> = emptyMap(),   // ordenadas por número
 )
 
+/**
+ * Quanto da série já foi visto (07/11/2026, "Assistidos" das séries): episódios vistos / total, calculado quando a ficha
+ * abre (só ela tem a lista de episódios). `atualizada` = o last_modified da série naquela hora: se o servidor publicar
+ * episódio novo depois, a série deixa de contar como "Finalizado" até a ficha abrir de novo.
+ */
+data class ProgressoSerie(val vistos: Int, val total: Int, val atualizada: Long)
+
 /** O último episódio que a pessoa abriu numa série (para o "continuar" sem baixar a ficha de todas). */
 data class UltimoEpisodio(val episodioId: String, val temporada: Int, val numero: Int, val titulo: String, val extensao: String, val quando: Long)
 
@@ -142,9 +149,58 @@ object Series {
         return if (terminou) (proximo(f, ep) ?: ep) to false else ep to false
     }
 
-    /** Séries com episódio aberto, da mais recente para a mais velha (o "Continuar assistindo" das séries). */
-    fun continuar(series: List<Serie>, ultimos: Map<String, UltimoEpisodio>): List<Serie> =
-        series.filter { it.chave in ultimos }.sortedByDescending { ultimos[it.chave]?.quando ?: 0 }
+    /**
+     * Séries com episódio aberto, da mais recente para a mais velha (o "Continuar assistindo" das séries). Série
+     * finalizada sai daqui (como o filme visto até o fim) e fica só em "Assistidos"; volta se sair episódio novo.
+     */
+    fun continuar(series: List<Serie>, ultimos: Map<String, UltimoEpisodio>, progresso: Map<String, ProgressoSerie> = emptyMap()): List<Serie> =
+        series.filter { it.chave in ultimos && percentual(it, progresso[it.chave]) != 100 }.sortedByDescending { ultimos[it.chave]?.quando ?: 0 }
+
+    // ---------------------------------------------------------------- assistidos (07/11/2026)
+
+    /**
+     * Conta os episódios vistos (1 min ou mais, ou até o fim: a régua dos filmes) com a ficha na mão. Se o total não
+     * mudou, nunca desce: posição velha de episódio pode sair do posicoes.json (limite de 1000) e o visto continua visto.
+     */
+    fun progressoDaFicha(s: Serie, f: FichaSerie, posicoes: Map<String, Posicao>, anterior: ProgressoSerie?): ProgressoSerie? {
+        val todos = emOrdem(f)
+        if (todos.isEmpty()) return anterior
+        val vistos = todos.count { Vod.assistido(posicoes[it.chave(s.fonteId)]) }
+        val manter = if (anterior != null && anterior.total == todos.size) anterior.vistos else 0
+        return ProgressoSerie(maxOf(vistos, manter).coerceAtMost(todos.size), todos.size, s.atualizada)
+    }
+
+    /**
+     * O número da etiqueta, na mesma régua dos filmes: null = sem etiqueta; 1 a 99 = % dos episódios vistos;
+     * 100 = Finalizado (todos vistos e nada novo desde a conta).
+     */
+    fun percentual(s: Serie, p: ProgressoSerie?): Int? {
+        if (p == null || p.total <= 0 || p.vistos <= 0) return null
+        if (p.vistos >= p.total && s.atualizada <= p.atualizada) return 100
+        return (p.vistos * 100 / p.total).coerceIn(1, 99)
+    }
+
+    /** "Assistidos": toda série com episódio visto, terminada ou não, da mais recente para a mais velha. */
+    fun assistidos(series: List<Serie>, ultimos: Map<String, UltimoEpisodio>, posicoes: Map<String, Posicao>,
+                   progresso: Map<String, ProgressoSerie>): List<Serie> =
+        series.filter { s ->
+            (progresso[s.chave]?.vistos ?: 0) > 0 || ultimos[s.chave]?.let { Vod.assistido(posicoes["${s.fonteId}:e${it.episodioId}"]) } == true
+        }.sortedByDescending { ultimos[it.chave]?.quando ?: 0 }
+
+    fun progressoParaJson(p: Map<String, ProgressoSerie>): String = JSONObject().apply {
+        p.forEach { (k, v) -> put(k, JSONArray().put(v.vistos).put(v.total).put(v.atualizada)) }
+    }.toString()
+
+    fun progressoDeJson(texto: String?): Map<String, ProgressoSerie> {
+        val o = runCatching { JSONObject(texto ?: return emptyMap()) }.getOrNull() ?: return emptyMap()
+        val saida = LinkedHashMap<String, ProgressoSerie>()
+        for (k in o.keys()) {
+            val a = o.optJSONArray(k) ?: continue
+            if (k.length > 200 || a.length() < 3) continue
+            saida[k] = ProgressoSerie(a.optInt(0), a.optInt(1), a.optLong(2))
+        }
+        return saida
+    }
 
     fun ordenar(series: List<Serie>, ordem: Vod.Ordem): List<Serie> = when (ordem) {
         Vod.Ordem.RECENTES -> series.sortedByDescending { it.atualizada }

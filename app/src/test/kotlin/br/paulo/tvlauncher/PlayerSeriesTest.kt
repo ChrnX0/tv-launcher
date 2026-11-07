@@ -61,4 +61,28 @@ class PlayerSeriesTest {
         val muitas = (1..205).associate { "k$it" to UltimoEpisodio("e", 1, 1, "", "mp4", it.toLong()) }
         assertTrue(Series.registrarUltimo(muitas, "novo", UltimoEpisodio("e", 1, 1, "", "mp4", 999)).size == 200)
     }
+
+    @Test fun assistidosEFinalizado() {
+        val serie = Serie("5", "a1", "A Série", atualizada = 100)
+        val vista = mapOf("a1:e11" to Posicao(2_700_000, 2_700_000, 1))                 // T1E1 até o fim
+        val p1 = Series.progressoDaFicha(serie, ficha, vista, null)!!
+        assertEquals(ProgressoSerie(1, 3, 100), p1)
+        assertEquals(33, Series.percentual(serie, p1))
+        assertNull(Series.percentual(serie, Series.progressoDaFicha(serie, ficha, emptyMap(), null)))   // nada visto
+        val todas = vista + ("a1:e12" to Posicao(120_000, 2_700_000, 2)) + ("a1:e21" to Posicao(2_600_000, 2_700_000, 3))
+        val p3 = Series.progressoDaFicha(serie, ficha, todas, p1)!!
+        assertEquals(100, Series.percentual(serie, p3))                                  // 3 de 3: Finalizado
+        // Posições velhas sumiram do arquivo: o visto continua visto (total igual).
+        assertEquals(3, Series.progressoDaFicha(serie, ficha, emptyMap(), p3)!!.vistos)
+        // Episódio novo no servidor depois da conta: deixa de ser Finalizado.
+        assertEquals(99, Series.percentual(serie.copy(atualizada = 200), p3))
+        // Finalizada sai do "continuar" e fica nos "assistidos".
+        val u = mapOf(serie.chave to UltimoEpisodio("21", 2, 1, "", "mp4", 9))
+        val prog = mapOf(serie.chave to p3)
+        assertTrue(Series.continuar(listOf(serie), u, prog).isEmpty())
+        assertEquals(listOf("5"), Series.assistidos(listOf(serie), u, todas, prog).map { it.id })
+        // Sem conta ainda, mas com o último episódio visto: entra nos assistidos.
+        assertEquals(listOf("5"), Series.assistidos(listOf(serie), u, todas, emptyMap()).map { it.id })
+        assertEquals(prog, Series.progressoDeJson(Series.progressoParaJson(prog)))
+    }
 }

@@ -46,6 +46,7 @@ class SeriesActivity : Activity() {
         const val ORDEM = "*ordem"
         const val CONTINUAR = "*continuar"
         const val INTERESSES = "*interesses"
+        const val ASSISTIDOS = "*assistidos"
         const val TODOS = "*todos"
         const val BUSCA = "*busca"
         const val CODIGO_VIDEO = 7
@@ -59,12 +60,14 @@ class SeriesActivity : Activity() {
     private val apagado = 0x80F5F3EE.toInt()
     private val ambar = 0xFFF5B544.toInt()
     private val coral = 0xFFFF5A4E.toInt()
+    private val verdeEtiqueta = 0xE62E7D4F.toInt()
     private val fonteMedia = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
     private var series: List<Serie> = emptyList()
     private var ultimos: Map<String, UltimoEpisodio> = emptyMap()
     private var posicoes: Map<String, Posicao> = emptyMap()
     private var interesses: Set<String> = emptySet()
+    private var progresso: Map<String, ProgressoSerie> = emptyMap()   // episódios vistos / total, por série
     private val segurar = SegurarOk()
     private var ordem = Vod.Ordem.RECENTES
     private var itens: List<Item> = emptyList()
@@ -151,12 +154,13 @@ class SeriesActivity : Activity() {
             val u = PlayerArmazem.ultimosEpisodios(this)
             val p = PlayerArmazem.posicoes(this)
             val i = PlayerArmazem.interesses(this, series = true)
+            val pr = PlayerArmazem.progressoSeries(this)
             tela.post {
                 if (isDestroyed) return@post
-                series = s; ultimos = u; posicoes = p; interesses = i
+                series = s; ultimos = u; posicoes = p; interesses = i; progresso = pr
                 if (s.isEmpty()) { aviso.text = getString(R.string.series_vazio); return@post }
                 aviso.visibility = View.GONE
-                chave = if (Series.continuar(s, u).isNotEmpty()) CONTINUAR else TODOS
+                chave = if (Series.continuar(s, u, pr).isNotEmpty()) CONTINUAR else TODOS
                 montarItens(); preencherGrade(); grade.requestFocus()
             }
         }.start()
@@ -170,9 +174,11 @@ class SeriesActivity : Activity() {
         val l = ArrayList<Item>()
         l += Item(BUSCAR, getString(R.string.player_acao_buscar), -1)
         l += Item(ORDEM, getString(R.string.filmes_ordem, nomeOrdem(ordem)), -1)
-        val cont = Series.continuar(series, ultimos).size
+        val cont = Series.continuar(series, ultimos, progresso).size
         if (cont > 0) l += Item(CONTINUAR, getString(R.string.filmes_continuar), cont)
         l += Item(INTERESSES, getString(R.string.filmes_interesses), Vod.interesses(series, interesses) { it.chave }.size)
+        val vistas = Series.assistidos(series, ultimos, posicoes, progresso).size
+        if (vistas > 0) l += Item(ASSISTIDOS, getString(R.string.filmes_assistidos), vistas)
         if (termo.isNotEmpty()) l += Item(BUSCA, getString(R.string.player_cat_busca, termo), resultados.size)
         l += Item(TODOS, getString(R.string.player_cat_todos), series.size)
         Series.grupos(series).forEach { (g, n) -> l += Item("g:$g", PlayerLista.nomeExibido(g).ifEmpty { getString(R.string.player_cat_outros) }, n) }
@@ -190,7 +196,8 @@ class SeriesActivity : Activity() {
 
     private fun preencherGrade() {
         naGrade = when {
-            chave == CONTINUAR -> Series.continuar(series, ultimos)
+            chave == CONTINUAR -> Series.continuar(series, ultimos, progresso)
+            chave == ASSISTIDOS -> Series.assistidos(series, ultimos, posicoes, progresso)
             chave == INTERESSES -> Vod.interesses(series, interesses) { it.chave }   // a última marcada primeiro
             chave == BUSCA -> resultados
             chave.startsWith("g:") -> Series.ordenar(series.filter { it.grupo.trim() == chave.removePrefix("g:") }, ordem)
@@ -264,7 +271,7 @@ class SeriesActivity : Activity() {
             }
             val it = itens[p]
             (linha.getChildAt(0) as TextView).apply {
-                text = when (it.chave) { BUSCAR, BUSCA -> "⌕  "; ORDEM -> "⇅  "; CONTINUAR -> "▶  "; INTERESSES -> "★  "; else -> "" } + it.nome
+                text = when (it.chave) { BUSCAR, BUSCA -> "⌕  "; ORDEM -> "⇅  "; CONTINUAR -> "▶  "; INTERESSES -> "★  "; ASSISTIDOS -> "✓  "; else -> "" } + it.nome
                 setTextColor(if (it.chave == chave) ambar else papel)
             }
             (linha.getChildAt(1) as TextView).text = if (it.quantos < 0) "" else it.quantos.toString()
@@ -272,7 +279,7 @@ class SeriesActivity : Activity() {
         }
     }
 
-    private class Card(val capa: ImageView, val nome: TextView, val sub: TextView, val estrela: TextView)
+    private class Card(val capa: ImageView, val nome: TextView, val sub: TextView, val estrela: TextView, val etiqueta: TextView)
 
     private val adaptadorGrade = object : BaseAdapter() {
         override fun getCount() = naGrade.size
@@ -285,6 +292,15 @@ class SeriesActivity : Activity() {
             c.nome.text = Vod.nomeLimpo(s.nome)
             c.sub.text = ultimos[s.chave]?.let { "T${it.temporada}E${it.numero}" }.orEmpty()
             c.sub.visibility = if (c.sub.text.isEmpty()) View.GONE else View.VISIBLE
+            // Mesma etiqueta dos filmes: "% dos episódios vistos" ou "Finalizado". Sem conta ainda (ficha nunca aberta
+            // depois desta versão) mas com episódio visto: "Assistido".
+            val pct = Series.percentual(s, progresso[s.chave])
+            val visto = pct != null || ultimos[s.chave]?.let { Vod.assistido(posicoes["${s.fonteId}:e${it.episodioId}"]) } == true
+            if (!visto) c.etiqueta.visibility = View.GONE else {
+                c.etiqueta.visibility = View.VISIBLE
+                c.etiqueta.text = when (pct) { 100 -> getString(R.string.filmes_finalizado); null -> getString(R.string.filmes_assistido); else -> "$pct%" }
+                (c.etiqueta.background as GradientDrawable).setColor(if (pct == 100) verdeEtiqueta else 0xD90B0F17.toInt())
+            }
             c.estrela.visibility = if (s.chave in interesses) View.VISIBLE else View.GONE
             PlayerLogos.carregar(this@SeriesActivity, s.capa, c.capa, lado = 360)
             return v
@@ -306,13 +322,18 @@ class SeriesActivity : Activity() {
             background = GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xD90B0F17.toInt()) }
         }
         moldura.addView(estrela, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(5), 0) })
+        val etiqueta = TextView(this).apply {
+            textSize = 11f; typeface = fonteMedia; setTextColor(papel); setPadding(dp(7), dp(2), dp(7), dp(2))
+            background = GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xD90B0F17.toInt()) }
+        }
+        moldura.addView(etiqueta, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(5), 0, 0, dp(5)) })
         col.addView(moldura, LinearLayout.LayoutParams(-1, dp(150)))
         val nome = TituloCard(this, 12f).apply { setTextColor(papel); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(6), 0, 0) }
         col.addView(nome)
         val sub = TextView(this).apply { textSize = 11f; setTextColor(ambar) }
         col.addView(sub)
         col.layoutParams = AbsListView.LayoutParams(-1, dp(212))
-        col.tag = Card(capa, nome, sub, estrela)
+        col.tag = Card(capa, nome, sub, estrela, etiqueta)
         return col
     }
 
@@ -326,6 +347,7 @@ class SeriesActivity : Activity() {
             tela.post {
                 if (isDestroyed || aberta !== s) return@post
                 fichaAberta = f
+                atualizarProgresso(s, f)
                 temporada = ultimos[s.chave]?.temporada?.takeIf { f?.temporadas?.containsKey(it) == true } ?: f?.temporadas?.keys?.firstOrNull() ?: 1
                 desenharFicha()
             }
@@ -335,6 +357,18 @@ class SeriesActivity : Activity() {
     private fun fecharFicha() {
         aberta = null; fichaAberta = null; painel.visibility = View.GONE; painel.removeAllViews()
         if (naGrade.isNotEmpty()) grade.requestFocus() else listaCats.requestFocus()
+    }
+
+    /** Recalcula "vistos / total" com a ficha aberta (só ela tem os episódios) e grava se mudou. */
+    private fun atualizarProgresso(s: Serie, f: FichaSerie?) {
+        f ?: return
+        val novo = Series.progressoDaFicha(s, f, posicoes, progresso[s.chave]) ?: return
+        if (novo == progresso[s.chave] || (novo.vistos == 0 && s.chave !in progresso)) return   // nada visto: não guarda
+        // Guarda só séries que ainda estão no "último episódio" (até 200) mais esta: o arquivo não cresce sem fim.
+        progresso = progresso.filterKeys { it in ultimos || it == s.chave } + (s.chave to novo)
+        val copia = progresso
+        Thread { PlayerArmazem.definirProgressoSeries(this, copia) }.start()
+        montarItens(); adaptadorGrade.notifyDataSetChanged()
     }
 
     // ---------------------------------------------------------------- interesses (OK segurado 2 s, igual aos filmes)
@@ -492,6 +526,7 @@ class SeriesActivity : Activity() {
             tela.post {
                 if (isDestroyed) return@post
                 posicoes = p
+                if (s != null && f != null) atualizarProgresso(s, f)
                 val terminou = resultCode == RESULT_OK && data?.getBooleanExtra(VodActivity.RESULTADO_TERMINOU, false) == true
                 val prox = if (terminou && s != null && f != null && ep != null) Series.proximo(f, ep) else null
                 if (prox != null && s != null) { temporada = prox.temporada; desenharFicha(); tocar(s, prox, doComeco = true) }

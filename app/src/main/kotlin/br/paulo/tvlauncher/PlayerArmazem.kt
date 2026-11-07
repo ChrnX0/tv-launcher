@@ -105,6 +105,10 @@ object PlayerArmazem {
     fun ultimosEpisodios(ctx: Context): Map<String, UltimoEpisodio> = Series.ultimosDeJson(lerArquivo(ctx, "series_ultimos.json"))
     fun definirUltimosEpisodios(ctx: Context, u: Map<String, UltimoEpisodio>) = gravarArquivo(ctx, "series_ultimos.json", Series.ultimosParaJson(u))
 
+    /** Quantos episódios de cada série já foram vistos (chave = Serie.chave), para a etiqueta e os "Assistidos". */
+    fun progressoSeries(ctx: Context): Map<String, ProgressoSerie> = Series.progressoDeJson(lerArquivo(ctx, "series_progresso.json"))
+    fun definirProgressoSeries(ctx: Context, p: Map<String, ProgressoSerie>) = gravarArquivo(ctx, "series_progresso.json", Series.progressoParaJson(p))
+
     /** A última categoria escolhida na lista (só o player usa: preferência basta). */
     fun categoria(ctx: Context): String? = prefs(ctx).getString("categoria", null)
     fun definirCategoria(ctx: Context, chave: String) = prefs(ctx).edit().putString("categoria", chave).apply()
