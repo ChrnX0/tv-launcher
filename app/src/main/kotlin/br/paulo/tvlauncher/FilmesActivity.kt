@@ -39,6 +39,8 @@ import java.util.Locale
  *     ⌕ Buscar         ▓▓ ▓▓ ▓▓ ▓▓ ▓▓ ▓▓      OK num pôster abre a ficha: sinopse, elenco, duração,
  *     ⇅ Ordem          ▓▓ ▓▓ ▓▓ ▓▓ ▓▓ ▓▓      e os botões Continuar / Do começo / Assistir.
  *     ▶ Continuar
+ *     ★ Interesses     OK segurado 2 s num pôster põe/tira dos interesses (como os favoritos dos canais).
+ *     ✓ Assistidos     tudo o que já foi visto, com a etiqueta "42%" ou "Finalizado" no pôster.
  *     Todos · Ação · ...
  *
  * As duas colunas são ListView/GridView do Android (só desenham o que está na tela: 30 mil filmes custam o mesmo que 30).
@@ -49,6 +51,8 @@ class FilmesActivity : Activity() {
         const val BUSCAR = "*buscar"
         const val ORDEM = "*ordem"
         const val CONTINUAR = "*continuar"
+        const val INTERESSES = "*interesses"
+        const val ASSISTIDOS = "*assistidos"
         const val TODOS = "*todos"
         const val BUSCA = "*busca"
     }
@@ -61,10 +65,13 @@ class FilmesActivity : Activity() {
     private val apagado = 0x80F5F3EE.toInt()
     private val ambar = 0xFFF5B544.toInt()
     private val coral = 0xFFFF5A4E.toInt()
+    private val verdeEtiqueta = 0xE62E7D4F.toInt()
     private val fonteMedia = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
     private var filmes: List<Filme> = emptyList()
     private var posicoes: Map<String, Posicao> = emptyMap()
+    private var interesses: Set<String> = emptySet()
+    private val segurar = SegurarOk()
     private var ordem = Vod.Ordem.RECENTES
     private var itens: List<Item> = emptyList()
     private var chave = TODOS
@@ -140,7 +147,13 @@ class FilmesActivity : Activity() {
         // Voltou da VodActivity: a posição mudou ("continuar" e os botões da ficha).
         if (filmes.isNotEmpty()) Thread {
             val p = PlayerArmazem.posicoes(this)
-            tela.post { if (!isDestroyed) { posicoes = p; montarItens(); adaptadorGrade.notifyDataSetChanged(); ficha?.let { abrirFicha(it, manterFoco = true) } } }
+            tela.post {
+                if (isDestroyed) return@post
+                posicoes = p; montarItens()
+                // "Assistidos" e "Continuar" mudam de conteúdo ao voltar do vídeo: refaz a grade sem perder o lugar.
+                if (chave == ASSISTIDOS || chave == CONTINUAR) refazerGrade() else adaptadorGrade.notifyDataSetChanged()
+                ficha?.let { abrirFicha(it, manterFoco = true) }
+            }
         }.start()
     }
 
@@ -150,9 +163,10 @@ class FilmesActivity : Activity() {
         Thread {
             val f = PlayerCarga.filmes(this)
             val p = PlayerArmazem.posicoes(this)
+            val i = PlayerArmazem.interesses(this, series = false)
             tela.post {
                 if (isDestroyed) return@post
-                filmes = f; posicoes = p
+                filmes = f; posicoes = p; interesses = i
                 if (f.isEmpty()) { aviso.text = getString(R.string.filmes_vazio); return@post }
                 aviso.visibility = View.GONE
                 chave = if (Vod.continuar(f, p).isNotEmpty()) CONTINUAR else TODOS
@@ -173,6 +187,10 @@ class FilmesActivity : Activity() {
         l += Item(ORDEM, getString(R.string.filmes_ordem, nomeOrdem(ordem)), -1)
         val cont = Vod.continuar(filmes, posicoes).size
         if (cont > 0) l += Item(CONTINUAR, getString(R.string.filmes_continuar), cont)
+        // Interesses aparece sempre (vazio explica como usar); Assistidos só depois do 1º filme visto.
+        l += Item(INTERESSES, getString(R.string.filmes_interesses), Vod.interesses(filmes, interesses) { it.chave }.size)
+        val vistos = Vod.assistidos(filmes, posicoes).size
+        if (vistos > 0) l += Item(ASSISTIDOS, getString(R.string.filmes_assistidos), vistos)
         if (termo.isNotEmpty()) l += Item(BUSCA, getString(R.string.player_cat_busca, termo), resultados.size)
         l += Item(TODOS, getString(R.string.player_cat_todos), filmes.size)
         Vod.grupos(filmes).forEach { (g, n) -> l += Item("g:$g", PlayerLista.nomeExibido(g).ifEmpty { getString(R.string.player_cat_outros) }, n) }
@@ -194,6 +212,8 @@ class FilmesActivity : Activity() {
     private fun preencherGrade() {
         naGrade = when {
             chave == CONTINUAR -> Vod.continuar(filmes, posicoes)          // já na ordem de "mais recente"
+            chave == INTERESSES -> Vod.interesses(filmes, interesses) { it.chave }   // o último marcado primeiro
+            chave == ASSISTIDOS -> Vod.assistidos(filmes, posicoes)        // o visto mais recente primeiro
             chave == BUSCA -> resultados
             chave.startsWith("g:") -> Vod.ordenar(filmes.filter { it.grupo.trim() == chave.removePrefix("g:") }, ordem)
             else -> Vod.ordenar(filmes, ordem)
@@ -203,6 +223,48 @@ class FilmesActivity : Activity() {
         val nome = itens.firstOrNull { it.chave == chave }?.nome.orEmpty()
         cabecalho.text = getString(R.string.filmes_cabecalho, nome.uppercase(Locale.getDefault()), naGrade.size)
         mostrarFocado(naGrade.firstOrNull())
+    }
+
+    /** Recalcula a categoria atual sem voltar ao 1º pôster (tirou um interesse, voltou do vídeo). */
+    private fun refazerGrade() {
+        val onde = grade.selectedItemPosition
+        val tinhaFoco = grade.hasFocus()
+        preencherGrade()
+        if (naGrade.isNotEmpty()) { val p = onde.coerceIn(0, naGrade.size - 1); grade.setSelection(p); mostrarFocado(naGrade[p]) }
+        else if (tinhaFoco) listaCats.requestFocus()   // esvaziou: o foco volta para as categorias
+    }
+
+    // ---------------------------------------------------------------- interesses (OK segurado 2 s)
+
+    override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        // Só o OK com a grade em foco e a ficha fechada; o resto segue o caminho normal do Android.
+        if (!SegurarOk.ehOk(e.keyCode) || painelFicha.visibility == View.VISIBLE || !grade.hasFocus()) {
+            if (SegurarOk.ehOk(e.keyCode)) segurar.soltar()
+            return super.dispatchKeyEvent(e)
+        }
+        return segurar.tratar(e,
+            aoCurto = { naGrade.getOrNull(grade.selectedItemPosition)?.let { abrirFicha(it) } },
+            aoSegurar = { naGrade.getOrNull(grade.selectedItemPosition)?.let { alternarInteresse(it) } })
+    }
+
+    private fun alternarInteresse(f: Filme) {
+        val antes = interesses
+        interesses = Vod.alternarInteresse(interesses, f.chave)
+        if (interesses === antes) { avisoBreve(getString(R.string.filmes_interesses_cheio)); return }
+        val virou = f.chave in interesses
+        val copia = interesses
+        Thread { PlayerArmazem.definirInteresses(this, series = false, copia) }.start()   // disco fora da thread da tela
+        montarItens()
+        if (chave == INTERESSES) refazerGrade() else adaptadorGrade.notifyDataSetChanged()
+        avisoBreve(getString(if (virou) R.string.filmes_interesse_pos else R.string.filmes_interesse_tirou, Vod.nomeLimpo(f.nome)))
+    }
+
+    private val esconderAviso = Runnable { aviso.visibility = View.GONE }
+
+    /** O mesmo balão do "Carregando", por 2,5 s. */
+    private fun avisoBreve(t: String) {
+        aviso.text = t; aviso.visibility = View.VISIBLE
+        tela.removeCallbacks(esconderAviso); tela.postDelayed(esconderAviso, 2_500)
     }
 
     private fun nomeOrdem(o: Vod.Ordem) = getString(when (o) {
@@ -261,7 +323,7 @@ class FilmesActivity : Activity() {
             }
             val it = itens[p]
             (linha.getChildAt(0) as TextView).apply {
-                text = when (it.chave) { BUSCAR, BUSCA -> "⌕  "; ORDEM -> "⇅  "; CONTINUAR -> "▶  "; else -> "" } + it.nome
+                text = when (it.chave) { BUSCAR, BUSCA -> "⌕  "; ORDEM -> "⇅  "; CONTINUAR -> "▶  "; INTERESSES -> "★  "; ASSISTIDOS -> "✓  "; else -> "" } + it.nome
                 setTextColor(if (it.chave == chave) ambar else papel)
             }
             (linha.getChildAt(1) as TextView).text = if (it.quantos < 0) "" else it.quantos.toString()
@@ -271,7 +333,7 @@ class FilmesActivity : Activity() {
 
     // ---------------------------------------------------------------- grade de pôsteres
 
-    private class Card(val capa: ImageView, val nome: TextView, val barra: ProgressBar)
+    private class Card(val capa: ImageView, val nome: TextView, val barra: ProgressBar, val etiqueta: TextView, val estrela: TextView)
 
     private val adaptadorGrade = object : BaseAdapter() {
         override fun getCount() = naGrade.size
@@ -286,6 +348,14 @@ class FilmesActivity : Activity() {
             if (Vod.deveRetomar(pos) && pos!!.duracao > 0) {
                 c.barra.visibility = View.VISIBLE; c.barra.progress = (pos.ms * 1000 / pos.duracao).toInt()
             } else c.barra.visibility = View.GONE
+            // Etiqueta do quanto foi visto: "42%", "Finalizado" (95% ou mais) ou "Assistido" (servidor sem duração).
+            val pct = Vod.progresso(pos)
+            if (pct == null) c.etiqueta.visibility = View.GONE else {
+                c.etiqueta.visibility = View.VISIBLE
+                c.etiqueta.text = when (pct) { 100 -> getString(R.string.filmes_finalizado); 0 -> getString(R.string.filmes_assistido); else -> "$pct%" }
+                (c.etiqueta.background as GradientDrawable).setColor(if (pct == 100) verdeEtiqueta else 0xD90B0F17.toInt())
+            }
+            c.estrela.visibility = if (f.chave in interesses) View.VISIBLE else View.GONE
             PlayerLogos.carregar(this@FilmesActivity, f.capa, c.capa, lado = 360)
             return v
         }
@@ -299,7 +369,20 @@ class FilmesActivity : Activity() {
             clipToOutline = true
         }
         // Largura da coluna / altura 2:3 (pôster de cinema). A largura real vem do GridView; aqui uma altura fixa basta.
-        col.addView(capa, LinearLayout.LayoutParams(-1, dp(150)))
+        // A capa vai num FrameLayout para a etiqueta (embaixo, à esquerda) e a estrela (em cima, à direita) ficarem por cima.
+        val moldura = FrameLayout(this)
+        moldura.addView(capa, FrameLayout.LayoutParams(-1, -1))
+        val etiqueta = TextView(this).apply {
+            textSize = 11f; typeface = fonteMedia; setTextColor(papel); setPadding(dp(7), dp(2), dp(7), dp(2))
+            background = GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xD90B0F17.toInt()) }
+        }
+        moldura.addView(etiqueta, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(5), 0, 0, dp(5)) })
+        val estrela = TextView(this).apply {
+            text = "★"; textSize = 15f; setTextColor(ambar); setPadding(dp(6), dp(1), dp(6), dp(2))
+            background = GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xD90B0F17.toInt()) }
+        }
+        moldura.addView(estrela, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(5), 0) })
+        col.addView(moldura, LinearLayout.LayoutParams(-1, dp(150)))
         val barra = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 1000; progressTintList = ColorStateList.valueOf(coral); progressBackgroundTintList = ColorStateList.valueOf(0x38FFFFFF)
         }
@@ -307,11 +390,12 @@ class FilmesActivity : Activity() {
         val nome = TituloCard(this, 12f).apply { setTextColor(papel); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(4), 0, 0) }
         col.addView(nome)
         col.layoutParams = AbsListView.LayoutParams(-1, dp(212))
-        col.tag = Card(capa, nome, barra)
+        col.tag = Card(capa, nome, barra, etiqueta, estrela)
         return col
     }
 
     private fun mostrarFocado(f: Filme?) {
+        if (f == null && chave == INTERESSES) { focado.text = getString(R.string.filmes_interesses_vazio); return }
         focado.text = f?.let { listOfNotNull(it.nome, it.ano?.toString(), it.nota?.let { n -> "★ %.1f".format(Locale.getDefault(), n) }, PlayerLista.nomeExibido(it.grupo).ifEmpty { null }).joinToString("   ·   ") }.orEmpty()
     }
 
@@ -326,7 +410,10 @@ class FilmesActivity : Activity() {
         }.start()
     }
 
-    private fun fecharFicha() { ficha = null; painelFicha.visibility = View.GONE; painelFicha.removeAllViews(); grade.requestFocus() }
+    private fun fecharFicha() {
+        ficha = null; painelFicha.visibility = View.GONE; painelFicha.removeAllViews()
+        if (naGrade.isNotEmpty()) grade.requestFocus() else listaCats.requestFocus()
+    }
 
     private fun desenharFicha(f: Filme, info: FichaFilme?, manterFoco: Boolean) {
         val focoAntes = if (manterFoco) (painelFicha.findFocus()?.tag as? String) else null

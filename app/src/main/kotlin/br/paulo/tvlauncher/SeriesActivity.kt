@@ -45,6 +45,7 @@ class SeriesActivity : Activity() {
         const val BUSCAR = "*buscar"
         const val ORDEM = "*ordem"
         const val CONTINUAR = "*continuar"
+        const val INTERESSES = "*interesses"
         const val TODOS = "*todos"
         const val BUSCA = "*busca"
         const val CODIGO_VIDEO = 7
@@ -63,6 +64,8 @@ class SeriesActivity : Activity() {
     private var series: List<Serie> = emptyList()
     private var ultimos: Map<String, UltimoEpisodio> = emptyMap()
     private var posicoes: Map<String, Posicao> = emptyMap()
+    private var interesses: Set<String> = emptySet()
+    private val segurar = SegurarOk()
     private var ordem = Vod.Ordem.RECENTES
     private var itens: List<Item> = emptyList()
     private var chave = TODOS
@@ -145,9 +148,10 @@ class SeriesActivity : Activity() {
             val s = PlayerCarga.series(this)
             val u = PlayerArmazem.ultimosEpisodios(this)
             val p = PlayerArmazem.posicoes(this)
+            val i = PlayerArmazem.interesses(this, series = true)
             tela.post {
                 if (isDestroyed) return@post
-                series = s; ultimos = u; posicoes = p
+                series = s; ultimos = u; posicoes = p; interesses = i
                 if (s.isEmpty()) { aviso.text = getString(R.string.series_vazio); return@post }
                 aviso.visibility = View.GONE
                 chave = if (Series.continuar(s, u).isNotEmpty()) CONTINUAR else TODOS
@@ -166,6 +170,7 @@ class SeriesActivity : Activity() {
         l += Item(ORDEM, getString(R.string.filmes_ordem, nomeOrdem(ordem)), -1)
         val cont = Series.continuar(series, ultimos).size
         if (cont > 0) l += Item(CONTINUAR, getString(R.string.filmes_continuar), cont)
+        l += Item(INTERESSES, getString(R.string.filmes_interesses), Vod.interesses(series, interesses) { it.chave }.size)
         if (termo.isNotEmpty()) l += Item(BUSCA, getString(R.string.player_cat_busca, termo), resultados.size)
         l += Item(TODOS, getString(R.string.player_cat_todos), series.size)
         Series.grupos(series).forEach { (g, n) -> l += Item("g:$g", PlayerLista.nomeExibido(g).ifEmpty { getString(R.string.player_cat_outros) }, n) }
@@ -184,6 +189,7 @@ class SeriesActivity : Activity() {
     private fun preencherGrade() {
         naGrade = when {
             chave == CONTINUAR -> Series.continuar(series, ultimos)
+            chave == INTERESSES -> Vod.interesses(series, interesses) { it.chave }   // a última marcada primeiro
             chave == BUSCA -> resultados
             chave.startsWith("g:") -> Series.ordenar(series.filter { it.grupo.trim() == chave.removePrefix("g:") }, ordem)
             else -> Series.ordenar(series, ordem)
@@ -198,6 +204,7 @@ class SeriesActivity : Activity() {
     }
 
     private fun mostrarFocado(s: Serie?) {
+        if (s == null && chave == INTERESSES) { focado.text = getString(R.string.filmes_interesses_vazio); return }
         focado.text = s?.let {
             listOfNotNull(it.nome, it.ano?.toString(), it.nota?.let { n -> "★ %.1f".format(Locale.getDefault(), n) }, PlayerLista.nomeExibido(it.grupo).ifEmpty { null }).joinToString("   ·   ")
         }.orEmpty()
@@ -255,7 +262,7 @@ class SeriesActivity : Activity() {
             }
             val it = itens[p]
             (linha.getChildAt(0) as TextView).apply {
-                text = when (it.chave) { BUSCAR, BUSCA -> "⌕  "; ORDEM -> "⇅  "; CONTINUAR -> "▶  "; else -> "" } + it.nome
+                text = when (it.chave) { BUSCAR, BUSCA -> "⌕  "; ORDEM -> "⇅  "; CONTINUAR -> "▶  "; INTERESSES -> "★  "; else -> "" } + it.nome
                 setTextColor(if (it.chave == chave) ambar else papel)
             }
             (linha.getChildAt(1) as TextView).text = if (it.quantos < 0) "" else it.quantos.toString()
@@ -263,7 +270,7 @@ class SeriesActivity : Activity() {
         }
     }
 
-    private class Card(val capa: ImageView, val nome: TextView, val sub: TextView)
+    private class Card(val capa: ImageView, val nome: TextView, val sub: TextView, val estrela: TextView)
 
     private val adaptadorGrade = object : BaseAdapter() {
         override fun getCount() = naGrade.size
@@ -276,6 +283,7 @@ class SeriesActivity : Activity() {
             c.nome.text = Vod.nomeLimpo(s.nome)
             c.sub.text = ultimos[s.chave]?.let { "T${it.temporada}E${it.numero}" }.orEmpty()
             c.sub.visibility = if (c.sub.text.isEmpty()) View.GONE else View.VISIBLE
+            c.estrela.visibility = if (s.chave in interesses) View.VISIBLE else View.GONE
             PlayerLogos.carregar(this@SeriesActivity, s.capa, c.capa, lado = 360)
             return v
         }
@@ -288,13 +296,21 @@ class SeriesActivity : Activity() {
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0x14FFFFFF) }
             clipToOutline = true
         }
-        col.addView(capa, LinearLayout.LayoutParams(-1, dp(150)))
+        // Capa num FrameLayout para a estrela dos interesses ficar por cima (canto de cima, à direita).
+        val moldura = FrameLayout(this)
+        moldura.addView(capa, FrameLayout.LayoutParams(-1, -1))
+        val estrela = TextView(this).apply {
+            text = "★"; textSize = 15f; setTextColor(ambar); setPadding(dp(6), dp(1), dp(6), dp(2))
+            background = GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xD90B0F17.toInt()) }
+        }
+        moldura.addView(estrela, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(5), dp(5), 0) })
+        col.addView(moldura, LinearLayout.LayoutParams(-1, dp(150)))
         val nome = TituloCard(this, 12f).apply { setTextColor(papel); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(6), 0, 0) }
         col.addView(nome)
         val sub = TextView(this).apply { textSize = 11f; setTextColor(ambar) }
         col.addView(sub)
         col.layoutParams = AbsListView.LayoutParams(-1, dp(212))
-        col.tag = Card(capa, nome, sub)
+        col.tag = Card(capa, nome, sub, estrela)
         return col
     }
 
@@ -314,7 +330,46 @@ class SeriesActivity : Activity() {
         }.start()
     }
 
-    private fun fecharFicha() { aberta = null; fichaAberta = null; painel.visibility = View.GONE; painel.removeAllViews(); grade.requestFocus() }
+    private fun fecharFicha() {
+        aberta = null; fichaAberta = null; painel.visibility = View.GONE; painel.removeAllViews()
+        if (naGrade.isNotEmpty()) grade.requestFocus() else listaCats.requestFocus()
+    }
+
+    // ---------------------------------------------------------------- interesses (OK segurado 2 s, igual aos filmes)
+
+    override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        if (!SegurarOk.ehOk(e.keyCode) || painel.visibility == View.VISIBLE || !grade.hasFocus()) {
+            if (SegurarOk.ehOk(e.keyCode)) segurar.soltar()
+            return super.dispatchKeyEvent(e)
+        }
+        return segurar.tratar(e,
+            aoCurto = { naGrade.getOrNull(grade.selectedItemPosition)?.let { abrirSerie(it) } },
+            aoSegurar = { naGrade.getOrNull(grade.selectedItemPosition)?.let { alternarInteresse(it) } })
+    }
+
+    private fun alternarInteresse(s: Serie) {
+        val antes = interesses
+        interesses = Vod.alternarInteresse(interesses, s.chave)
+        if (interesses === antes) { avisoBreve(getString(R.string.filmes_interesses_cheio)); return }
+        val virou = s.chave in interesses
+        val copia = interesses
+        Thread { PlayerArmazem.definirInteresses(this, series = true, copia) }.start()
+        montarItens()
+        if (chave == INTERESSES) {
+            val onde = grade.selectedItemPosition
+            preencherGrade()
+            if (naGrade.isNotEmpty()) { val p = onde.coerceIn(0, naGrade.size - 1); grade.setSelection(p); mostrarFocado(naGrade[p]) }
+            else listaCats.requestFocus()
+        } else adaptadorGrade.notifyDataSetChanged()
+        avisoBreve(getString(if (virou) R.string.filmes_interesse_pos else R.string.filmes_interesse_tirou, Vod.nomeLimpo(s.nome)))
+    }
+
+    private val esconderAviso = Runnable { aviso.visibility = View.GONE }
+
+    private fun avisoBreve(t: String) {
+        aviso.text = t; aviso.visibility = View.VISIBLE
+        tela.removeCallbacks(esconderAviso); tela.postDelayed(esconderAviso, 2_500)
+    }
 
     private fun desenharFicha(focarEpisodio: Int? = null) {
         val s = aberta ?: return

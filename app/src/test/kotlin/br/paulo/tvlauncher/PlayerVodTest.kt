@@ -67,4 +67,35 @@ class PlayerVodTest {
         assertEquals(listOf("Ação" to 1, "Drama" to 1), Vod.grupos(f))
         assertEquals(112, Vod.duracaoTexto("112 min"))
     }
+
+    @Test fun assistidosEPercentual() {
+        assertNull(Vod.progresso(null))
+        assertNull(Vod.progresso(Posicao(30_000, 6_000_000, 1)))          // menos de 1 min: nem conta
+        assertEquals(10, Vod.progresso(Posicao(600_000, 6_000_000, 1)))
+        assertEquals(1, Vod.progresso(Posicao(61_000, 100_000_000, 1)))   // nunca "0%" para quem viu
+        assertEquals(94, Vod.progresso(Posicao(5_690_000, 6_000_000, 1))) // 94,8%: ainda não terminou (arredonda para baixo)
+        assertEquals(100, Vod.progresso(Posicao(5_700_000, 6_000_000, 1)))// 95%: Finalizado
+        assertEquals(100, Vod.progresso(Posicao(6_000_000, 6_000_000, 1)))// a VodActivity grava o fim assim
+        assertEquals(0, Vod.progresso(Posicao(600_000, 0, 1)))            // sem duração: só "Assistido"
+        val f = Vod.lerFilmes(json, "a1", cats)
+        val pos = mapOf("a1:f10" to Posicao(6_000_000, 6_000_000, 5), "a1:f11" to Posicao(900_000, 6_000_000, 9))
+        assertEquals(listOf("11", "10"), Vod.assistidos(f, pos).map { it.id })   // terminado também fica, mais recente primeiro
+        assertEquals(listOf("11"), Vod.continuar(f, pos).map { it.id })           // ... mas sai do "continuar"
+    }
+
+    @Test fun interesses() {
+        val f = Vod.lerFilmes(json, "a1", cats)
+        var i = Vod.alternarInteresse(emptySet(), "a1:f10")
+        i = Vod.alternarInteresse(i, "a1:f11")
+        i = Vod.alternarInteresse(i, "a1:fsumiu")                              // saiu do catálogo
+        assertEquals(listOf("11", "10"), Vod.interesses(f, i) { it.chave }.map { it.id })   // último marcado primeiro
+        i = Vod.alternarInteresse(i, "a1:f11")                                 // de novo = tira
+        assertEquals(listOf("10"), Vod.interesses(f, i) { it.chave }.map { it.id })
+        assertTrue("a1:fsumiu" in i)                                           // guardado, caso volte
+        val cheio = (1..Vod.MAX_INTERESSES).map { "k$it" }.toSet()
+        assertTrue(Vod.alternarInteresse(cheio, "novo") === cheio)             // cheio: não muda (a tela avisa)
+        // A ordem sobrevive ao arquivo (mesmo JSON dos favoritos de canais).
+        val volta = PlayerLista.idsDeJson(PlayerLista.idsParaJson(i), Vod.MAX_INTERESSES)
+        assertEquals(i.toList(), volta)
+    }
 }

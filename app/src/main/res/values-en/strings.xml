@@ -513,6 +513,14 @@
     <string name="filmes_ficha_carregando">Loading details…</string>
     <string name="filmes_direcao">Director</string>
     <string name="filmes_elenco">Cast</string>
+    <string name="filmes_interesses">Watchlist</string>
+    <string name="filmes_assistidos">Watched</string>
+    <string name="filmes_interesse_pos">★ %1$s added to watchlist</string>
+    <string name="filmes_interesse_tirou">%1$s removed from watchlist</string>
+    <string name="filmes_interesses_cheio">The watchlist already has 500 titles: remove one first.</string>
+    <string name="filmes_interesses_vazio">Hold OK for 2 seconds on a poster to add it here (and again to remove it).</string>
+    <string name="filmes_finalizado">Finished</string>
+    <string name="filmes_assistido">Watched</string>
     <string name="vod_sem_conta">This video\'s account no longer exists.</string>
     <string name="vod_erro">Could not play this video. BACK to leave.</string>
     <string name="vod_sem_legenda">No subtitles</string>
