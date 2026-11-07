@@ -107,6 +107,8 @@ class FilmesActivity : Activity() {
         direita.addView(grade, LinearLayout.LayoutParams(-1, 0, 1f))
         focado = TextView(this).apply { textSize = 13f; setTextColor(suave); maxLines = 1; ellipsize = TextUtils.TruncateAt.END; setPadding(dp(8), dp(8), 0, 0) }
         direita.addView(focado)
+        // Dica fixa das teclas, no mesmo jeito da lista de canais do player (player_lista_teclas: 11sp, cor apagada).
+        direita.addView(TextView(this).apply { text = getString(R.string.vod_grade_teclas); textSize = 11f; setTextColor(apagado); setPadding(dp(8), dp(6), 0, 0) })
         colunas.addView(direita, LinearLayout.LayoutParams(0, -1, 1f).apply { marginStart = dp(16) })
         raiz.addView(colunas, FrameLayout.LayoutParams(-1, -1))
         painelFicha = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(0xFF0B0F17.toInt()) }
